@@ -219,9 +219,9 @@ class Controls:
 
     config_realtime_process(4, Priority.CTRL_HIGH)
  # INICIO Javier flags para Ruta ===================================
-    self.flag_primera_parada = True
-    self.flag_segunda_parada = False
-    self.flag_tercera_parada = False
+  # self.flag_primera_parada = True
+  # self.flag_segunda_parada = False
+  # self.flag_tercera_parada = False
         
   # FINAL Javier flags para Ruta ====================================
 
@@ -1098,36 +1098,36 @@ class Controls:
 # INICIO 2ª PARTE JAVIER ================================================
 
   # if self.distance_traveled < 10 and self.flag_primera_parada:
-    if self.distance_traveled < 10:   
+    if self.distance_traveled < 2:   
      # print("PRIMERA PARADA")
       dest = {
           "latitude": punto1[0],
           "longitude": punto1[1],
         } 
       params.put("NavDestination", json.dumps(dest))
-      self.flag_primera_parada = False
-      self.flag_segunda_parada = True
+    # self.flag_primera_parada = False
+    # self.flag_segunda_parada = True
         
   # if self.distance_traveled > 180 and self.flag_segunda_parada:
-    if self.distance_traveled > 199 and self.distance_traveled < 200:
+    if self.distance_traveled > 180 and self.distance_traveled < 185:
           # print("SEGUNDA PARADA")
       dest = {
           "latitude": punto2[0],
           "longitude": punto2[1],
         } 
       params.put("NavDestination", json.dumps(dest))
-      self.flag_segunda_parada = False
-      self.flag_tercera_parada = True
+    # self.flag_segunda_parada = False
+    # self.flag_tercera_parada = True
      
   # if self.distance_traveled > 450 and self.flag_tercera_parada:    
-    if self.distance_traveled > 449 and self.distance_traveled < 450:   
+    if self.distance_traveled > 450 and self.distance_traveled < 455:   
       # print("TERCERA PARADA")
       dest = {
           "latitude": punto3[0],
           "longitude": punto3[1],
         } 
       params.put("NavDestination", json.dumps(dest))
-      self.flag_tercera_parada = False
+    # self.flag_tercera_parada = False
       
 # FIN 2ªPARTE JAVIER ============================================================
    
