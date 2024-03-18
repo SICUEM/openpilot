@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#INICIO 0ª PARTE JAVIER ================================================
+import json
+#FINAL 0 PARTE JAVIER ================================================
 import os
 import math
 import numpy as np
