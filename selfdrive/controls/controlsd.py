@@ -64,6 +64,23 @@ ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
 ACTIVE_STATES = (State.enabled, State.softDisabling, State.overriding)
 ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
 
+#INICIO 1ª PARTE JAVIER ================================================
+params = Params()    
+# Coordenadas UEM
+# punto1=[40.371704,-3.916577] #posicion 0 latitud,posicion 1 longitud
+# punto2=[40.372266,-3.917543]
+# punto3=[40.373224,-3.917760]
+
+
+# Coordenadas Prueba
+punto1=[40.638772,-4.015896] #posicion 0 latitud,posicion 1 longitud
+punto2=[40.638743,-4.012463]
+punto3=[40.640537,-4.010876]
+
+coordenadas = [punto1,punto2,punto3]
+   
+#FINAL 1ª PARTE JAVIER ================================================
+
 
 class CarD:
   CI: CarInterfaceBase
@@ -198,6 +215,12 @@ class Controls:
     self.CI = self.card.CI
 
     config_realtime_process(4, Priority.CTRL_HIGH)
+ # INICIO Javier flags para Ruta ===================================
+    self.flag_primera_parada = True
+    self.flag_segunda_parada = False
+    self.flag_tercera_parada = False
+        
+  # FINAL Javier flags para Ruta ====================================
 
     # Ensure the current branch is cached, otherwise the first iteration of controlsd lags
     self.branch = get_short_branch()
