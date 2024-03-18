@@ -1097,7 +1097,8 @@ class Controls:
     self.CS_prev = CS
 # INICIO 2ª PARTE JAVIER ================================================
 
-    if self.distance_traveled < 10 and self.flag_primera_parada:     
+  # if self.distance_traveled < 10 and self.flag_primera_parada:
+    if self.distance_traveled < 10:   
      # print("PRIMERA PARADA")
       dest = {
           "latitude": punto1[0],
@@ -1107,8 +1108,9 @@ class Controls:
       self.flag_primera_parada = False
       self.flag_segunda_parada = True
         
-    if self.distance_traveled > 180 and self.flag_segunda_parada:  
-     # print("SEGUNDA PARADA")
+  # if self.distance_traveled > 180 and self.flag_segunda_parada:
+    if self.distance_traveled > 199 and self.distance_traveled < 200:
+          # print("SEGUNDA PARADA")
       dest = {
           "latitude": punto2[0],
           "longitude": punto2[1],
@@ -1117,7 +1119,8 @@ class Controls:
       self.flag_segunda_parada = False
       self.flag_tercera_parada = True
      
-    if self.distance_traveled > 450 and self.flag_tercera_parada:    
+  # if self.distance_traveled > 450 and self.flag_tercera_parada:    
+    if self.distance_traveled > 449 and self.distance_traveled < 450:   
       # print("TERCERA PARADA")
       dest = {
           "latitude": punto3[0],
