@@ -1103,14 +1103,7 @@ class Controls:
     self.CS_prev = CS
 
 # INICIO 2ª PARTE JAVIER ================================================
-    for punto in puntos:
-      if self.distance_traveled >= punto["distancia_min"]:
-           dest = {
-               "latitude": punto["coordenadas"][0],
-               "longitude": punto["coordenadas"][1]
-           }
-           params.put("NavDestination", json.dumps(dest))
-           break
+    
 # FIN 2ªPARTE JAVIER ====================================================
    
   def params_thread(self, evt):
