@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#INICIO 0ª PARTE JAVIER ================================================
+import json
+#FINAL 0 PARTE JAVIER ================================================
 import os
 import math
 import time
@@ -60,6 +63,27 @@ ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
 ACTIVE_STATES = (State.enabled, State.softDisabling, State.overriding)
 ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
 
+#INICIO 1ª PARTE JAVIER ================================================
+params = Params()    
+# Coordenadas UEM
+punto1=[40.371704,-3.916577] #posicion 0 latitud,posicion 1 longitud
+punto2=[40.372266,-3.917543]
+punto3=[40.373224,-3.917760]
+
+
+# Coordenadas Prueba
+#punto1=[40.638772,-4.015896] #posicion 0 latitud,posicion 1 longitud
+#punto2=[40.638743,-4.012463]
+#punto3=[40.640537,-4.010876]
+
+coordenadas = [punto1,punto2,punto3]
+
+puntos = [
+    {"coordenadas": punto1, "distancia_min": 0},
+    {"coordenadas": punto2, "distancia_min": 180},
+    {"coordenadas": punto3, "distancia_min": 450}
+]
+#FINAL 1ª PARTE JAVIER ================================================
 
 class CarD:
   CI: CarInterfaceBase
@@ -947,7 +971,17 @@ class Controls:
     self.publish_logs(CS, start_time, CC, lac_log)
 
     self.CS_prev = CS
-
+    # INICIO 2ª PARTE JAVIER ================================================
+    for punto in puntos:
+      if self.distance_traveled >= punto["distancia_min"]:
+           dest = {
+               "latitude": punto["coordenadas"][0],
+               "longitude": punto["coordenadas"][1]
+           }
+           params.put("NavDestination", json.dumps(dest))
+           break
+# FIN 2ªPARTE JAVIER ====================================================
+  
   def params_thread(self, evt):
     while not evt.is_set():
       self.is_metric = self.params.get_bool("IsMetric")
