@@ -70,15 +70,15 @@ ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
 #INICIO 1ª PARTE JAVIER ================================================
 params = Params()    
 # Coordenadas UEM
-# punto1=[40.371704,-3.916577] #posicion 0 latitud,posicion 1 longitud
-# punto2=[40.372266,-3.917543]
-# punto3=[40.373224,-3.917760]
+punto1=[40.371704,-3.916577] #posicion 0 latitud,posicion 1 longitud
+punto2=[40.372266,-3.917543]
+punto3=[40.373224,-3.917760]
 
 
 # Coordenadas Prueba
-punto1=[40.638772,-4.015896] #posicion 0 latitud,posicion 1 longitud
-punto2=[40.638743,-4.012463]
-punto3=[40.640537,-4.010876]
+#punto1=[40.638772,-4.015896] #posicion 0 latitud,posicion 1 longitud
+#punto2=[40.638743,-4.012463]
+#punto3=[40.640537,-4.010876]
 
 coordenadas = [punto1,punto2,punto3]
 
