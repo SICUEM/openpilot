@@ -224,9 +224,10 @@ class Controls:
 
     config_realtime_process(4, Priority.CTRL_HIGH)
  # INICIO Javier flags para Ruta ===================================
-    self.flag_primera_parada = True
-    self.flag_segunda_parada = False
-    self.flag_tercera_parada = False
+
+   # self.flag_primera_parada = True
+   # self.flag_segunda_parada = False
+   # self.flag_tercera_parada = False
         
  # FINAL Javier flags para Ruta ====================================
 
