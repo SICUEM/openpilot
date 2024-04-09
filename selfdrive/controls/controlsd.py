@@ -1096,50 +1096,41 @@ class Controls:
 
     self.CS_prev = CS
 
-    if self.flag_primera_parada and self.distance_traveled > 10:
-        params.put("NavDestination", json.dumps({"latitude": punto1[0], "longitude": punto1[1]}))
-        self.flag_primera_parada, self.flag_segunda_parada = False, True
-    elif self.flag_segunda_parada and self.distance_traveled > 180:
-        params.put("NavDestination", json.dumps({"latitude": punto2[0], "longitude": punto2[1]}))
-        self.flag_segunda_parada, self.flag_tercera_parada = False, True
-    elif self.flag_tercera_parada and self.distance_traveled > 450:
-        params.put("NavDestination", json.dumps({"latitude": punto3[0], "longitude": punto3[1]}))
-        self.flag_tercera_parada = False
 # INICIO 2ª PARTE JAVIER ================================================
    
- #   if self.distance_traveled > 10 and self.flag_primera_parada:
-  # if self.distance_traveled < 2:   
+    # if self.distance_traveled < 10 and self.flag_primera_parada:
+    if self.distance_traveled < 2:   
      # print("PRIMERA PARADA")
-    #   dest = {
-    #       "latitude": punto1[0],
-     #      "longitude": punto1[1],
-     #    } 
-     #  params.put("NavDestination", json.dumps(dest))
-     #  self.flag_primera_parada = False
-     #  self.flag_segunda_parada = True
-        
-    # if self.distance_traveled > 180 and self.flag_segunda_parada:
-  # if self.distance_traveled > 180 and self.distance_traveled < 185:
-          # print("SEGUNDA PARADA")
-    #   dest = {
-       #    "latitude": punto2[0],
-       #    "longitude": punto2[1],
-      #    } 
-    #   params.put("NavDestination", json.dumps(dest))
-    #   self.flag_segunda_parada = False
-    #   self.flag_tercera_parada = True
-     
-    # if self.distance_traveled > 450 and self.flag_tercera_parada:    
-  # if self.distance_traveled > 450 and self.distance_traveled < 455:   
-      # print("TERCERA PARADA")
-     #  dest = {
-      #     "latitude": punto3[0],
-      #     "longitude": punto3[1],
-      #   } 
-      # params.put("NavDestination", json.dumps(dest))
-     #  self.flag_tercera_parada = False
+      dest = {
+          "latitude": punto1[0],
+          "longitude": punto1[1],
+        } 
+      params.put("NavDestination", json.dumps(dest))
+    # self.flag_primera_parada = False
+    # self.flag_segunda_parada = True
 
-# FIN 2ªPARTE JAVIER ============================================================
+  # if self.distance_traveled > 180 and self.flag_segunda_parada:
+    if self.distance_traveled > 180 and self.distance_traveled < 185:
+          # print("SEGUNDA PARADA")
+      dest = {
+          "latitude": punto2[0],
+          "longitude": punto2[1],
+        } 
+      params.put("NavDestination", json.dumps(dest))
+    # self.flag_segunda_parada = False
+    # self.flag_tercera_parada = True
+
+  # if self.distance_traveled > 450 and self.flag_tercera_parada:    
+    if self.distance_traveled > 450 and self.distance_traveled < 455:   
+      # print("TERCERA PARADA")
+      dest = {
+          "latitude": punto3[0],
+          "longitude": punto3[1],
+        } 
+      params.put("NavDestination", json.dumps(dest))
+    # self.flag_tercera_parada = False
+
+# FIN 2ªPARTE JAVIER ======================================= #
    
   def params_thread(self, evt):
     while not evt.is_set():
