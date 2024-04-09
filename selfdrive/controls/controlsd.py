@@ -1110,7 +1110,7 @@ class Controls:
                "longitude": punto["coordenadas"][1]
            }
            params.put("NavDestination", json.dumps(dest))
-         break
+           break
 # FIN 2ªPARTE JAVIER ====================================================
    
   def params_thread(self, evt):
