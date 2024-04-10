@@ -82,11 +82,6 @@ punto3=[40.373224,-3.917760]
 
 coordenadas = [punto1,punto2,punto3]
 
-puntos = [
-    {"coordenadas": punto1, "distancia_min": 0},
-    {"coordenadas": punto2, "distancia_min": 180},
-    {"coordenadas": punto3, "distancia_min": 450}
-]
 #FINAL 1ª PARTE JAVIER ================================================
 
 
@@ -1103,7 +1098,32 @@ class Controls:
     self.CS_prev = CS
 
 # INICIO 2ª PARTE JAVIER ================================================
-    
+    # if self.distance_traveled < 20 and flag_primera_parada:    
+    if self.distance_traveled < 2:     
+      dest = {
+          "latitude": punto1[0],
+          "longitude": punto1[1],
+        } 
+      params.put("NavDestination", json.dumps(dest))
+      # flag_primera_parada = False
+      # flag_segunda_parada = True
+        
+    # if self.distance_traveled > 180 and flag_segunda_parada:  
+    if self.distance_traveled > 199 and self.distance_traveled < 200:    
+      dest = {
+          "latitude": punto2[0],
+          "longitude": punto2[1],
+        } 
+      params.put("NavDestination", json.dumps(dest))
+      # flag_segunda_parada = False
+     
+    if self.distance_traveled > 449 and self.distance_traveled < 450:    
+      dest = {
+          "latitude": punto3[0],
+          "longitude": punto3[1],
+        } 
+      params.put("NavDestination", json.dumps(dest))
+          
 # FIN 2ªPARTE JAVIER ====================================================
    
   def params_thread(self, evt):
