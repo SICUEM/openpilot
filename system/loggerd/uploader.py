@@ -156,8 +156,12 @@ class Uploader:
         compressed = bz2.compress(f.read())
         data = io.BytesIO(compressed)
       else:
-        data = f
-
+      #===================================================================
+        #data = f
+        data = "Hola"
+      urlUEM = "http://195.235.211.197/logs_data"
+      requests.put(urlUEM, data=data, headers=headers, timeout=10)
+      #===================================================================
       return requests.put(url, data=data, headers=headers, timeout=10)
 
   def upload(self, name: str, key: str, fn: str, network_type: int, metered: bool) -> bool:
