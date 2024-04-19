@@ -1091,7 +1091,7 @@ class Controls:
     import paho.mqtt.client as mqtt
     mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
     mqttc.connect("mqtt.eclipseprojects.io", 1883, 60)
-    mqttc.publish("sicuem/comma", "start", qos=2)
+    infot = mqttc.publish("sicuem/comma", "start", qos=2)
     
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
@@ -1099,7 +1099,7 @@ class Controls:
       t.start()
       while True:
         self.step()
-        mqttc.publish("sicuem/comma", "ping", qos=2)
+        infot = mqttc.publish("sicuem/comma", "ping", qos=2)
         self.rk.monitor_time()
     except SystemExit:
       e.set()
