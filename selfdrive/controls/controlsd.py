@@ -1088,10 +1088,8 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
-    import paho.mqtt.client as mqtt
-    mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    mqttc.connect("mqtt.eclipseprojects.io", 1883, 60)
-    infot = mqttc.publish("sicuem/comma", "start", qos=2)
+    import paho.mqtt.publish as publish
+    publish.single("sicuem/comma", "start", hostname="mqtt.eclipseprojects.io")
     
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
@@ -1099,7 +1097,7 @@ class Controls:
       t.start()
       while True:
         self.step()
-        infot = mqttc.publish("sicuem/comma", "ping", qos=2)
+        publish.single("sicuem/comma", "ping", hostname="mqtt.eclipseprojects.io")
         self.rk.monitor_time()
     except SystemExit:
       e.set()
