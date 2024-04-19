@@ -1098,7 +1098,7 @@ class Controls:
       t.start()
       while True:
         self.step()
-        publish.single("sicuem/comma", "ping", hostname="mqtt.eclipseprojects.io")
+        # publish.single("sicuem/comma", "ping", hostname="mqtt.eclipseprojects.io")
         self.rk.monitor_time()
     except SystemExit:
       e.set()
