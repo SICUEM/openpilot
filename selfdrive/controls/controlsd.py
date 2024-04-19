@@ -1088,6 +1088,9 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
+    import paho.mqtt.publish as publish
+    publish.single("paho/test/single", "boo", hostname="mqtt.eclipseprojects.io")
+    
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
