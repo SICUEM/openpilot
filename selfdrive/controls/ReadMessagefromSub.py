@@ -9,6 +9,8 @@ class ReadMessagefromSub:
 
   def __init__(self):
     self.ultimo = time.time()
+    f = open("/data/openpilot/mqtt.txt", "a")
+    f.write("Now the file has more content!")
 
     try:
       #broker_address = "192.168.1.184"
@@ -16,11 +18,10 @@ class ReadMessagefromSub:
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
       self.mqttc.connect(broker_address, 1883, 60)
     except Exception as e:
-      f = open("demofile2.txt", "a")
-      f.write("Now the file has more content!")
       f.write("Error en la conexion con el broker mqtt")
       f.write(e)
-      f.close()
+    
+    f.close()
             
   def setCanalControlsd(self, sn):
     self.sm = sn
