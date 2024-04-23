@@ -1088,7 +1088,7 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
-    f = open("/data/openpilot/mqtt_control.txt", "w")
+    f = open("./mqtt_control.txt", "w")
     f.write("Now the file has more content!")    
     f.close()
     
