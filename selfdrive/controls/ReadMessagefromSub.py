@@ -9,7 +9,7 @@ class ReadMessagefromSub:
 
   def __init__(self):
     self.ultimo = time.time()
-    f = open("/data/openpilot/mqtt.txt", "a")
+    f = open("./mqtt.txt", "a")
     f.write("Now the file has more content!")
 
     try:
