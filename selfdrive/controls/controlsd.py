@@ -1112,7 +1112,7 @@ class Controls:
         self.rk.monitor_time()
         #readMessagge.loop()
         ahora=time.time()
-        if ahora-self.ultimo > 1:
+        if ahora-ultimo > 1:
           infot = mqttc.publish("sicuem/gps", str(sm['gpsLocationExternal']), qos=0)
           ultimo=time.time()
         mqttc.loop(0)
