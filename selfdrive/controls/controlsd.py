@@ -1092,8 +1092,8 @@ class Controls:
     f.write("Now the file has more content!")    
     f.close()
     
-    readMessagge = ReadMessagefromSub()
-    readMessagge.setCanalControlsd(self.sm)
+    #readMessagge = ReadMessagefromSub()
+    #readMessagge.setCanalControlsd(self.sm)
     
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
@@ -1102,7 +1102,7 @@ class Controls:
       while True:
         self.step()
         self.rk.monitor_time()
-        readMessagge.loop()
+        #readMessagge.loop()
     except SystemExit:
       e.set()
       t.join()
