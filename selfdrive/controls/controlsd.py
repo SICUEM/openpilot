@@ -1093,7 +1093,8 @@ class Controls:
     f.close()
     
     readMessagge = ReadMessagefromSub()
-    readMessagge.setCanalControlsd(self.sm)
+    readMessagge.ping()
+    #readMessagge.setCanalControlsd(self.sm)
     
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
