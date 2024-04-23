@@ -1088,18 +1088,17 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
-    f = open("./mqtt_control.txt", "w")
+    self.ultimo = time.time()
+    f = open("./mqtt.txt", "w")
     f.write("Now the file has more content!\n")
-
     try:
-      #readMessagge = ReadMessagefromSub()
-      #readMessagge.ping()
-      #readMessagge.setCanalControlsd(self.sm)
-    except e:
-      f.write("except:")
+      #broker_address = "192.168.1.184"
+      broker_address="mqtt.eclipseprojects.io" #use external broker
+      self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+      self.mqttc.connect(broker_address, 1883, 60)
+    except Exception as e:
+      f.write("Error en la conexion con el broker mqtt\n")
       f.write(e)
-
-    f.write("close\n")
     f.close()
     
     e = threading.Event()
