@@ -20,6 +20,7 @@ class ReadMessagefromSub:
     except Exception as e:
       f.write("Error en la conexion con el broker mqtt")
       f.write(e)
+      f.close()
     
     f.close()
             
