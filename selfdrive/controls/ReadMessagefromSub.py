@@ -6,7 +6,7 @@ import paho.mqtt.client as mqtt
 import cereal.messaging as messaging
 
 class ReadMessagefromSub:
-
+  '''
   def __init__(self):
     self.ultimo = time.time()
     f = open("./mqtt.txt", "w")
@@ -23,7 +23,13 @@ class ReadMessagefromSub:
       f.close()
     
     f.close()
-            
+  '''
+
+  def ping(self):
+    f = open("./mqtt.txt", "w")
+    f.write("Now the file has more content!")
+    f.close()
+  
   def setCanalControlsd(self, sn):
     self.sm = sn
 
