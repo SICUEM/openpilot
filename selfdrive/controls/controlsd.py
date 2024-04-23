@@ -1089,12 +1089,17 @@ class Controls:
 
   def controlsd_thread(self):
     f = open("./mqtt_control.txt", "w")
-    f.write("Now the file has more content!")    
+    f.write("Now the file has more content!")
+
+    try:
+      readMessagge = ReadMessagefromSub()
+      readMessagge.ping()
+      #readMessagge.setCanalControlsd(self.sm)
+    except e:
+      f.write("except:")
+      f.write(e)
+
     f.close()
-    
-    readMessagge = ReadMessagefromSub()
-    readMessagge.ping()
-    #readMessagge.setCanalControlsd(self.sm)
     
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
