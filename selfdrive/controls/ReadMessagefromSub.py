@@ -26,8 +26,8 @@ class ReadMessagefromSub:
 
   def loop(self):
     ahora=time.time()
-    if ahora-self.ultimo>0.5:
-      infot = self.mqttc.publish("sicuem/time", time.time(), qos=0)
+    if ahora-self.ultimo > 1:
+      infot = self.mqttc.publish("sicuem/gps", str(self.sm['gpsLocationExternal']), qos=0)
       self.ultimo=time.time()
 
     self.mqttc.loop(0)
