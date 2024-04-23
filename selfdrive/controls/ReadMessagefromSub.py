@@ -16,8 +16,12 @@ class ReadMessagefromSub:
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
       self.mqttc.connect(broker_address, 1883, 60)
     except Exception as e:
-      print("Error en la conexion con el broker mqtt")
-      print(e)
+      f = open("demofile2.txt", "a")
+      f.write("Now the file has more content!")
+      f.write("Error en la conexion con el broker mqtt")
+      f.write(e)
+      f.close()
+            
   def setCanalControlsd(self, sn):
     self.sm = sn
 
