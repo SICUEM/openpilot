@@ -1092,8 +1092,8 @@ class Controls:
     f.write("Now the file has more content!")
 
     try:
-      readMessagge = ReadMessagefromSub()
-      readMessagge.ping()
+      #readMessagge = ReadMessagefromSub()
+      #readMessagge.ping()
       #readMessagge.setCanalControlsd(self.sm)
     except e:
       f.write("except:")
