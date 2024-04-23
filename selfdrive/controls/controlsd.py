@@ -1113,7 +1113,7 @@ class Controls:
         #readMessagge.loop()
         ahora=time.time()
         if ahora-ultimo > 1:
-          msg = str(self.sm['gpsLocationExternal'])
+          msg = str(self.sm['driverMonitoringState'])
           infot = mqttc.publish("sicuem/gps", msg, qos=0)
           # infot = mqttc.publish("sicuem/gps", time.time(), qos=0)
           ultimo=time.time()
