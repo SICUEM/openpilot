@@ -1089,6 +1089,7 @@ class Controls:
 
   def controlsd_thread(self):
     readMessagge = ReadMessagefromSub()
+    readMessagge.setCanalControlsd(self.sm)
     
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
