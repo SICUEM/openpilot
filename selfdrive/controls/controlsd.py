@@ -1102,7 +1102,7 @@ class Controls:
       while True:
         self.step()
         self.rk.monitor_time()
-        readMessagge.loop()
+        #readMessagge.loop()
     except SystemExit:
       e.set()
       t.join()
