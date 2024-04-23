@@ -1088,14 +1088,16 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
-    self.ultimo = time.time()
+    import time
+    import paho.mqtt.client as mqtt
+    ultimo = time.time()
     f = open("./mqtt.txt", "w")
     f.write("Now the file has more content!\n")
     try:
       #broker_address = "192.168.1.184"
       broker_address="mqtt.eclipseprojects.io" #use external broker
-      self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-      self.mqttc.connect(broker_address, 1883, 60)
+      mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+      mqttc.connect(broker_address, 1883, 60)
     except Exception as e:
       f.write("Error en la conexion con el broker mqtt\n")
       f.write(e)
@@ -1111,13 +1113,12 @@ class Controls:
         #readMessagge.loop()
         ahora=time.time()
         if ahora-self.ultimo > 1:
-          infot = self.mqttc.publish("sicuem/gps", str(self.sm['gpsLocationExternal']), qos=0)
-          self.ultimo=time.time()
-        self.mqttc.loop(0)
+          infot = mqttc.publish("sicuem/gps", str(sm['gpsLocationExternal']), qos=0)
+          ultimo=time.time()
+        mqttc.loop(0)
     except SystemExit:
       e.set()
       t.join()
-
 
 def main():
   controls = Controls()
