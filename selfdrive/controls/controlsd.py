@@ -1089,7 +1089,7 @@ class Controls:
 
   def controlsd_thread(self):
     f = open("./mqtt_control.txt", "w")
-    f.write("Now the file has more content!")
+    f.write("Now the file has more content!\n")
 
     try:
       #readMessagge = ReadMessagefromSub()
@@ -1099,6 +1099,7 @@ class Controls:
       f.write("except:")
       f.write(e)
 
+    f.write("close\n")
     f.close()
     
     e = threading.Event()
