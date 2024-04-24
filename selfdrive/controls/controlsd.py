@@ -1088,21 +1088,11 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
-    import time
-    import paho.mqtt.client as mqtt
-    ultimo = time.time()
-    f = open("./mqtt.txt", "w")
-    f.write("Now the file has more content!\n")
-    try:
-      #broker_address = "192.168.1.184"
-      broker_address="mqtt.eclipseprojects.io" #use external broker
-      mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-      mqttc.connect(broker_address, 1883, 60)
-    except Exception as e:
-      f.write("Error en la conexion con el broker mqtt\n")
-      f.write(e)
-    f.close()
-    
+    from topicmqtt import TopicMqtt
+    tpc = TopicMqtt()
+    #tpc.ping()
+    tpc.setCanalControlsd(sm):
+
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
@@ -1110,14 +1100,7 @@ class Controls:
       while True:
         self.step()
         self.rk.monitor_time()
-        #readMessagge.loop()
-        ahora=time.time()
-        if ahora-ultimo > 1:
-          msg = str(self.sm['driverMonitoringState'])
-          infot = mqttc.publish("sicuem/gps", msg, qos=0)
-          # infot = mqttc.publish("sicuem/gps", time.time(), qos=0)
-          ultimo=time.time()
-        mqttc.loop(0)
+        tpc.loop()
     except SystemExit:
       e.set()
       t.join()
