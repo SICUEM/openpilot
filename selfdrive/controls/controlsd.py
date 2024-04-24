@@ -36,7 +36,10 @@ from openpilot.selfdrive.sunnypilot import get_model_generation
 
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.version import get_short_branch
+
+# [Start Bemposta] ****************************************************************************
 from openpilot.selfdrive.controls.topicmqtt import TopicMqtt
+# [End Bemposta] ******************************************************************************
 
 SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
@@ -1089,9 +1092,11 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
+    # [Start Bemposta] ****************************************************************************
     tpc = TopicMqtt()
     #tpc.ping()
     tpc.setCanalControlsd(self.sm)
+    # [End Bemposta] ******************************************************************************
 
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
@@ -1100,7 +1105,9 @@ class Controls:
       while True:
         self.step()
         self.rk.monitor_time()
+        # [Start Bemposta] ****************************************************************************
         tpc.loop()
+        # [End Bemposta] ****************************************************************************
     except SystemExit:
       e.set()
       t.join()
