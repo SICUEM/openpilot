@@ -10,8 +10,8 @@ class TopicMqtt:
   def __init__(self):
     self.ultimo = time.time()
     try:
-      #broker_address = "192.168.1.184"
-      broker_address="mqtt.eclipseprojects.io"
+      broker_address = "195.235.211.197"
+      #broker_address="mqtt.eclipseprojects.io"
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
       self.mqttc.connect(broker_address, 1883, 60)
     except Exception as e:
@@ -29,7 +29,7 @@ class TopicMqtt:
   def loop(self):
     ahora=time.time()
     if ahora-self.ultimo > 1:
-      infot = self.mqttc.publish("sicuem/gps", str(self.sm['driverMonitoringState']), qos=0)
+      infot = self.mqttc.publish("telemetry_mqtt/driver", str(self.sm['driverMonitoringState']), qos=0)
       #infot = self.mqttc.publish("sicuem/gps", time.time(), qos=0)
       self.ultimo=time.time()
 
