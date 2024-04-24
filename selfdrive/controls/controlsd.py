@@ -36,6 +36,7 @@ from openpilot.selfdrive.sunnypilot import get_model_generation
 
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.version import get_short_branch
+from openpilot.selfdrive.controls.topicmqtt import TopicMqtt
 
 SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
@@ -1088,7 +1089,6 @@ class Controls:
       time.sleep(0.1)
 
   def controlsd_thread(self):
-    from topicmqtt import TopicMqtt
     tpc = TopicMqtt()
     #tpc.ping()
     tpc.setCanalControlsd(sm)
