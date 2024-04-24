@@ -1091,7 +1091,7 @@ class Controls:
   def controlsd_thread(self):
     tpc = TopicMqtt()
     #tpc.ping()
-    tpc.setCanalControlsd(sm)
+    tpc.setCanalControlsd(self.sm)
 
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
