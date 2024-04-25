@@ -86,7 +86,7 @@ class RouteEngine:
     if self.localizer_valid:
       self.last_bearing = math.degrees(location.calibratedOrientationNED.value[2])
       self.last_position = Coordinate(location.positionGeodetic.value[0], location.positionGeodetic.value[1])
-
+#INICIO 1ª PARTE SAMUEL ================================================
   def recompute_route(self, new_destination=None):  # Modifica el método para aceptar un nuevo destino
         if new_destination is not None:  # Si se proporciona un nuevo destino, actualízalo
             self.nav_destination = new_destination
@@ -102,7 +102,7 @@ class RouteEngine:
             self.reroute_counter = 0
         else:
             self.recompute_countdown = max(0, self.recompute_countdown - 1)
-
+#FIN 1ª PARTE SAMUEL ================================================
   def calculate_route(self, destination):
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
     self.nav_destination = destination
