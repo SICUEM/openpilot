@@ -91,33 +91,23 @@ class RouteEngine:
       self.last_bearing = math.degrees(location.calibratedOrientationNED.value[2])
       self.last_position = Coordinate(location.positionGeodetic.value[0], location.positionGeodetic.value[1])
 
-  def recompute_route(self):
-    if self.last_position is None:
-      return
+  #INICIO 1ª PARTE SAMUEL ================================================
+  def recompute_route(self, new_destination=None):  # Modifica el método para aceptar un nuevo destino
+        if new_destination is not None:  # Si se proporciona un nuevo destino, actualízalo
+            self.nav_destination = new_destination
+        if self.last_position is None:
+            return
 
-    new_destination = coordinate_from_param("NavDestination", self.params)
-    if new_destination is None:
-      self.clear_route()
-      self.reset_recompute_limits()
-      return
-
-    should_recompute = self.should_recompute()
-    if new_destination != self.nav_destination:
-      cloudlog.warning(f"Got new destination from NavDestination param {new_destination}")
-      should_recompute = True
-
-    # Don't recompute when GPS drifts in tunnels
-    if not self.gps_ok and self.step_idx is not None:
-      return
-
-    if self.recompute_countdown == 0 and should_recompute:
-      self.recompute_countdown = 2**self.recompute_backoff
-      self.recompute_backoff = min(6, self.recompute_backoff + 1)
-      self.calculate_route(new_destination)
-      self.reroute_counter = 0
-    else:
-      self.recompute_countdown = max(0, self.recompute_countdown - 1)
-
+        should_recompute = self.should_recompute()
+        if new_destination is not None or (should_recompute and self.recompute_countdown == 0):
+            self.recompute_countdown = 2 ** self.recompute_backoff
+            self.recompute_backoff = min(6, self.recompute_backoff + 1)
+            self.calculate_route(self.nav_destination)  # Utiliza el destino actualizado
+            self.reroute_counter = 0
+        else:
+            self.recompute_countdown = max(0, self.recompute_countdown - 1)
+#FIN 1ª PARTE SAMUEL ================================================
+  
   def calculate_route(self, destination):
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
     self.nav_destination = destination
