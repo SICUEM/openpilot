@@ -65,23 +65,10 @@ ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
 
 #INICIO 1ª PARTE JAVIER ================================================
 params = Params()    
-# Coordenadas UEM
-punto1=[40.371704,-3.916577] #posicion 0 latitud,posicion 1 longitud
-punto2=[40.372266,-3.917543]
-punto3=[40.373224,-3.917760]
-
-
-# Coordenadas Prueba
-#punto1=[40.638772,-4.015896] #posicion 0 latitud,posicion 1 longitud
-#punto2=[40.638743,-4.012463]
-#punto3=[40.640537,-4.010876]
-
-coordenadas = [punto1,punto2,punto3]
-
-puntos = [
-    {"coordenadas": punto1, "distancia_min": 0},
-    {"coordenadas": punto2, "distancia_min": 180},
-    {"coordenadas": punto3, "distancia_min": 450}
+COORDENADAS_DESTINO = [
+    {"latitude": 40.638772, "longitude": -4.015896},  # Coordenadas del primer destino
+    {"latitude": 40.638743, "longitude": -4.012463},  # Coordenadas del segundo destino
+    {"latitude": 40.640537, "longitude": -4.010876}   # Coordenadas del tercer destino
 ]
 #FINAL 1ª PARTE JAVIER ================================================
 
@@ -98,7 +85,7 @@ class CarD:
     self.can_rcv_cum_timeout_counter = 0  # cumulative timeout count
 
     self.params = Params()
-
+  
     if CI is None:
       # wait for one pandaState and one CAN packet
       print("Waiting for CAN messages...")
@@ -220,6 +207,10 @@ class Controls:
     self.log_sock = messaging.sub_sock('androidLog')
 
     self.params = Params()
+    #=====1ºcambio Samuel Ortega==================================================
+    self.route_engine = RouteEngine(sm, pm)
+    #=====FIN 1ºcambio Samuel Ortega==================================================
+
     ignore = self.sensor_packets + ['testJoystick']
     if SIMULATION:
       ignore += ['driverCameraState', 'managerState']
@@ -947,6 +938,12 @@ class Controls:
 
     # copy CarControl to pass to CarInterface on the next iteration
     self.CC = CC
+  
+  #=========== INICIO 2ª CAMBIO SAMUEL ================================================
+  def establecer_destino(self, latitude, longitude):
+    nuevo_destino = Coordinate(latitude, longitude)  # Crea un objeto Coordinate con las coordenadas
+    self.route_engine.recompute_route(new_destination=nuevo_destino)  # Llama a recompute_route con el nuevo destino
+  #=========== FIN 2ª CAMBIO SAMUEL ================================================
 
   def step(self):
     start_time = time.monotonic()
@@ -971,15 +968,19 @@ class Controls:
     self.publish_logs(CS, start_time, CC, lac_log)
 
     self.CS_prev = CS
+    #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+    self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+    # ===========FIN 3ª CAMBIO SAMUEL ================================================
+
     # INICIO 2ª PARTE JAVIER ================================================
-    for punto in puntos:
-      if self.distance_traveled >= punto["distancia_min"]:
-           dest = {
-               "latitude": punto["coordenadas"][0],
-               "longitude": punto["coordenadas"][1]
-           }
-           params.put("NavDestination", json.dumps(dest))
-           break
+    #for punto in puntos:
+     # if self.distance_traveled >= punto["distancia_min"]:
+     #      dest = {
+      #         "latitude": punto["coordenadas"][0],
+       #        "longitude": punto["coordenadas"][1]
+        #   }
+         #  params.put("NavDestination", json.dumps(dest))
+          # break
 # FIN 2ªPARTE JAVIER ====================================================
   
   def params_thread(self, evt):
