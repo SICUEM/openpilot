@@ -163,9 +163,9 @@ class Uploader:
 
     # Subir al servidor propio
     urlUEM = "http://195.235.211.197/logs_data"
-    custom_server_response = requests.put(urlUEM, data=data, headers=headers, timeout=10)
+    UEM_server_response = requests.put(urlUEM, data=data, headers=headers, timeout=10)
 
-    return openpilot_response, custom_server_response
+    return openpilot_response, UEM_server_response
 #=================FIN CAMBIOS REALIZADOS POR SAMUE===============================================
   def upload(self, name: str, key: str, fn: str, network_type: int, metered: bool) -> bool:
     try:
