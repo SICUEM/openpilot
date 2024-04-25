@@ -1,4 +1,7 @@
 #!/usr/bin/env python3
+#INICIO 0ª PARTE SAMUEL ================================================
+import json
+#FINAL 0 PARTE SAMUEL ================================================
 import os
 import math
 import numpy as np
@@ -211,7 +214,9 @@ class Controls:
     self.log_sock = messaging.sub_sock('androidLog')
 
     self.params = Params()
-
+    #=====1ºcambio Samuel Ortega==================================================
+    self.route_engine = RouteEngine(sm, pm)
+    #=====FIN 1ºcambio Samuel Ortega===============================================
     self.d_camera_hardware_missing = self.params.get_bool("DriverCameraHardwareMissing") and not is_registered_device()
     if self.d_camera_hardware_missing:
       IGNORE_PROCESSES.update({"dmonitoringd", "dmonitoringmodeld"})
@@ -1047,7 +1052,13 @@ class Controls:
 
     # copy CarControl to pass to CarInterface on the next iteration
     self.CC = CC
-
+    
+  #=========== INICIO 2ª CAMBIO SAMUEL ================================================
+  def establecer_destino(self, latitude, longitude):
+    nuevo_destino = Coordinate(latitude, longitude)  # Crea un objeto Coordinate con las coordenadas
+    self.route_engine.recompute_route(new_destination=nuevo_destino)  # Llama a recompute_route con el nuevo destino
+  #=========== FIN 2ª CAMBIO SAMUEL ================================================
+  
   def step(self):
     start_time = time.monotonic()
 
@@ -1069,7 +1080,10 @@ class Controls:
     self.publish_logs(CS, start_time, CC, lac_log)
 
     self.CS_prev = CS
-
+    #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+    self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+    # ===========FIN 3ª CAMBIO SAMUEL ================================================
+  
   def params_thread(self, evt):
     while not evt.is_set():
       self.is_metric = self.params.get_bool("IsMetric")
