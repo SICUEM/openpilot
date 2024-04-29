@@ -1,7 +1,5 @@
 #!/usr/bin/env python3
-#INICIO 0ª PARTE SAMUEL ================================================
 import json
-#FINAL 0 PARTE SAMUEL ================================================
 import os
 import math
 import numpy as np
@@ -36,6 +34,9 @@ from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
 from openpilot.selfdrive.sunnypilot import get_model_generation
+#INICIO 0ª PARTE SAMUEL ================================================
+from openpilot.selfdrive.navd.navd import RouteEngine
+#FINAL 0 PARTE SAMUEL ================================================
 
 from openpilot.system.hardware import HARDWARE
 from openpilot.system.version import get_short_branch
