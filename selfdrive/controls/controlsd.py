@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+f.#!/usr/bin/env python3
 import json
 import os
 import math
@@ -220,7 +220,7 @@ class Controls:
     # Crear una instancia de SubMaster y PubMaster
     self.sm = messaging.SubMaster(['liveLocationKalman', 'managerState'])
     self.pm = messaging.PubMaster(['navInstruction', 'navRoute'])
-    self.route_engine = RouteEngine(sm, pm)
+    self.route_engine = RouteEngine(self.sm, self.pm)
     #=====FIN 1ºcambio Samuel Ortega===============================================
     self.d_camera_hardware_missing = self.params.get_bool("DriverCameraHardwareMissing") and not is_registered_device()
     if self.d_camera_hardware_missing:
