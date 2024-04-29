@@ -216,6 +216,10 @@ class Controls:
 
     self.params = Params()
     #=====1ºcambio Samuel Ortega==================================================
+    # Suponiendo que ya has importado las clases y objetos necesarios
+    # Crear una instancia de SubMaster y PubMaster
+    self.sm = messaging.SubMaster(['liveLocationKalman', 'managerState'])
+    self.pm = messaging.PubMaster(['navInstruction', 'navRoute'])
     self.route_engine = RouteEngine(sm, pm)
     #=====FIN 1ºcambio Samuel Ortega===============================================
     self.d_camera_hardware_missing = self.params.get_bool("DriverCameraHardwareMissing") and not is_registered_device()
