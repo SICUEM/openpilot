@@ -200,7 +200,7 @@ class Controls:
     
     #=====0ºcambio Samuel Ortega==================================================
     # Setup sockets
-    self.pm = messaging.PubMaster(['controlsState', 'carControl', 'onroadEvents','navInstruction', 'navRoute'])
+    self.pm = messaging.PubMaster(['controlsState', 'carControl', 'onroadEvents'])
     #=====FIN 0ºcambio Samuel Ortega==================================================
 
     self.sensor_packets = ["accelerometer", "gyroscope"]
