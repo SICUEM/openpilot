@@ -1087,8 +1087,12 @@ class Controls:
     self.publish_logs(CS, start_time, CC, lac_log)
 
     self.CS_prev = CS
+    #=========== INICIO 3ª CAMBIO Javier ================================================
+    if self.distance_traveled < 2: 
+      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+    # ===========FIN 3ª CAMBIO Javier ================================================
     #=========== INICIO 3ª CAMBIO SAMUEL ================================================
-    self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+    # self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
     # ===========FIN 3ª CAMBIO SAMUEL ================================================
   
   def params_thread(self, evt):
