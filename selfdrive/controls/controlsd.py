@@ -1088,8 +1088,8 @@ class Controls:
 
     self.CS_prev = CS
     #=========== INICIO 3ª CAMBIO Javier ================================================
-    if self.distance_traveled > 20 and self.distance_traveled <22: 
-      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+    # if self.distance_traveled > 20 and self.distance_traveled <22: 
+      # self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
     # ===========FIN 3ª CAMBIO Javier ================================================
     #=========== INICIO 3ª CAMBIO SAMUEL ================================================
     # self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
