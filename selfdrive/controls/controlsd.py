@@ -36,6 +36,10 @@ from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
 from openpilot.selfdrive.sunnypilot import get_model_generation
 #INICIO 0ª PARTE SAMUEL ================================================
 from openpilot.selfdrive.navd.navd import RouteEngine
+from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
+                                    distance_along_geometry, maxspeed_to_ms,
+                                    minimum_distance,
+                                    parse_banner_instructions)
 #FINAL 0 PARTE SAMUEL ================================================
 
 from openpilot.system.hardware import HARDWARE
