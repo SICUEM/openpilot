@@ -93,19 +93,25 @@ class RouteEngine:
 
   #INICIO 1ª PARTE SAMUEL ================================================
   def recompute_route(self, new_destination=None):  # Modifica el método para aceptar un nuevo destino
-        if new_destination is not None:  # Si se proporciona un nuevo destino, actualízalo
-            self.nav_destination = new_destination
-        if self.last_position is None:
-            return
+    if self.last_position is None:
+        return
 
-        should_recompute = self.should_recompute()
-        if new_destination is not None or (should_recompute and self.recompute_countdown == 0):
-            self.recompute_countdown = 2 ** self.recompute_backoff
-            self.recompute_backoff = min(6, self.recompute_backoff + 1)
-            self.calculate_route(self.nav_destination)  # Utiliza el destino actualizado
-            self.reroute_counter = 0
-        else:
-            self.recompute_countdown = max(0, self.recompute_countdown - 1)
+    # Verificar si se proporciona un nuevo destino y actualizarlo si es necesario
+    if new_destination is not None:
+        self.nav_destination = new_destination
+
+    should_recompute = self.should_recompute()
+
+    # Verificar si se ha proporcionado un nuevo destino o si se debe recomputar la ruta
+    if new_destination is not None or (should_recompute and self.recompute_countdown == 0):
+        # Si es así, realizar el cálculo de la ruta con el destino actualizado
+        self.recompute_countdown = 2 ** self.recompute_backoff
+        self.recompute_backoff = min(6, self.recompute_backoff + 1)
+        self.calculate_route(self.nav_destination)
+        self.reroute_counter = 0
+    else:
+        # De lo contrario, reducir el contador de recomputación
+        self.recompute_countdown = max(0, self.recompute_countdown - 1)
 #FIN 1ª PARTE SAMUEL ================================================
   
   def calculate_route(self, destination):
