@@ -207,7 +207,7 @@ class Controls:
     self.branch = get_short_branch()
 
     # Setup sockets
-    self.pm = messaging.PubMaster(['controlsState', 'carControl', 'onroadEvents', 'controlsStateSP'])
+    self.pm = messaging.PubMaster(['controlsState', 'carControl', 'onroadEvents', 'controlsStateSP','navInstruction', 'navRoute'])
 
     self.sensor_packets = ["accelerometer", "gyroscope"]
     self.camera_packets = ["roadCameraState", "driverCameraState", "wideRoadCameraState"]
@@ -215,13 +215,7 @@ class Controls:
     self.log_sock = messaging.sub_sock('androidLog')
 
     self.params = Params()
-    #=====1ºcambio Samuel Ortega==================================================
-    # Suponiendo que ya has importado las clases y objetos necesarios
-    # Crear una instancia de SubMaster y PubMaster
-    self.sm = messaging.SubMaster(['liveLocationKalman', 'managerState'])
-    self.pm = messaging.PubMaster(['navInstruction', 'navRoute'])
-    self.route_engine = RouteEngine(self.sm, self.pm)
-    #=====FIN 1ºcambio Samuel Ortega===============================================
+ 
     self.d_camera_hardware_missing = self.params.get_bool("DriverCameraHardwareMissing") and not is_registered_device()
     if self.d_camera_hardware_missing:
       IGNORE_PROCESSES.update({"dmonitoringd", "dmonitoringmodeld"})
@@ -241,7 +235,11 @@ class Controls:
                                   frequency=int(1/DT_CTRL))
 
     self.joystick_mode = self.params.get_bool("JoystickDebugMode")
-
+   #=====1ºcambio Samuel Ortega==================================================
+    # Suponiendo que ya has importado las clases y objetos necesarios
+    # Crear una instancia de SubMaster y PubMaster
+    self.route_engine = RouteEngine(self.sm, self.pm)
+    #=====FIN 1ºcambio Samuel Ortega===============================================
     # read params
     self.disengage_on_accelerator = self.params.get_bool("DisengageOnAccelerator")
     self.is_metric = self.params.get_bool("IsMetric")
