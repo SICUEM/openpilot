@@ -197,19 +197,20 @@ class Controls:
 
     # Ensure the current branch is cached, otherwise the first iteration of controlsd lags
     self.branch = get_short_branch()
-
+    
+    #=====0ºcambio Samuel Ortega==================================================
     # Setup sockets
-    self.pm = messaging.PubMaster(['controlsState', 'carControl', 'onroadEvents'])
+    self.pm = messaging.PubMaster(['controlsState', 'carControl', 'onroadEvents','navInstruction', 'navRoute'])
+    #=====FIN 0ºcambio Samuel Ortega==================================================
 
     self.sensor_packets = ["accelerometer", "gyroscope"]
     self.camera_packets = ["roadCameraState", "driverCameraState", "wideRoadCameraState"]
 
     self.log_sock = messaging.sub_sock('androidLog')
+    
+    
 
     self.params = Params()
-    #=====1ºcambio Samuel Ortega==================================================
-    self.route_engine = RouteEngine(sm, pm)
-    #=====FIN 1ºcambio Samuel Ortega==================================================
 
     ignore = self.sensor_packets + ['testJoystick']
     if SIMULATION:
@@ -220,7 +221,9 @@ class Controls:
                                    'testJoystick', 'longitudinalPlanSP', 'modelV2SP'] + self.camera_packets + self.sensor_packets,
                                   ignore_alive=ignore, ignore_avg_freq=ignore+['radarState', 'testJoystick'], ignore_valid=['testJoystick', ],
                                   frequency=int(1/DT_CTRL))
-
+    #=====1ºcambio Samuel Ortega======================================================
+    self.route_engine = RouteEngine(sm, pm)
+    #=====FIN 1ºcambio Samuel Ortega==================================================
     self.joystick_mode = self.params.get_bool("JoystickDebugMode")
 
     # read params
