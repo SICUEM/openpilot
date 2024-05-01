@@ -244,6 +244,15 @@ class Controls:
     # Crear una instancia de SubMaster y PubMaster
     self.route_engine = RouteEngine(self.sm, self.pm)
     #=====FIN 1ºcambio Samuel Ortega===============================================
+    # INICIO Javier flags para Ruta ===================================
+
+    self.flag_primera_parada = True
+   # self.flag_segunda_parada = False
+   # self.flag_tercera_parada = False
+        
+ # FINAL Javier flags para Ruta ====================================
+
+    
     # read params
     self.disengage_on_accelerator = self.params.get_bool("DisengageOnAccelerator")
     self.is_metric = self.params.get_bool("IsMetric")
@@ -1088,8 +1097,9 @@ class Controls:
 
     self.CS_prev = CS
     #=========== INICIO 3ª CAMBIO Javier ================================================
-    # if self.distance_traveled > 20 and self.distance_traveled <22: 
-      # self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+    if flag_primera_parada: 
+      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+      flag_primera_parada = False
     # ===========FIN 3ª CAMBIO Javier ================================================
     #=========== INICIO 3ª CAMBIO SAMUEL ================================================
     # self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
