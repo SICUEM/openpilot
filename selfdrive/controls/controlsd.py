@@ -1097,9 +1097,9 @@ class Controls:
 
     self.CS_prev = CS
     #=========== INICIO 3ª CAMBIO Javier ================================================
-    if flag_primera_parada: 
+    if self.flag_primera_parada == True: 
+      self.flag_primera_parada = False
       self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
-      flag_primera_parada = False
     # ===========FIN 3ª CAMBIO Javier ================================================
     #=========== INICIO 3ª CAMBIO SAMUEL ================================================
     # self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
