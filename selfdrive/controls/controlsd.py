@@ -1095,7 +1095,7 @@ class Controls:
 
     self.CS_prev = CS
     #=========== INICIO 3ª CAMBIO Javier ================================================
-    if self.flag_primera_parada == True and self.distance_traveled > 20: 
+    if self.flag_primera_parada == True and self.distance_traveled < 20: 
       self.flag_primera_parada = False
       self.flag_segunda_parada = True
       self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
