@@ -1129,6 +1129,7 @@ class Controls:
       while True:
         self.step()
         self.rk.monitor_time()
+      #===========INCIO 4ª CAMBIO SAMUEL ================================================
 
         if self.distance_traveled < 200:
                   # Cambiar al siguiente destino
@@ -1136,6 +1137,7 @@ class Controls:
         elif self.distance_traveled < 400:
                   # Cambiar al siguiente destino
             self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
+      #===========FIN 4ª CAMBIO SAMUEL ================================================
 
     except SystemExit:
       e.set()
