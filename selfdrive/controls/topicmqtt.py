@@ -9,6 +9,10 @@ class TopicMqtt:
 
   def __init__(self):
     self.ultimo = time.time()
+    self.canales = ["telemetry_mqtt/driverMonitoringState", "telemetry_mqtt/deviceState", "telemetry_mqtt/liveCalibration", 
+                     "telemetry_mqtt/longitudinalPlan", "telemetry_mqtt/liveLocationKalman", 
+                     "telemetry_mqtt/liveParameters", "telemetry_mqtt/liveTorqueParameters", 
+                     "telemetry_mqtt/longitudinalPlanSP"]
     try:
       broker_address = "195.235.211.197"
       #broker_address="mqtt.eclipseprojects.io"
@@ -26,19 +30,12 @@ class TopicMqtt:
   def setCanalControlsd(self, sn):
     self.sm = sn
 
-  def loop(self):
+def loop(self):
     ahora=time.time()
-    if ahora-self.ultimo > 1:
-      infot = self.mqttc.publish("telemetry_mqtt/driver", str(self.sm['driverMonitoringState']), qos=0)
-      self.mqttc.publish("telemetry_mqtt/deviceState", str(self.sm['deviceState']), qos=0)
-      self.mqttc.publish("telemetry_mqtt/liveCalibration", str(self.sm['liveCalibration']), qos=0)
-      self.mqttc.publish("telemetry_mqtt/longitudinalPlan", str(self.sm['longitudinalPlan']), qos=0)
-      self.mqttc.publish("telemetry_mqtt/liveLocationKalman", str(self.sm['liveLocationKalman']), qos=0)
-      self.mqttc.publish("telemetry_mqtt/liveParameters", str(self.sm['liveParameters']), qos=0)
-      self.mqttc.publish("telemetry_mqtt/liveTorqueParameters", str(self.sm['liveTorqueParameters']), qos=0)
-      self.mqttc.publish("telemetry_mqtt/longitudinalPlanSP", str(self.sm['longitudinalPlanSP']), qos=0)
-
-      #infot = self.mqttc.publish("sicuem/gps", time.time(), qos=0)
+    if ahora-self.ultimo > 0.5:  # Cambiado a 500 milisegundos
+      canal_actual = self.canales[self.indice_canal]
+      self.mqttc.publish(canal_actual, str(self.sm[canal_actual.split('/')[-1]]), qos=0) # Publica el mensaje en el canal actual
+      self.indice_canal = (self.indice_canal + 1) % len(self.canales) # Actualiza el índice del canal para la próxima publicación
       self.ultimo=time.time()
 
     self.mqttc.loop(0)
