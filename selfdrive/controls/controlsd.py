@@ -1130,10 +1130,10 @@ class Controls:
         self.step()
         self.rk.monitor_time()
 
-        if self.distance_traveled < 20:
+        if self.distance_traveled < 200:
                   # Cambiar al siguiente destino
             self.establecer_destino(40.372266, -3.917543)  # Pasar las nuevas coordenadas como argumentos
-        elif self.distance_traveled < 40:
+        elif self.distance_traveled < 400:
                   # Cambiar al siguiente destino
             self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
 
