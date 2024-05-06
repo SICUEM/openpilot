@@ -1116,15 +1116,15 @@ class Controls:
       if self.sm.frame % int(2.5 / DT_CTRL) == 0:
         self.live_torque = self.params.get_bool("LiveTorque")
         self.custom_stock_planner_speed = self.params.get_bool("CustomStockLongPlanner")
-      #=========== INICIO 3ª CAMBIO SAMUEL ================================================
-      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
-      #===========FIN 3ª CAMBIO SAMUEL ================================================
       time.sleep(0.1)
 
   def controlsd_thread(self):
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
+      #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+      #===========FIN 3ª CAMBIO SAMUEL ================================================
       t.start()
       while True:
         self.step()
