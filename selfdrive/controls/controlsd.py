@@ -246,9 +246,9 @@ class Controls:
     #=====FIN 1ºcambio Samuel Ortega===============================================
     
     # INICIO Javier flags para Ruta ===================================
-    self.flag_primera_parada = True
-    self.flag_segunda_parada = False
-    self.flag_tercera_parada = False    
+    #self.flag_primera_parada = True
+    #self.flag_segunda_parada = False
+    #self.flag_tercera_parada = False    
     # FINAL Javier flags para Ruta ====================================
     
     # read params
@@ -1095,15 +1095,12 @@ class Controls:
 
     self.CS_prev = CS
     #=========== INICIO 3ª CAMBIO Javier ================================================
-    if self.flag_primera_parada == True and self.distance_traveled < 20: 
-      self.flag_primera_parada = False
-      self.flag_segunda_parada = True
-      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
-    # ===========FIN 3ª CAMBIO Javier ================================================
-    #=========== INICIO 3ª CAMBIO SAMUEL ================================================
-    # self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
-    # ===========FIN 3ª CAMBIO SAMUEL ================================================
-  
+    #if self.flag_primera_parada == True and self.distance_traveled < 20: 
+    #  self.flag_primera_parada = False
+    #  self.flag_segunda_parada = True
+    #  self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+    #===========FIN 3ª CAMBIO Javier ================================================
+ 
   def params_thread(self, evt):
     while not evt.is_set():
       self.is_metric = self.params.get_bool("IsMetric")
@@ -1119,6 +1116,9 @@ class Controls:
       if self.sm.frame % int(2.5 / DT_CTRL) == 0:
         self.live_torque = self.params.get_bool("LiveTorque")
         self.custom_stock_planner_speed = self.params.get_bool("CustomStockLongPlanner")
+      #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+      #===========FIN 3ª CAMBIO SAMUEL ================================================
       time.sleep(0.1)
 
   def controlsd_thread(self):
