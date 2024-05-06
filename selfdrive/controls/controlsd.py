@@ -1123,12 +1123,20 @@ class Controls:
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
       #=========== INICIO 3ª CAMBIO SAMUEL ================================================
-      self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
+      self.establecer_destino(40.371704, -3.916577)  # Pasar las coordenadas deseadas como argumentos
       #===========FIN 3ª CAMBIO SAMUEL ================================================
       t.start()
       while True:
         self.step()
         self.rk.monitor_time()
+
+        if self.distance_traveled < 20:
+                  # Cambiar al siguiente destino
+            self.establecer_destino(40.372266, -3.917543)  # Pasar las nuevas coordenadas como argumentos
+        elif self.distance_traveled < 40:
+                  # Cambiar al siguiente destino
+            self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
+
     except SystemExit:
       e.set()
       t.join()
