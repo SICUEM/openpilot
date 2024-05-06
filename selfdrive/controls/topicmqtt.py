@@ -30,6 +30,14 @@ class TopicMqtt:
     ahora=time.time()
     if ahora-self.ultimo > 1:
       infot = self.mqttc.publish("telemetry_mqtt/driver", str(self.sm['driverMonitoringState']), qos=0)
+      self.mqttc.publish("telemetry_mqtt/deviceState", str(self.sm['deviceState']), qos=0)
+      self.mqttc.publish("telemetry_mqtt/liveCalibration", str(self.sm['liveCalibration']), qos=0)
+      self.mqttc.publish("telemetry_mqtt/longitudinalPlan", str(self.sm['longitudinalPlan']), qos=0)
+      self.mqttc.publish("telemetry_mqtt/liveLocationKalman", str(self.sm['liveLocationKalman']), qos=0)
+      self.mqttc.publish("telemetry_mqtt/liveParameters", str(self.sm['liveParameters']), qos=0)
+      self.mqttc.publish("telemetry_mqtt/liveTorqueParameters", str(self.sm['liveTorqueParameters']), qos=0)
+      self.mqttc.publish("telemetry_mqtt/longitudinalPlanSP", str(self.sm['longitudinalPlanSP']), qos=0)
+
       #infot = self.mqttc.publish("sicuem/gps", time.time(), qos=0)
       self.ultimo=time.time()
 
