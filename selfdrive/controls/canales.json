@@ -1,0 +1,19 @@
+{
+    "comentario": "descripcion de driverMonitoringState",
+    "telemetry_mqtt/driverMonitoringState": 1,
+
+    "telemetry_mqtt/carState": 1,
+
+
+
+    "telemetry_mqtt/deviceState": 0,
+    "telemetry_mqtt/liveCalibration": 1,
+    "telemetry_mqtt/longitudinalPlan": 0,
+    "telemetry_mqtt/liveLocationKalman": 1,  //comentario
+
+    "telemetry_mqtt/liveParameters": 1,
+    "telemetry_mqtt/liveTorqueParameters": 0,
+    "telemetry_mqtt/longitudinalPlanSP": 1
+
+
+}
