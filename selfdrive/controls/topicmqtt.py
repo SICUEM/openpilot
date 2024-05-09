@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import datetime
 import time
+import json
 
 import paho.mqtt.client as mqtt
 import cereal.messaging as messaging
@@ -9,10 +10,17 @@ class TopicMqtt:
 
   def __init__(self):
     self.ultimo = time.time()
-    self.canales = ["telemetry_mqtt/driverMonitoringState", "telemetry_mqtt/deviceState", "telemetry_mqtt/liveCalibration", 
-                     "telemetry_mqtt/longitudinalPlan", "telemetry_mqtt/liveLocationKalman", 
-                     "telemetry_mqtt/liveParameters", "telemetry_mqtt/liveTorqueParameters", 
-                     "telemetry_mqtt/longitudinalPlanSP"]
+
+
+    self.canales = []
+
+    with open('canales.json', 'r') as f:
+        data = json.load(f)
+
+    for canal, valor in data.items():
+        if valor == 1 and canal != "comentario":
+            self.canales.append(canal)
+
     try:
       broker_address = "195.235.211.197"
       #broker_address="mqtt.eclipseprojects.io"
