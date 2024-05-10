@@ -14,7 +14,7 @@ class TopicMqtt:
 
     self.canales = []
 
-    with open('canales.json', 'r') as f:
+    with open('../controls/canales.json', 'r') as f:
         data = json.load(f)
 
     for canal, valor in data.items():
