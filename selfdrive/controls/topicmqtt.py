@@ -10,9 +10,9 @@ class TopicMqtt:
 
   def __init__(self):
     self.ultimo = time.time()
-
-
+    
     self.canales = []
+    self.indice_canal = 1
 
     with open('../controls/canales.json', 'r') as f:
         data = json.load(f)
