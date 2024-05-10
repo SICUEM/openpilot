@@ -38,7 +38,7 @@ class TopicMqtt:
   def setCanalControlsd(self, sn):
     self.sm = sn
 
-def loop(self):
+  def loop(self):
     ahora=time.time()
     if ahora-self.ultimo > 0.5:  # Cambiado a 500 milisegundos
       canal_actual = self.canales[self.indice_canal]
