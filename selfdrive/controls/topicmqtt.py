@@ -45,5 +45,4 @@ class TopicMqtt:
       self.mqttc.publish(canal_actual, str(self.sm[canal_actual.split('/')[-1]]), qos=0) # Publica el mensaje en el canal actual
       self.indice_canal = (self.indice_canal + 1) % len(self.canales) # Actualiza el índice del canal para la próxima publicación
       self.ultimo=time.time()
-
     self.mqttc.loop(0)
