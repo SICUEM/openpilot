@@ -4,6 +4,7 @@ import io
 import json
 import os
 import random
+import ftplib
 import requests
 import threading
 import time
@@ -136,6 +137,32 @@ class Uploader:
         return name, key, fn
 
     return None
+#=================CAMBIOS REALIZADOS POR SAMUEL==================================================
+
+  def enviar_archivo_por_ftp(archivo_local, servidor_ftp, usuario, contraseña, ruta_remota):
+    try:
+        # Establecer conexión FTP
+        ftp = ftplib.FTP(servidor_ftp)
+        ftp.login(usuario, contraseña)
+
+        # Cambiar al directorio remoto si es necesario
+        if ruta_remota:
+            ftp.cwd(ruta_remota)
+
+        # Abrir el archivo local en modo de lectura binaria
+        with open(archivo_local, 'rb') as archivo:
+            # Subir el archivo al servidor
+            print("Enviando archivo:", archivo_local)  # Impresión del nombre del archivo
+            ftp.storbinary('STOR ' + archivo_local, archivo)
+
+        # Cerrar la conexión FTP
+        ftp.quit()
+
+        print("Archivo enviado con éxito.")
+    except Exception as error:
+        print("Error al enviar el archivo por FTP:", error)
+        print("Tipo de error:", type(error))
+  #=================CAMBIOS REALIZADOS POR SAMUEL==================================================
 
   def do_upload(self, key: str, fn: str):
     url_resp = self.api.get("v1.4/" + self.dongle_id + "/upload_url/", timeout=10, path=key, access_token=self.api.get_token())
@@ -161,11 +188,19 @@ class Uploader:
     # Subir al servidor de Openpilot
     openpilot_response = requests.put(url, data=data, headers=headers, timeout=10)
 
-    # Subir al servidor propio
-    urlUEM = "http://195.235.211.197/logs_data"
-    uem_server_response = requests.put(urlUEM, data=data, headers=headers, timeout=10)
+   # Subir al servidor FTP
+    servidor_ftp = '195.235.211.197'
+    usuario = 'samuelortega'
+    contraseña = 'Steam.2024'
+    ruta_remota = '/opt/geo-data'
 
-    return openpilot_response, uem_server_response
+    try:
+        enviar_data_por_ftp(data, servidor_ftp, usuario, contraseña, ruta_remota)
+        print("Data enviada por FTP con éxito.")
+    except Exception as error:
+        print("Error al enviar la data por FTP:", error)
+
+    return openpilot_response
 #=================FIN CAMBIOS REALIZADOS POR SAMUE===============================================
   def upload(self, name: str, key: str, fn: str, network_type: int, metered: bool) -> bool:
     try:
