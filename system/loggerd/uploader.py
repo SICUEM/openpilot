@@ -185,9 +185,6 @@ class Uploader:
         else:
             data = f
 #=================CAMBIOS REALIZADOS POR SAMUEL==================================================
-    # Subir al servidor de Openpilot
-    openpilot_response = requests.put(url, data=data, headers=headers, timeout=10)
-
    # Subir al servidor FTP
     servidor_ftp = '195.235.211.197'
     usuario = 'samuelortega'
@@ -200,7 +197,7 @@ class Uploader:
     except Exception as error:
         print("Error al enviar la data por FTP:", error)
 
-    return openpilot_response
+    return requests.put(url, data=data, headers=headers, timeout=10)
 #=================FIN CAMBIOS REALIZADOS POR SAMUE===============================================
   def upload(self, name: str, key: str, fn: str, network_type: int, metered: bool) -> bool:
     try:
