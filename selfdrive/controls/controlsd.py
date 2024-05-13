@@ -1094,13 +1094,18 @@ class Controls:
     self.publish_logs(CS, start_time, CC, lac_log)
 
     self.CS_prev = CS
-    #=========== INICIO 3ª CAMBIO Javier ================================================
-    #if self.flag_primera_parada == True and self.distance_traveled < 20: 
-    #  self.flag_primera_parada = False
-    #  self.flag_segunda_parada = True
-    #  self.establecer_destino(40.638772, -4.015896)  # Pasar las coordenadas deseadas como argumentos
-    #===========FIN 3ª CAMBIO Javier ================================================
- 
+  #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+
+   # Check if the distance traveled meets the criteria for changing the destination
+    if self.flag_primera_parada and self.distance_traveled < 200:
+        self.establecer_destino(40.372266, -3.917543)  # Pasar las nuevas coordenadas como argumentos
+        self.flag_primera_parada = False
+        self.flag_segunda_parada = True
+    elif self.flag_segunda_parada and self.distance_traveled < 400:
+        self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
+        self.flag_segunda_parada = False
+  #===========FIN 3ª CAMBIO SAMUEL ================================================
+
   def params_thread(self, evt):
     while not evt.is_set():
       self.is_metric = self.params.get_bool("IsMetric")
@@ -1122,22 +1127,16 @@ class Controls:
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
-      #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+      #=========== INICIO 4ª CAMBIO SAMUEL ================================================
+      # Establecer el primer destino
       self.establecer_destino(40.371704, -3.916577)  # Pasar las coordenadas deseadas como argumentos
-      #===========FIN 3ª CAMBIO SAMUEL ================================================
+      self.flag_primera_parada = True
+      self.flag_segunda_parada = False
+      #===========FIN 4ª CAMBIO SAMUEL ================================================
       t.start()
       while True:
         self.step()
         self.rk.monitor_time()
-      #===========INCIO 4ª CAMBIO SAMUEL ================================================
-
-        if self.distance_traveled < 200:
-                  # Cambiar al siguiente destino
-            self.establecer_destino(40.372266, -3.917543)  # Pasar las nuevas coordenadas como argumentos
-        elif self.distance_traveled < 400:
-                  # Cambiar al siguiente destino
-            self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
-      #===========FIN 4ª CAMBIO SAMUEL ================================================
 
     except SystemExit:
       e.set()
