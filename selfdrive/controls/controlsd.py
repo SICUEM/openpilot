@@ -1097,11 +1097,11 @@ class Controls:
   #=========== INICIO 3ª CAMBIO SAMUEL ================================================
 
    # Check if the distance traveled meets the criteria for changing the destination
-    if self.flag_primera_parada and self.distance_traveled < 200:
+    if self.flag_primera_parada and self.distance_traveled > 200:
         self.establecer_destino(40.372266, -3.917543)  # Pasar las nuevas coordenadas como argumentos
         self.flag_primera_parada = False
         self.flag_segunda_parada = True
-    elif self.flag_segunda_parada and self.distance_traveled < 400:
+    elif self.flag_segunda_parada and self.distance_traveled > 400:
         self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
         self.flag_segunda_parada = False
   #===========FIN 3ª CAMBIO SAMUEL ================================================
