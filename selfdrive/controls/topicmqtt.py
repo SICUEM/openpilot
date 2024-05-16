@@ -46,3 +46,19 @@ class TopicMqtt:
       self.indice_canal = (self.indice_canal + 1) % len(self.canales) # Actualiza el índice del canal para la próxima publicación
       self.ultimo=time.time()
     self.mqttc.loop(0)
+
+  def on_connect(self,mqttc, obj, flags, reason_code, properties):
+      print("reason_code: " + str(reason_code))
+  
+  
+  def on_message(self,mqttc, obj, msg):
+      print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
+  
+  
+  def on_subscribe(self,mqttc, obj, mid, reason_code_list, properties):
+      print("Subscribed: " + str(mid) + " " + str(reason_code_list))
+  
+  
+  def on_log(self,mqttc, obj, level, string):
+      print(string)
+
