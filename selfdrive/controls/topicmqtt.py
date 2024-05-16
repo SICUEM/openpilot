@@ -13,23 +13,13 @@ class TopicMqtt:
     
     self.canales = []
     self.indice_canal = 1
-    mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-    mqttc.on_message = on_message
-    mqttc.on_connect = on_connect
-    mqttc.on_subscribe = on_subscribe
-    # Uncomment to enable debug messages
-    # mqttc.on_log = on_log
-    mqttc.connect("mqtt.eclipseprojects.io", 1883, 60)
-    mqttc.subscribe("$SYS/#")
-    
-    mqttc.loop_start()
+   
 
     with open('../controls/canales.json', 'r') as f:
         data = json.load(f)
 
-    for canal, valor in data.items():
-        if valor == 1 and canal != "comentario":
-            self.canales.append(canal)
+    for topic, valor in data.items():
+        self.canales.append(topic)
 
     try:
       broker_address = "195.235.211.197"
