@@ -1,0 +1,11 @@
+[
+    {"topic":"telemetry_mqtt/driverMonitoringState", "canal":"driverMonitoringState", "enable":1, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/carState", "canal":"carState", "enable":1, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/deviceState", "canal":"deviceState", "enable":0, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/liveCalibration", "canal":"liveCalibration", "enable":1, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/longitudinalPlan", "canal":"longitudinalPlan", "enable":0, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/liveLocationKalman", "canal":"liveLocationKalman", "enable":1, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/liveParameters", "canal":"liveParameters", "enable":1, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/liveTorqueParameters", "canal":"liveTorqueParameters", "enable":0, "descripcion":"Canal donde se pubnli..."},
+    {"topic":"telemetry_mqtt/longitudinalPlanSP", "canal":"longitudinalPlanSP", "enable":1, "descripcion":"Canal donde se pubnli..."}
+]
