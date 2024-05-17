@@ -10,6 +10,7 @@ from datetime import datetime
 class TopicMqtt:
 
     def __init__(self):
+        self.fileDebug = "../controls/mqttDebug.txt"
         self.ultimo = time.time()
         self.espera = 0.5
 
@@ -17,7 +18,7 @@ class TopicMqtt:
         self.indice_canal = 1
         self.conetado = False
 
-        with open('canales.json', 'r') as f:
+        with open('../controls/canales.json', 'r') as f:
             data = json.load(f)
 
         for canal, valor in data.items():
@@ -42,7 +43,7 @@ class TopicMqtt:
 
     def ping(self):
         sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-        f = open("mqtt.txt", "a")
+        f = open(self.fileDebug, "a")
         f.write(f"[{sttime}] ping...\n")
         f.close()
 
@@ -53,27 +54,27 @@ class TopicMqtt:
         if reason_code == 0:
             self.conetado = True
             sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-            f = open("mqtt.txt", "a")
+            f = open(self.fileDebug, "a")
             f.write(f"[{sttime}] on_connect: {reason_code}\n")
             f.close()
 
     def on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
         self.conetado = False
         sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-        f = open("mqtt.txt", "a")
+        f = open(self.fileDebug, "a")
         f.write(f"[{sttime}] on_disconnect: {reason_code}\n")
         f.close()
 
     def on_message(self, mqttc, obj, msg):
         self.espera = 1.0 / int(msg.payload.decode())
         sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-        f = open("mqtt.txt", "a")
+        f = open(self.fileDebug, "a")
         f.write(f"[{sttime}] on_message -> {msg.topic}:{msg.payload.decode()}, value: {self.espera}\n")
         f.close()
 
     def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
         sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-        f = open("mqtt.txt", "a")
+        f = open(self.fileDebug, "a")
         f.write(f"[{sttime}] on_subscribe: {mid}, {reason_code_list}\n")
         f.close()
 
