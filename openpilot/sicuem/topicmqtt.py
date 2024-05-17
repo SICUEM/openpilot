@@ -11,7 +11,7 @@ class TopicMqtt:
 
     def __init__(self):
         self.fileDebug = "sicuem/mqttDebug.txt"
-        fileJson = "sicuem/mqttDebug.txt"
+        fileJson = "sicuem/canales.json"
         self.ultimo = time.time()
 
         self.indice_canal = 1
