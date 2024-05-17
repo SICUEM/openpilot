@@ -1,67 +1,87 @@
 #!/usr/bin/env python3
-import datetime
+# -*- coding: utf-8 -*-
+
 import time
 import json
 
 import paho.mqtt.client as mqtt
-import cereal.messaging as messaging
+from datetime import datetime
 
 class TopicMqtt:
 
-  def __init__(self):
-    self.ultimo = time.time()
-    
-    self.canales = []
-    self.indice_canal = 1
-   
+    def __init__(self):
+        self.ultimo = time.time()
+        self.espera = 0.5
 
-    with open('../controls/canales.json', 'r') as f:
-        data = json.load(f)
+        self.canales = []
+        self.indice_canal = 1
+        self.conetado = False
 
-    for topic, valor in data.items():
-        self.canales.append(topic)
+        with open('canales.json', 'r') as f:
+            data = json.load(f)
 
-    try:
-      broker_address = "195.235.211.197"
-      #broker_address="mqtt.eclipseprojects.io"
-      self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-      self.mqttc.connect(broker_address, 1883, 60)
-    except Exception as e:
-      print("Error en la conexion con el broker mqtt")
-      print(e)
+        for canal, valor in data.items():
+            if canal != "comentario":
+                if valor == 1:
+                    self.canales.append(canal)
 
-  def ping(self):
-    f = open("./mqtt.txt", "a")
-    f.write("Ping....\n")
-    f.close()
+        try:
+            #broker_address = "195.235.211.197"
+            broker_address = "mqtt.eclipseprojects.io"
+            self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+            self.mqttc.on_connect = self.on_connect
+            self.mqttc.on_disconnect = self.on_disconnect
+            self.mqttc.on_subscribe = self.on_subscribe
+            self.mqttc.connect(broker_address, 1883, 60)
+            self.mqttc.subscribe("telemetry_config/speed", 0)
+            self.mqttc.on_message = self.on_message
+            self.mqttc.loop_start()
+        except Exception as e:
+            print("Error en la conexion con el broker mqtt")
+            print(e)
 
-  def setCanalControlsd(self, sn):
-    self.sm = sn
+    def ping(self):
+        sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+        f = open("mqtt.txt", "a")
+        f.write(f"[{sttime}] ping...\n")
+        f.close()
 
-  def loop(self):
-    ahora=time.time()
-    if ahora-self.ultimo > 0.5:  # Cambiado a 500 milisegundos
-      canal_actual = self.canales[self.indice_canal]
-      self.mqttc.publish(canal_actual, str(self.sm[canal_actual.split('/')[-1]]), qos=0) # Publica el mensaje en el canal actual
-      self.indice_canal = (self.indice_canal + 1) % len(self.canales) # Actualiza el índice del canal para la próxima publicación
-      self.ultimo=time.time()
-    self.mqttc.loop(0)
+    def setCanalControlsd(self, sn):
+        self.sm = sn
 
-  def on_connect(self,mqttc, obj, flags, reason_code, properties):
-      print("reason_code: " + str(reason_code))
-  
-  
-  def on_message(self,mqttc, obj, msg):
-      print(msg.topic + " " + str(msg.qos) + " " + str(msg.payload))
-  
-  
-  def on_subscribe(self,mqttc, obj, mid, reason_code_list, properties):
-      print("Subscribed: " + str(mid) + " " + str(reason_code_list))
-  
-  
-  def on_log(self,mqttc, obj, level, string):
-      print(string)
-    
-  def on_disconnect(self,mqttc, obj, rc):
-    print("Disconected reason_code: " + str(rc))
+    def on_connect(self, mqttc, obj, flags, reason_code, properties):
+        if reason_code == 0:
+            self.conetado = True
+            sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+            f = open("mqtt.txt", "a")
+            f.write(f"[{sttime}] on_connect: {reason_code}\n")
+            f.close()
 
+    def on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
+        self.conetado = False
+        sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+        f = open("mqtt.txt", "a")
+        f.write(f"[{sttime}] on_disconnect: {reason_code}\n")
+        f.close()
+
+    def on_message(self, mqttc, obj, msg):
+        self.espera = 1.0 / int(msg.payload.decode())
+        sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+        f = open("mqtt.txt", "a")
+        f.write(f"[{sttime}] on_message -> {msg.topic}:{msg.payload.decode()}, value: {self.espera}\n")
+        f.close()
+
+    def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
+        sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+        f = open("mqtt.txt", "a")
+        f.write(f"[{sttime}] on_subscribe: {mid}, {reason_code_list}\n")
+        f.close()
+
+    def loop(self):
+        ahora = time.time()
+        if ahora - self.ultimo > self.espera:  # Espera variable.
+            canal_actual = self.canales[self.indice_canal]
+            self.mqttc.publish(canal_actual, str(self.sm[canal_actual.split('/')[-1]]), qos=0)
+            self.indice_canal = (self.indice_canal + 1) % len(self.canales)  # Actualiza el índice del canal para la próxima publicación
+            self.ultimo = time.time()
+        # self.mqttc.loop(0)
