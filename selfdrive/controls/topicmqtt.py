@@ -27,8 +27,8 @@ class TopicMqtt:
                     self.canales.append(canal)
 
         try:
-            #broker_address = "195.235.211.197"
-            broker_address = "mqtt.eclipseprojects.io"
+            broker_address = "195.235.211.197"
+            # broker_address = "mqtt.eclipseprojects.io"
             self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
             self.mqttc.on_connect = self.on_connect
             self.mqttc.on_disconnect = self.on_disconnect
