@@ -12,10 +12,10 @@ class TopicMqtt:
     def __init__(self):
         self.fileDebug = "sicuem/mqttDebug.txt"
         fileJson = "sicuem/canales.json"
-        self.ultimo = time.time()
-
-        self.indice_canal = 1
+        self.espera = 0.5
+        self.indice_canal = 0
         self.conetado = False
+        self.ultimo = time.time()
 
         with open(fileJson, 'r') as f:
             jsondata = json.load(f)
@@ -30,8 +30,6 @@ class TopicMqtt:
                 break
         if speed_value is not None:
             self.espera = 1.0 / int(speed_value)
-        else:
-            self.espera = 0.5
 
         try:
             broker_address = "195.235.211.197"
