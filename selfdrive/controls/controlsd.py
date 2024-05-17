@@ -38,7 +38,7 @@ from openpilot.system.hardware import HARDWARE
 from openpilot.system.version import get_short_branch
 
 # [Start Bemposta] ****************************************************************************
-from openpilot.topicmqtt import TopicMqtt
+from openpilot.sicuem.topicmqtt import TopicMqtt
 # [End Bemposta] ******************************************************************************
 
 SOFT_DISABLE_TIME = 3  # seconds

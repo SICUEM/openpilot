@@ -10,21 +10,28 @@ from datetime import datetime
 class TopicMqtt:
 
     def __init__(self):
-        self.fileDebug = "../controls/mqttDebug.txt"
+        self.fileDebug = "sicuem/mqttDebug.txt"
+        fileJson = "sicuem/mqttDebug.txt"
         self.ultimo = time.time()
-        self.espera = 0.5
 
-        self.canales = []
         self.indice_canal = 1
         self.conetado = False
 
-        with open('../controls/canales.json', 'r') as f:
-            data = json.load(f)
+        with open(fileJson, 'r') as f:
+            jsondata = json.load(f)
 
-        for canal, valor in data.items():
-            if canal != "comentario":
-                if valor == 1:
-                    self.canales.append(canal)
+        # Filtrar elementos con enable igual a 1
+        self.enabled_items = [item for item in jsondata['canales'] if item['enable'] == 1]
+        # Buscar Elemento Speed.
+        speed_value = None
+        for item in jsondata['config']:
+            if 'speed' in item:
+                speed_value = item['speed']
+                break
+        if speed_value is not None:
+            self.espera = 1.0 / int(speed_value)
+        else:
+            self.espera = 0.5
 
         try:
             broker_address = "195.235.211.197"
@@ -81,8 +88,8 @@ class TopicMqtt:
     def loop(self):
         ahora = time.time()
         if ahora - self.ultimo > self.espera:  # Espera variable.
-            canal_actual = self.canales[self.indice_canal]
-            self.mqttc.publish(canal_actual, str(self.sm[canal_actual.split('/')[-1]]), qos=0)
-            self.indice_canal = (self.indice_canal + 1) % len(self.canales)  # Actualiza el índice del canal para la próxima publicación
+            canal_actual = self.enabled_items[self.indice_canal]
+            self.mqttc.publish(canal_actual['topic'], str(self.sm[canal_actual['canal']]), qos=0)
+            self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
             self.ultimo = time.time()
         # self.mqttc.loop(0)
