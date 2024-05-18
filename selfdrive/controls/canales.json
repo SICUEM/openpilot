@@ -1,14 +1,68 @@
 {
-    "comentario" : "Texto de comentario",
-    "telemetry_mqtt/driverMonitoringState": 1,
-    "telemetry_mqtt/carState": 1,
-    "comentario" : "Texto de comentario",
-    "telemetry_mqtt/deviceState": 0,
-    "telemetry_mqtt/liveCalibration": 1,
-    "telemetry_mqtt/longitudinalPlan": 0,
-    "telemetry_mqtt/liveLocationKalman": 1,
-    "comentario" : "Texto de comentario",
-    "telemetry_mqtt/liveParameters": 1,
-    "telemetry_mqtt/liveTorqueParameters": 0,
-    "telemetry_mqtt/longitudinalPlanSP": 1
+  "canales": [
+    {
+      "topic": "telemetry_mqtt/driverMonitoringState",
+      "canal": "driverMonitoringState",
+      "enable": 1,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/carState",
+      "canal": "carState",
+      "enable": 1,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/deviceState",
+      "canal": "deviceState",
+      "enable": 0,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/liveCalibration",
+      "canal": "liveCalibration",
+      "enable": 1,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/longitudinalPlan",
+      "canal": "longitudinalPlan",
+      "enable": 0,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/liveLocationKalman",
+      "canal": "liveLocationKalman",
+      "enable": 1,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/liveParameters",
+      "canal": "liveParameters",
+      "enable": 1,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/liveTorqueParameters",
+      "canal": "liveTorqueParameters",
+      "enable": 0,
+      "descripcion": "Canal donde se publica..."
+    },
+    {
+      "topic": "telemetry_mqtt/longitudinalPlanSP",
+      "canal": "longitudinalPlanSP",
+      "enable": 1,
+      "descripcion": "Canal donde se publica..."
+    }
+  ],
+  "config": [
+    {
+      "speed": 2,
+      "descripcion": "Numero de mensajes por segundo en la telemetria"
+    },
+    {
+      "time": 3,
+      "descripcion": "Tiempo transcurrido"
+    }
+  ]
 }
