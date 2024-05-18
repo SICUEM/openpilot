@@ -10,8 +10,8 @@ from datetime import datetime
 class TopicMqtt:
 
     def __init__(self):
-        self.fileDebug = "/home/batman/openpilot/sicuem/mqttDebug.txt"
-        fileJson = "/home/batman/openpilot/sicuem/canales.json"
+        self.fileDebug = "/data/openpilot/sicuem/mqttDebug.txt"
+        fileJson = "/data/openpilot/sicuem/canales.json"
         self.espera = 0.5
         self.indice_canal = 0
         self.conetado = False
