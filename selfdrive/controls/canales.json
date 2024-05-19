@@ -15,7 +15,7 @@
     {
       "topic": "telemetry_mqtt/deviceState",
       "canal": "deviceState",
-      "enable": 0,
+      "enable": 1,
       "descripcion": "Canal donde se publica..."
     },
     {
@@ -27,7 +27,7 @@
     {
       "topic": "telemetry_mqtt/longitudinalPlan",
       "canal": "longitudinalPlan",
-      "enable": 0,
+      "enable": 1,
       "descripcion": "Canal donde se publica..."
     },
     {
@@ -45,7 +45,7 @@
     {
       "topic": "telemetry_mqtt/liveTorqueParameters",
       "canal": "liveTorqueParameters",
-      "enable": 0,
+      "enable": 1,
       "descripcion": "Canal donde se publica..."
     },
     {
