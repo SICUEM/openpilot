@@ -6,7 +6,6 @@ import threading
 from typing import SupportsFloat
 
 import cereal.messaging as messaging
-import paho.mqtt.client as mqtt
 
 from cereal import car, log
 from cereal.visionipc import VisionIpcClient, VisionStreamType
