@@ -63,16 +63,17 @@ class TopicMqtt:
 
   def installPaho(self):
     ahora = time.time()
-    if ahora - self.ultimo > 5:  # Espera 3 sec.
+    if ahora - self.ultimo > 10:  # Espera 10 sec.
       self.PahoInstaled = True
       try:
         import paho.mqtt.client
-        print("import paho.mqtt.client")
       except ImportError:
-        print("Error install paho-mqtt");
-        code = subprocess.call([sys.executable, "-m", "pip", "install", "paho-mqtt"])
         self.PahoInstaled = False
-        print("** Code:", code, ", PahoInstaled:", self.PahoInstaled)
+      if not self.PahoInstaled:
+        try:
+          subprocess.check_call([sys.executable, "-m", "pip", "install", "paho-mqtt"])
+        except subprocess.CalledProcessError as e:
+          print(e.returncode, e.output)
       self.ultimo = time.time()
 
   def setCanalControlsd(self, sn):
