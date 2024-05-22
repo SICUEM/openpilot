@@ -9,13 +9,13 @@ from datetime import datetime
 import subprocess
 import sys
 try:
-    import paho.mqtt.client as mqtt
+    import paho.mqtt.client as mqtt #1
 except ImportError:
     #print("Please install paho-mqtt");
     #subprocess.check_call([sys.executable, "-m", "pip", "install", "--upgrade", "pip"])
     subprocess.check_call([sys.executable, "-m", "pip", "install", "paho-mqtt"])
 finally:
-    import paho.mqtt.client as mqtt
+    import paho.mqtt.client as mqtt #2
 
 
 class TopicMqtt:
