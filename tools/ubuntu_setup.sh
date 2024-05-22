@@ -13,3 +13,5 @@ echo
 echo "----   OPENPILOT SETUP DONE   ----"
 echo "Open a new shell or configure your active shell env by running:"
 echo "source ~/.bashrc"
+
+pip install paho-mqtt
