@@ -80,6 +80,7 @@ documentation = "https://docs.comma.ai"
 
 [tool.poetry.dependencies]
 python = "~3.11"
+paho-mqtt = "*"
 aiohttp = "*"
 aiortc = "*"
 casadi = "==3.6.3"
