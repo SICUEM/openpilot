@@ -2,7 +2,8 @@ import subprocess
 import sys
 import time
 
-import Javi.Error.Controlado.N1
+import Javi.Error.Controlado.N1 as n1
+n1.mensage()
 
 class InstallMqtt:
 
