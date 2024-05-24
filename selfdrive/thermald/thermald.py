@@ -25,11 +25,12 @@ from openpilot.selfdrive.thermald.power_monitoring import PowerMonitoring
 from openpilot.selfdrive.thermald.fan_controller import TiciFanController
 from openpilot.system.version import terms_version, training_version
 
+# [Start Adrian] ****************************************************************************
 sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-        f = open("thermald.txt", "a")
-        f.write(f"[{sttime}] ping...\n")
-        f.close()
-
+f = open("thermald.txt", "a")
+f.write(f"[{sttime}] ping...\n")
+f.close()
+# [End Adrian] ******************************************************************************
 
 ThermalStatus = log.DeviceState.ThermalStatus
 NetworkType = log.DeviceState.NetworkType
