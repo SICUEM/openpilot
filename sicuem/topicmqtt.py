@@ -25,8 +25,6 @@ class TopicMqtt:
     self.ultimo = time.time()
     self.pahoInstaled = paho_instaled
 
-    if not self.pahoInstaled:
-      return
     with open(fileJson, 'r') as f:
       jsondata = json.load(f)
 
@@ -40,6 +38,9 @@ class TopicMqtt:
         break
     if speed_value is not None:
       self.espera = 1.0 / int(speed_value)
+
+    if not self.pahoInstaled:
+      return
 
     try:
       broker_address = "195.235.211.197"
