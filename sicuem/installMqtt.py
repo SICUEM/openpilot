@@ -21,7 +21,7 @@ class InstallMqtt:
         self.instalado = False
     if not self.instalado:
       try:
-        code = subprocess.call([sys.executable, "-m", "pip", "install", "paho-mqtt"])
+        subprocess.call([sys.executable, "-m", "pip", "install", "paho-mqtt"])
       except subprocess.CalledProcessError as e:
         None
       try:
