@@ -2,6 +2,11 @@
 from openpilot.selfdrive.boardd.boardd_api_impl import can_list_to_can_capnp
 assert can_list_to_can_capnp
 
+sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+        f = open("boardd.txt", "a")
+        f.write(f"[{sttime}] ping...\n")
+        f.close()
+
 def can_capnp_to_can_list(can, src_filter=None):
   ret = []
   for msg in can:
