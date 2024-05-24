@@ -18,10 +18,10 @@ from openpilot.selfdrive.sunnypilot.live_map_data.osm_map_data import OsmMapData
 from openpilot.selfdrive.sunnypilot.live_map_data import R
 
 # [Start Adrian] ****************************************************************************
-sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-f = open("mapd.txt", "a")
-f.write(f"[{sttime}] ping...\n")
-f.close()
+#sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+#f = open("mapd.txt", "a")
+#f.write(f"[{sttime}] ping...\n")
+#f.close()
 # [End Adrian] ******************************************************************************
 
 
