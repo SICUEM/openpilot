@@ -13,9 +13,9 @@ except ImportError:
   #subprocess.Popen([sys.executable, "/data/openpilot/sicuem/installMqtt.py"])
   time.sleep(30)
   subprocess.call([sys.executable, "-m", "pip", "install", "paho-mqtt"])
-  import Javi.Error.Controlado.N1 as n1
-  n1.mensage()
-  paho_instaled = False
+  import Javi.Error.Controlado.N3 as n3
+  n3.mensage()
+
 
 class TopicMqtt:
 
