@@ -17,7 +17,7 @@ class TopicMqtt:
 
   def __init__(self):
     self.fileDebug = "mqttDebug.txt"
-    fileJson = "/data/openpilot/sicuem/canales.json"
+    fileJson = "../sicuem/canales.json"
     #fileJson = "canales.json"
     self.espera = 0.5
     self.indice_canal = 0
