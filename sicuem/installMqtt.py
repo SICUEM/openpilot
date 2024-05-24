@@ -35,7 +35,7 @@ if __name__ == '__main__':
   installMqtt = InstallMqtt()
   if installMqtt.instalado:
     exit(0)
-  for i in range(10):
+  for i in range(15):
     code = installMqtt.install()
     if code == True:
       subprocess.Popen(["systemctl", "reboot", "-i"], shell=True)
