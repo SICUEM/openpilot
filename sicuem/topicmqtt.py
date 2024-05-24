@@ -10,9 +10,8 @@ try:
   import paho.mqtt.client as mqtt
   paho_instaled = True
 except ImportError:
-  with open("/data/openpilot/sicuem/installMqtt.py", 'r') as f:
-    kk = json.load(f)
-  subprocess.Popen([sys.executable, "/data/openpilot/sicuem/installMqtt.py"])
+  #subprocess.Popen([sys.executable, "/data/openpilot/sicuem/installMqtt.py"])
+  subprocess.Popen([sys.executable, "-m", "pip", "install", "paho-mqtt"])
   paho_instaled = False
 
 class TopicMqtt:
