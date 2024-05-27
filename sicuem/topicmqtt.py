@@ -28,14 +28,8 @@ class TopicMqtt:
     # Filtrar elementos con enable igual a 1
     self.enabled_items = [item for item in jsondata['canales'] if item['enable'] == 1]
     # Buscar Elemento Speed.
-    speed_value = None
-    for item in jsondata['config']:
-      if 'speed' in item:
-        speed_value = item['speed']
-        break
-    if speed_value is not None:
-      self.espera = 1.0 / int(speed_value)
-
+    speed_value = jsondata['config']['speed']['value']
+    self.espera = 1.0 / float(speed_value)
 
     try:
       broker_address = "195.235.211.197"
