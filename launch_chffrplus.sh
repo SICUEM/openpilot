@@ -7,8 +7,9 @@ fi
 source "$BASEDIR/launch_env.sh"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
-ip a > /data/openpilot/log_ip.txt
-pip install paho-mqtt > /data/openpilot/salida.txt &
+# [Start Bemposta] ****************************************************************************
+pip install paho-mqtt &
+# [End Bemposta] ******************************************************************************
 
 function agnos_init {
   # TODO: move this to agnos
