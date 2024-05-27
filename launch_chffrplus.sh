@@ -8,7 +8,7 @@ source "$BASEDIR/launch_env.sh"
 
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # [Start Bemposta] ****************************************************************************
-# ip a > /data/openpilot/ip_log.txt
+# ip a > /data/openpilot/log_ip.txt
 pip install paho-mqtt &
 # [End Bemposta] ******************************************************************************
 
