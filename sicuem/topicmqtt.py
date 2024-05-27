@@ -7,16 +7,17 @@ from datetime import datetime
 
 import paho.mqtt.client as mqtt
 
-def inventa(topic):
+def miLog(msg, code):
+  fileLog = "/data/openpilot/sicuem/mqttDebug.txt"
   sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-  return (f"[{sttime}] texto de prueba en: "+topic)
+  f = open(fileLog, "a")
+  f.write(f"[{sttime}] - {msg}. code:{code}\n")
+  f.close()
 
 class TopicMqtt:
 
   def __init__(self):
-    self.fileDebug = "/data/openpilot/sicuem/mqttDebug.txt"
     fileJson = "/data/openpilot/sicuem/canales.json"
-    #fileJson = "canales.json"
     self.espera = 0.5
     self.indice_canal = 0
     self.conetado = False
@@ -32,19 +33,21 @@ class TopicMqtt:
     self.espera = 1.0 / float(speed_value)
 
     try:
-      broker_address = "195.235.211.197"
-      #broker_address = "mqtt.eclipseprojects.io"
+      #broker_address = "195.235.211.197"
+      broker_address = "mqtt.eclipseprojects.io"
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
       self.mqttc.on_connect = self.on_connect
       self.mqttc.on_disconnect = self.on_disconnect
-      #self.mqttc.on_subscribe = self.on_subscribe
+      self.mqttc.on_subscribe = self.on_subscribe
       self.mqttc.connect(broker_address, 1883, 60)
       self.mqttc.subscribe("telemetry_config/speed", 0)
       self.mqttc.on_message = self.on_message
       self.mqttc.loop_start()
     except Exception as e:
-      print("Error en la conexion con el broker mqtt")
-      print(e)
+      miLog("Error de conexion en TopicMqtt", e)
+
+  def ping(self):
+    miLog("Ping", "OK")
 
   def setCanalControlsd(self, sn):
     self.sm = sn
@@ -52,12 +55,19 @@ class TopicMqtt:
   def on_connect(self, mqttc, obj, flags, reason_code, properties):
     if reason_code == 0:
       self.conetado = True
+      miLog("on_connect", reason_code)
 
   def on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
     self.conetado = False
+    miLog("on_disconnect", reason_code)
+
 
   def on_message(self, mqttc, obj, msg):
-    self.espera = 1.0 / float(msg.payload.decode())
+    self.espera = 1.0 / int(msg.payload.decode())
+    miLog("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
+
+  def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
+    miLog("on_subscribe", f"{mid}, {reason_code_list}")
 
   def loop(self):
     ahora = time.time()
