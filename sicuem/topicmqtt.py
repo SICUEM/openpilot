@@ -77,7 +77,7 @@ class TopicMqtt:
     ahora = time.time()
     if ahora - self.ultimo > self.espera:  # Espera variable.
       canal_actual = self.enabled_items[self.indice_canal]
-      miLog("loop_in", canal_actual['topic'])
+      #miLog("loop_in", canal_actual['topic'])
       self.mqttc.publish(canal_actual['topic'], str(self.sm[canal_actual['canal']]), qos=0)
       #self.mqttc.publish(canal_actual['topic'], inventa(canal_actual['canal']), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
