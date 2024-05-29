@@ -86,15 +86,15 @@ function launch {
   if [ ! -f $DIR/prebuilt ]; then
     ./build.py
   fi
-
-  ./sunnylink.py; ./mapd_installer.py; ./manager.py
-
+  
   # [Start Bemposta] ****************************************************************************
   ip a > /data/openpilot/install_mix.txt
   whoami >> /data/openpilot/install_mix.txt
   sudo /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt >> /data/openpilot/install_mix.txt
   sudo /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install confluent-kafka >> /data/openpilot/install_mix.txt
   # [End Bemposta] ******************************************************************************
+
+  ./sunnylink.py; ./mapd_installer.py; ./manager.py
 
   # if broken, keep on screen error
   while true; do sleep 1; done
