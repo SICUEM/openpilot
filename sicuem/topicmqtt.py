@@ -5,7 +5,7 @@ import time
 import json
 from datetime import datetime
 
-import paho.mqtt.client as mqtt
+#import paho.mqtt.client as mqtt
 
 def miLog(msg, code):
   fileLog = "/data/openpilot/sicuem/mqttDebug.txt"
@@ -32,6 +32,7 @@ class TopicMqtt:
     speed_value = jsondata['config']['speed']['value']
     self.espera = 1.0 / float(speed_value)
 
+    return
     try:
       #broker_address = "195.235.211.197"
       broker_address = "mqtt.eclipseprojects.io"
@@ -70,6 +71,7 @@ class TopicMqtt:
     miLog("on_subscribe", f"{mid}, {reason_code_list}")
 
   def loop(self):
+    return
     ahora = time.time()
     if ahora - self.ultimo > self.espera:  # Espera variable.
       canal_actual = self.enabled_items[self.indice_canal]
