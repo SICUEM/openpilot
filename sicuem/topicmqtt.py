@@ -14,6 +14,10 @@ def miLog(msg, code):
   f.write(f"[{sttime}] - {msg}. code:{code}\n")
   f.close()
 
+def inventa(topic):
+  sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
+  return (f"[{sttime}] texto de prueba en: "+topic)
+
 class TopicMqtt:
 
   def __init__(self):
@@ -73,7 +77,7 @@ class TopicMqtt:
     ahora = time.time()
     if ahora - self.ultimo > self.espera:  # Espera variable.
       canal_actual = self.enabled_items[self.indice_canal]
-      self.mqttc.publish(canal_actual['topic'], str(self.sm[canal_actual['canal']]), qos=0)
-      #self.mqttc.publish(canal_actual['topic'], inventa(canal_actual['canal']), qos=0)
+      #self.mqttc.publish(canal_actual['topic'], str(self.sm[canal_actual['canal']]), qos=0)
+      self.mqttc.publish(canal_actual['topic'], inventa(canal_actual['canal']), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
       self.ultimo = time.time()
