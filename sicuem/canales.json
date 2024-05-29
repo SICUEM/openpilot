@@ -9,7 +9,7 @@
     {
       "topic": "telemetry_mqtt/carState",
       "canal": "carState",
-      "enable": 1,
+      "enable": 0,
       "descripcion": "Canal donde se pubnli..."
     },
     {
