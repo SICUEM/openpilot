@@ -37,8 +37,8 @@ class TopicMqtt:
     self.espera = 1.0 / float(speed_value)
 
     try:
-      #broker_address = "195.235.211.197"
-      broker_address = "mqtt.eclipseprojects.io"
+      broker_address = "195.235.211.197"
+      #broker_address = "mqtt.eclipseprojects.io"
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
       self.mqttc.on_connect = self.on_connect
       self.mqttc.on_disconnect = self.on_disconnect
@@ -80,4 +80,5 @@ class TopicMqtt:
       #self.mqttc.publish(canal_actual['topic'], str(self.sm[canal_actual['canal']]), qos=0)
       self.mqttc.publish(canal_actual['topic'], inventa(canal_actual['canal']), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
+      #miLog("loop_in", canal_actual['topic'])
       self.ultimo = time.time()
