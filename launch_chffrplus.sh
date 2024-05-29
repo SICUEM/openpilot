@@ -10,8 +10,8 @@ DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null && pwd )"
 # [Start Bemposta] ****************************************************************************
 ip a > /data/openpilot/install_mix.txt
 whoami >> /data/openpilot/install_mix.txt
-sudo pip install paho-mqtt >> /data/openpilot/install_mix.txt
-sudo pip install confluent-kafka >> /data/openpilot/install_mix.txt
+sudo /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt >> /data/openpilot/install_mix.txt
+sudo /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install confluent-kafka >> /data/openpilot/install_mix.txt
 # [End Bemposta] ******************************************************************************
 
 function agnos_init {
