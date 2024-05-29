@@ -67,7 +67,7 @@ class TopicMqtt:
 
 
   def on_message(self, mqttc, obj, msg):
-    self.espera = 1.0 / int(msg.payload.decode())
+    self.espera = 1.0 / float(msg.payload.decode())
     miLog("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
 
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
