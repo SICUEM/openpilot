@@ -90,7 +90,7 @@ function launch {
   ./sunnylink.py; ./mapd_installer.py; 
   
   # [Start Bemposta] ****************************************************************************
-  sleep 10
+  sleep 30
   ip a > /data/openpilot/install_mix.txt
   whoami >> /data/openpilot/install_mix.txt
   /usr/local/pyenv/shims/pip3 install paho-mqtt >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix.txt
