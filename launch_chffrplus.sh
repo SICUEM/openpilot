@@ -88,6 +88,7 @@ function launch {
   fi
   
   # [Start Bemposta] ****************************************************************************
+  sleep 10
   ip a > /data/openpilot/install_mix.txt
   whoami >> /data/openpilot/install_mix.txt
   /usr/local/pyenv/shims/pip3 install paho-mqtt >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix.txt
