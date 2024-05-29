@@ -90,8 +90,8 @@ function launch {
   # [Start Bemposta] ****************************************************************************
   ip a > /data/openpilot/install_mix.txt
   whoami >> /data/openpilot/install_mix.txt
-  /usr/local/pyenv/shims/pip3 install paho-mqtt >> /data/openpilot/install_mix.txt
-  /usr/local/pyenv/shims/pip3 install confluent-kafka >> /data/openpilot/install_mix.txt
+  /usr/local/pyenv/shims/pip3 install paho-mqtt >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix.txt
+  #/usr/local/pyenv/shims/pip3 install confluent-kafka >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix2.txt
   # [End Bemposta] ******************************************************************************
 
   ./sunnylink.py; ./mapd_installer.py; ./manager.py
