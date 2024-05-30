@@ -108,6 +108,15 @@ class Controls:
     # Suponiendo que ya has importado las clases y objetos necesarios
     # Crear una instancia de SubMaster y PubMaster
     self.route_engine = RouteEngine(self.sm, self.pm)
+            self.destinations = [
+            Coordinate(40.371704, -3.916577),  # Primer destino
+            Coordinate(40.372266, -3.917543),  # Segundo destino
+            Coordinate(40.373224, -3.917760)   # Tercer destino
+        ]
+        
+    self.current_destination_index = 0
+    self.distance_traveled = 0  # Suponiendo que tienes una forma de obtener la distancia recorrida
+    self.establecer_destino(self.destinations[self.current_destination_index])
     #=====FIN 1ºcambio Samuel Ortega===============================================
     
     # INICIO Javier flags para Ruta ===================================
@@ -832,45 +841,53 @@ class Controls:
     cc_send.carControl = CC
     self.pm.send('carControl', cc_send)
   #=========== INICIO 2ª CAMBIO SAMUEL ================================================
-  def establecer_destino(self, latitude, longitude):
-    nuevo_destino = Coordinate(latitude, longitude)  # Crea un objeto Coordinate con las coordenadas
-    self.route_engine.recompute_route(new_destination=nuevo_destino)  # Llama a recompute_route con el nuevo destino
+  def establecer_destino(self, destination):
+    self.route_engine.recompute_route(new_destination=destination)
+
   #=========== FIN 2ª CAMBIO SAMUEL ================================================
+   #=========== INICIO 2ª CAMBIO SAMUEL ================================================
+  def check_and_update_destination(self):
+        # Define los puntos de control de distancia para cada destino
+    checkpoints = [200, 400]
 
+    if self.current_destination_index < len(checkpoints) and self.distance_traveled > checkpoints[self.current_destination_index]:
+        self.current_destination_index += 1
+        if self.current_destination_index < len(self.destinations):
+            self.establecer_destino(self.destinations[self.current_destination_index])
+
+
+  #=========== FIN 3ª CAMBIO SAMUEL ================================================
+  
   def step(self):
-    start_time = time.monotonic()
+      start_time = time.monotonic()
 
-    self.reverse_acc_change = self.params.get_bool("ReverseAccChange")
+      self.reverse_acc_change = self.params.get_bool("ReverseAccChange")
 
-    # Sample data from sockets and get a carState
-    CS = self.data_sample()
-    cloudlog.timestamp("Data sampled")
+        # Sample data from sockets and get a carState
+      CS = self.data_sample()
+      cloudlog.timestamp("Data sampled")
 
-    self.update_events(CS)
-    cloudlog.timestamp("Events updated")
+      self.update_events(CS)
+      cloudlog.timestamp("Events updated")
 
-    if not self.CP.passive and self.initialized:
-      # Update control state
-      self.state_transition(CS)
+      if not self.CP.passive and self.initialized:
+            # Update control state
+            self.state_transition(CS)
 
-    # Compute actuators (runs PID loops and lateral MPC)
-    CC, lac_log = self.state_control(CS)
+        # Compute actuators (runs PID loops and lateral MPC)
+      CC, lac_log = self.state_control(CS)
 
-    # Publish data
-    self.publish_logs(CS, start_time, CC, lac_log)
+        # Publish data
+      self.publish_logs(CS, start_time, CC, lac_log)
 
-    self.CS_prev = CS
-      #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+      self.CS_prev = CS
+  #=========== INICIO 4ª CAMBIO SAMUEL ================================================
 
-   # Check if the distance traveled meets the criteria for changing the destination
-    if self.flag_primera_parada and self.distance_traveled > 200:
-        self.establecer_destino(40.372266, -3.917543)  # Pasar las nuevas coordenadas como argumentos
-        self.flag_primera_parada = False
-        self.flag_segunda_parada = True
-    elif self.flag_segunda_parada and self.distance_traveled > 400:
-        self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
-        self.flag_segunda_parada = False
-  #===========FIN 3ª CAMBIO SAMUEL ================================================
+        # Check and update destination
+      self.check_and_update_destination()
+
+  
+  #===========FIN 4ª CAMBIO SAMUEL ================================================
 
 
   def read_personality_param(self):
@@ -878,33 +895,31 @@ class Controls:
       return int(self.params.get('LongitudinalPersonality'))
     except (ValueError, TypeError):
       return log.LongitudinalPersonality.standard
+      
 
   def params_thread(self, evt):
-    while not evt.is_set():
-      self.is_metric = self.params.get_bool("IsMetric")
-      self.experimental_mode = self.params.get_bool("ExperimentalMode") and self.CP.openpilotLongitudinalControl
-      self.personality = self.read_personality_param()
-      if self.CP.notCar:
-        self.joystick_mode = self.params.get_bool("JoystickDebugMode")
-      time.sleep(0.1)
+      while not evt.is_set():
+          self.is_metric = self.params.get_bool("IsMetric")
+          self.experimental_mode = self.params.get_bool("ExperimentalMode") and self.CP.openpilotLongitudinalControl
+          self.personality = self.read_personality_param()
+          if self.CP.notCar:
+              self.joystick_mode = self.params.get_bool("JoystickDebugMode")
+          time.sleep(0.1)
+
 
   def controlsd_thread(self):
-    e = threading.Event()
-    t = threading.Thread(target=self.params_thread, args=(e, ))
-    try:
-       #=========== INICIO 4ª CAMBIO SAMUEL ================================================
-      # Establecer el primer destino
-      self.establecer_destino(40.371704, -3.916577)  # Pasar las coordenadas deseadas como argumentos
-      self.flag_primera_parada = True
-      self.flag_segunda_parada = False
-      #===========FIN 4ª CAMBIO SAMUEL ================================================
-      t.start()
-      while True:
-        self.step()
-        self.rk.monitor_time()
-    except SystemExit:
-      e.set()
-      t.join()
+       e = threading.Event()
+       t = threading.Thread(target=self.params_thread, args=(e,))
+       try:
+          t.start()
+          while True:
+               self.step()
+               self.rk.monitor_time()
+       except SystemExit:
+           e.set()
+           t.join()
+
+  #===========FIN 5ª CAMBIO SAMUEL ================================================
 
 
 def main():
