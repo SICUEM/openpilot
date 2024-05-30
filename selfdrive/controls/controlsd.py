@@ -34,6 +34,14 @@ from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
 from openpilot.selfdrive.modeld.model_capabilities import ModelCapabilities
 from openpilot.selfdrive.sunnypilot import get_model_generation
 
+#INICIO 0ª PARTE SAMUEL ================================================
+from openpilot.selfdrive.navd.navd import RouteEngine
+from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
+                                    distance_along_geometry, maxspeed_to_ms,
+                                    minimum_distance,
+                                    parse_banner_instructions)
+#FINAL 0 PARTE SAMUEL ================================================
+
 from openpilot.system.hardware import HARDWARE
 
 SOFT_DISABLE_TIME = 3  # seconds
@@ -109,7 +117,22 @@ class Controls:
                                   frequency=int(1/DT_CTRL))
 
     self.joystick_mode = self.params.get_bool("JoystickDebugMode")
-
+    
+    #=====1ºcambio Samuel Ortega==================================================
+    # Suponiendo que ya has importado las clases y objetos necesarios
+    # Crear una instancia de SubMaster y PubMaster
+    self.route_engine = RouteEngine(self.sm, self.pm)
+            self.destinations = [
+            Coordinate(40.371704, -3.916577),  # Primer destino
+            Coordinate(40.372266, -3.917543),  # Segundo destino
+            Coordinate(40.373224, -3.917760)   # Tercer destino
+        ]
+        
+    self.current_destination_index = 0
+    self.distance_traveled = 0  # Suponiendo que tienes una forma de obtener la distancia recorrida
+    self.establecer_destino(self.destinations[self.current_destination_index])
+    #=====FIN 1ºcambio Samuel Ortega===============================================
+    
     # read params
     self.disengage_on_accelerator = self.params.get_bool("DisengageOnAccelerator")
     self.is_metric = self.params.get_bool("IsMetric")
@@ -898,7 +921,23 @@ class Controls:
     cc_send.valid = CS.canValid
     cc_send.carControl = CC
     self.pm.send('carControl', cc_send)
+#=========== INICIO 2ª CAMBIO SAMUEL ================================================
+  def establecer_destino(self, destination):
+    self.route_engine.recompute_route(new_destination=destination)
 
+#=========== FIN 2ª CAMBIO SAMUEL ================================================
+#=========== INICIO 2ª CAMBIO SAMUEL ================================================
+  def check_and_update_destination(self):
+        # Define los puntos de control de distancia para cada destino
+    checkpoints = [200, 400]
+
+    if self.current_destination_index < len(checkpoints) and self.distance_traveled > checkpoints[self.current_destination_index]:
+        self.current_destination_index += 1
+        if self.current_destination_index < len(self.destinations):
+            self.establecer_destino(self.destinations[self.current_destination_index])
+
+
+  #=========== FIN 3ª CAMBIO SAMUEL ================================================
   def step(self):
     start_time = time.monotonic()
 
@@ -920,6 +959,10 @@ class Controls:
     self.publish_logs(CS, start_time, CC, lac_log)
 
     self.CS_prev = CS
+    #=========== INICIO 4ª CAMBIO SAMUEL ================================================
+    # Check and update destination
+    self.check_and_update_destination()
+    #===========FIN 4ª CAMBIO SAMUEL ================================================
 
   def read_personality_param(self):
     try:
