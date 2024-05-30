@@ -4,6 +4,7 @@ import math
 import time
 import threading
 from typing import SupportsFloat
+import json
 
 import cereal.messaging as messaging
 
@@ -29,6 +30,15 @@ from openpilot.selfdrive.controls.lib.latcontrol_angle import LatControlAngle, S
 from openpilot.selfdrive.controls.lib.latcontrol_torque import LatControlTorque
 from openpilot.selfdrive.controls.lib.longcontrol import LongControl
 from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
+
+#INICIO 0ª PARTE SAMUEL ================================================
+from openpilot.selfdrive.navd.navd import RouteEngine
+from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
+                                    distance_along_geometry, maxspeed_to_ms,
+                                    minimum_distance,
+                                    parse_banner_instructions)
+#FINAL 0 PARTE SAMUEL ================================================
+
 
 from openpilot.system.hardware import HARDWARE
 
@@ -94,7 +104,18 @@ class Controls:
                                   frequency=int(1/DT_CTRL))
 
     self.joystick_mode = self.params.get_bool("JoystickDebugMode")
-
+    #=====1ºcambio Samuel Ortega==================================================
+    # Suponiendo que ya has importado las clases y objetos necesarios
+    # Crear una instancia de SubMaster y PubMaster
+    self.route_engine = RouteEngine(self.sm, self.pm)
+    #=====FIN 1ºcambio Samuel Ortega===============================================
+    
+    # INICIO Javier flags para Ruta ===================================
+    #self.flag_primera_parada = True
+    #self.flag_segunda_parada = False
+    #self.flag_tercera_parada = False    
+    # FINAL Javier flags para Ruta ====================================
+    
     # read params
     self.disengage_on_accelerator = self.params.get_bool("DisengageOnAccelerator")
     self.is_metric = self.params.get_bool("IsMetric")
@@ -810,6 +831,11 @@ class Controls:
     cc_send.valid = CS.canValid
     cc_send.carControl = CC
     self.pm.send('carControl', cc_send)
+  #=========== INICIO 2ª CAMBIO SAMUEL ================================================
+  def establecer_destino(self, latitude, longitude):
+    nuevo_destino = Coordinate(latitude, longitude)  # Crea un objeto Coordinate con las coordenadas
+    self.route_engine.recompute_route(new_destination=nuevo_destino)  # Llama a recompute_route con el nuevo destino
+  #=========== FIN 2ª CAMBIO SAMUEL ================================================
 
   def step(self):
     start_time = time.monotonic()
@@ -834,6 +860,18 @@ class Controls:
     self.publish_logs(CS, start_time, CC, lac_log)
 
     self.CS_prev = CS
+      #=========== INICIO 3ª CAMBIO SAMUEL ================================================
+
+   # Check if the distance traveled meets the criteria for changing the destination
+    if self.flag_primera_parada and self.distance_traveled > 200:
+        self.establecer_destino(40.372266, -3.917543)  # Pasar las nuevas coordenadas como argumentos
+        self.flag_primera_parada = False
+        self.flag_segunda_parada = True
+    elif self.flag_segunda_parada and self.distance_traveled > 400:
+        self.establecer_destino(40.373224, -3.917760)  # Pasar las nuevas coordenadas como argumentos
+        self.flag_segunda_parada = False
+  #===========FIN 3ª CAMBIO SAMUEL ================================================
+
 
   def read_personality_param(self):
     try:
@@ -854,6 +892,12 @@ class Controls:
     e = threading.Event()
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
+       #=========== INICIO 4ª CAMBIO SAMUEL ================================================
+      # Establecer el primer destino
+      self.establecer_destino(40.371704, -3.916577)  # Pasar las coordenadas deseadas como argumentos
+      self.flag_primera_parada = True
+      self.flag_segunda_parada = False
+      #===========FIN 4ª CAMBIO SAMUEL ================================================
       t.start()
       while True:
         self.step()
