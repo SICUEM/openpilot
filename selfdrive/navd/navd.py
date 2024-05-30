@@ -90,32 +90,42 @@ class RouteEngine:
       self.last_bearing = math.degrees(location.calibratedOrientationNED.value[2])
       self.last_position = Coordinate(location.positionGeodetic.value[0], location.positionGeodetic.value[1])
 
-  def recompute_route(self):
+  def recompute_route(self, new_destination=None):
     if self.last_position is None:
-      return
+        return
 
-    new_destination = coordinate_from_param("NavDestination", self.params)
+    # Obtener nuevo destino si no se pasa como parámetro
     if new_destination is None:
-      self.clear_route()
-      self.reset_recompute_limits()
-      return
+        new_destination = coordinate_from_param("NavDestination", self.params)
+    
+    # Si no hay nuevo destino, limpiar la ruta y resetear los límites de recomputación
+    if new_destination is None:
+        self.clear_route()
+        self.reset_recompute_limits()
+        return
 
     should_recompute = self.should_recompute()
+
+    # Verificar si el nuevo destino es diferente del actual
     if new_destination != self.nav_destination:
-      cloudlog.warning(f"Got new destination from NavDestination param {new_destination}")
-      should_recompute = True
+        cloudlog.warning(f"Got new destination from NavDestination param {new_destination}")
+        should_recompute = True
+        self.nav_destination = new_destination
 
-    # Don't recompute when GPS drifts in tunnels
+    # No recomputar cuando el GPS no es confiable y step_idx no es None
     if not self.gps_ok and self.step_idx is not None:
-      return
+        return
 
+    # Verificar si se debe recomputar la ruta
     if self.recompute_countdown == 0 and should_recompute:
-      self.recompute_countdown = 2**self.recompute_backoff
-      self.recompute_backoff = min(6, self.recompute_backoff + 1)
-      self.calculate_route(new_destination)
-      self.reroute_counter = 0
+        # Realizar el cálculo de la ruta con el nuevo destino
+        self.recompute_countdown = 2 ** self.recompute_backoff
+        self.recompute_backoff = min(6, self.recompute_backoff + 1)
+        self.calculate_route(self.nav_destination)
+        self.reroute_counter = 0
     else:
-      self.recompute_countdown = max(0, self.recompute_countdown - 1)
+        # Reducir el contador de recomputación
+        self.recompute_countdown = max(0, self.recompute_countdown - 1)
 
   def calculate_route(self, destination):
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
