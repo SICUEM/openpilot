@@ -47,20 +47,6 @@ class SicMqttHilo:
     speed_value = jsondata['config']['speed']['value']
     self.espera = 1.0 / float(speed_value)
 
-    try:
-      #broker_address = "195.235.211.197"
-      broker_address = "mqtt.eclipseprojects.io"
-      self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
-      self.mqttc.on_connect = self.on_connect
-      self.mqttc.on_disconnect = self.on_disconnect
-      self.mqttc.on_subscribe = self.on_subscribe
-      self.mqttc.connect(broker_address, 1883, 60)
-      self.mqttc.subscribe("telemetry_config/speed", 0)
-      self.mqttc.on_message = self.on_message
-      self.mqttc.loop_start()
-    except Exception as e:
-      miLog("Error de conexion en TopicMqtt", e)
-
   def ping(self):
     miLog("Ping", "OK")
 
@@ -82,7 +68,7 @@ class SicMqttHilo:
 
   #-----------------------------------------------Adrian Cañadas Gallardo
   
-  def verificar_conexion(self, url='http://www.google.com', intervalo=5):
+  def conexion(self, url='http://www.google.com', intervalo=5):
     while True:
       try:
         response = requests.get(url, timeout=5)
@@ -93,13 +79,26 @@ class SicMqttHilo:
       except requests.ConnectionError:
         print("No hay conexión a Internet. Intentando nuevamente en {} segundos...".format(intervalo))
         miLog("No hay conexión a Internet. Intentando nuevamente.", "ERROR")
-        time.sleep(intervalo)
+        time.sleep(intervalo
+    try:
+      #broker_address = "195.235.211.197"
+      broker_address = "mqtt.eclipseprojects.io"
+      self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
+      self.mqttc.on_connect = self.on_connect
+      self.mqttc.on_disconnect = self.on_disconnect
+      self.mqttc.on_subscribe = self.on_subscribe
+      self.mqttc.connect(broker_address, 1883, 60)
+      self.mqttc.subscribe("telemetry_config/speed", 0)
+      self.mqttc.on_message = self.on_message
+      self.mqttc.loop_start()
+    except Exception as e:
+      miLog("Error de conexion en TopicMqtt", e)
   
   #-----------------------------------------------Adrian Cañadas Gallardo
   def loop(self):
 
     #-----------------------------------------------Adrian Cañadas Gallardo
-    self.verificar_conexion()
+    self.conexion()
     #-----------------------------------------------Adrian Cañadas Gallardo
 
     while True:
