@@ -61,9 +61,6 @@ class SicMqttHilo:
   def ping(self):
     miLog("Ping", "OK")
 
-  def setCanalControlsd(self, sn):
-    self.sm = sn
-
   def on_connect(self, mqttc, obj, flags, reason_code, properties):
     if reason_code == 0:
       self.conetado = True
