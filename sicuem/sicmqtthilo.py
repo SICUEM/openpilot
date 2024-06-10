@@ -110,6 +110,7 @@ class SicMqttHilo:
 
     while True:
       self.pause_event.wait()  #-----------------------------------------------Adrian Cañadas Gallardo
+      sm.update(1000)
       canal_actual = self.enabled_items[self.indice_canal]
       self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), str(self.sm[canal_actual['canal']]), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
