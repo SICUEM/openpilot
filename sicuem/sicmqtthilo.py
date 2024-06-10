@@ -7,6 +7,9 @@ from datetime import datetime
 from threading import Thread
 from openpilot.common.params import Params
 import cereal.messaging as messaging
+#-----------------------------------------------Adrian Cañadas Gallardo
+import requests
+#-----------------------------------------------Adrian Cañadas Gallardo
 
 import paho.mqtt.client as mqtt
 
@@ -77,7 +80,28 @@ class SicMqttHilo:
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
     miLog("on_subscribe", f"{mid}, {reason_code_list}")
 
+  #-----------------------------------------------Adrian Cañadas Gallardo
+  
+  def verificar_conexion(self, url='http://www.google.com', intervalo=5):
+    while True:
+      try:
+        response = requests.get(url, timeout=5)
+        if response.status_code == 200:
+          print("Conexión a Internet exitosa.")
+          miLog("Conexión a Internet exitosa.", "OK")
+          return True
+      except requests.ConnectionError:
+        print("No hay conexión a Internet. Intentando nuevamente en {} segundos...".format(intervalo))
+        miLog("No hay conexión a Internet. Intentando nuevamente.", "ERROR")
+        time.sleep(intervalo)
+  
+  #-----------------------------------------------Adrian Cañadas Gallardo
   def loop(self):
+
+    #-----------------------------------------------Adrian Cañadas Gallardo
+    self.verificar_conexion()
+    #-----------------------------------------------Adrian Cañadas Gallardo
+
     while True:
       canal_actual = self.enabled_items[self.indice_canal]
       self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), str(self.sm[canal_actual['canal']]), qos=0)
