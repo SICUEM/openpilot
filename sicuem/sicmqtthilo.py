@@ -4,26 +4,22 @@
 import time
 import json
 from datetime import datetime
-from threading import Thread
+from threading import Thread, Event             #-----------------------------------------------Adrian Cañadas Gallardo
 from openpilot.common.params import Params
 import cereal.messaging as messaging
-#-----------------------------------------------Adrian Cañadas Gallardo
-import requests
-#-----------------------------------------------Adrian Cañadas Gallardo
-
+import requests                                 #-----------------------------------------------Adrian Cañadas Gallardo
 import paho.mqtt.client as mqtt
 
 def miLog(msg, code):
   #fileLog = "/data/openpilot/sicuem/mqttDebug.txt"
   fileLog = "../../sicuem/mqttDebug.txt"
   sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-  f = open(fileLog, "a")
-  f.write(f"[{sttime}] - {msg}. code:{code}\n")
-  f.close()
+  with open(fileLog, "a") as f:
+    f.write(f"[{sttime}] - {msg}. code:{code}\n")
 
 def inventa(topic):
   sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-  return (f"[{sttime}] texto de prueba en: "+topic)
+  return f"[{sttime}] texto de prueba en: {topic}"
 
 class SicMqttHilo:
 
@@ -33,17 +29,18 @@ class SicMqttHilo:
     self.espera = 0.5
     self.indice_canal = 0
     self.conetado = False
+    self.pause_event = Event()    #-----------------------------------------------Adrian Cañadas Gallardo
+    self.pause_event.set()        #-----------------------------------------------Adrian Cañadas Gallardo
+
     params = Params()
     self.DongleID = params.get("DongleId").decode('utf-8')
-    if self.DongleID == None:
+    if self.DongleID is None:
       self.DongleID = "DongleID"
 
     with open(fileJson, 'r') as f:
       jsondata = json.load(f)
 
-    # Filtrar elementos con enable igual a 1
     self.enabled_items = [item for item in jsondata['canales'] if item['enable'] == 1]
-    # Buscar Elemento Speed.
     speed_value = jsondata['config']['speed']['value']
     self.espera = 1.0 / float(speed_value)
 
@@ -60,14 +57,24 @@ class SicMqttHilo:
     miLog("on_disconnect", reason_code)
 
   def on_message(self, mqttc, obj, msg):
-    self.espera = 1.0 / float(msg.payload.decode())
-    miLog("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
+    if msg.topic == "telemetry_config/speed":
+      self.espera = 1.0 / float(msg.payload.decode())
+      miLog("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
+  #-INI----------------------------------------------Adrian Cañadas Gallardo
+    elif msg.topic == "telemetry_config/pausarHilo":  
+      value = int(msg.payload.decode()) 
+      if value == 1:  
+        self.pause_event.clear()  
+        miLog("Hilo pausado", "OK")  
+      elif value == 0:
+        self.pause_event.set() 
+        miLog("Hilo reanudado", "OK")  
+  #---FIN--------------------------------------------Adrian Cañadas Gallardo
 
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
     miLog("on_subscribe", f"{mid}, {reason_code_list}")
 
-  #-----------------------------------------------Adrian Cañadas Gallardo
-  
+  #-INI----------------------------------------------Adrian Cañadas Gallardo
   def conexion(self, url='http://www.google.com', intervalo=5):
     conectado = False
     while not conectado:
@@ -78,10 +85,10 @@ class SicMqttHilo:
           miLog("Conexión a Internet exitosa.", "OK")
           conectado = True
       except requests.ConnectionError:
-        print("No hay conexión a Internet. Intentando nuevamente en {} segundos...".format(intervalo))
+        print(f"No hay conexión a Internet. Intentando nuevamente en {intervalo} segundos...")
         miLog("No hay conexión a Internet. Intentando nuevamente.", "ERROR")
         time.sleep(intervalo)
-    
+  #---FIN--------------------------------------------Adrian Cañadas Gallardo
     try:
       #broker_address = "195.235.211.197"
       broker_address = "mqtt.eclipseprojects.io"
@@ -89,25 +96,22 @@ class SicMqttHilo:
       self.mqttc.on_connect = self.on_connect
       self.mqttc.on_disconnect = self.on_disconnect
       self.mqttc.on_subscribe = self.on_subscribe
+      self.mqttc.on_message = self.on_message
       self.mqttc.connect(broker_address, 1883, 60)
       self.mqttc.subscribe("telemetry_config/speed", 0)
-      self.mqttc.on_message = self.on_message
+      self.mqttc.subscribe("telemetry_config/pausarHilo", 0)  #-----------------------------------------------Adrian Cañadas Gallardo 0 continuar, 1 pausar
       self.mqttc.loop_start()
-      miLog("Conectado SicMqttHilo corectamente.", 0)
+      miLog("Conectado SicMqttHilo correctamente.", 0)
     except Exception as e:
-      miLog("Error de conexion en TopicMqtt", e)
+      miLog("Error de conexión en TopicMqtt", e)
   
-  #-----------------------------------------------Adrian Cañadas Gallardo
   def loop(self):
-
-    #-----------------------------------------------Adrian Cañadas Gallardo
     self.conexion()
-    #-----------------------------------------------Adrian Cañadas Gallardo
 
     while True:
+      self.pause_event.wait()  #-----------------------------------------------Adrian Cañadas Gallardo
       canal_actual = self.enabled_items[self.indice_canal]
       self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), str(self.sm[canal_actual['canal']]), qos=0)
-      #self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), inventa(canal_actual['canal']), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
       time.sleep(self.espera)
 
