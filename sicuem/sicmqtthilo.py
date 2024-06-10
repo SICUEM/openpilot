@@ -4,11 +4,15 @@
 import time
 import json
 from datetime import datetime
+from threading import Thread
+from openpilot.common.params import Params
+import cereal.messaging as messaging
 
 import paho.mqtt.client as mqtt
 
 def miLog(msg, code):
-  fileLog = "/data/openpilot/sicuem/mqttDebug.txt"
+  #fileLog = "/data/openpilot/sicuem/mqttDebug.txt"
+  fileLog = "../../sicuem/mqttDebug.txt"
   sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
   f = open(fileLog, "a")
   f.write(f"[{sttime}] - {msg}. code:{code}\n")
@@ -18,14 +22,18 @@ def inventa(topic):
   sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
   return (f"[{sttime}] texto de prueba en: "+topic)
 
-class TopicMqtt:
+class SicMqttHilo:
 
   def __init__(self):
-    fileJson = "/data/openpilot/sicuem/canales.json"
+    #fileJson = "/data/openpilot/sicuem/canales.json"
+    fileJson = "../../sicuem/canales.json"
     self.espera = 0.5
     self.indice_canal = 0
     self.conetado = False
-    self.ultimo = time.time()
+    params = Params()
+    self.DongleID = params.get("DongleId").decode('utf-8')
+    if self.DongleID == None:
+      self.DongleID = "DongleID"
 
     with open(fileJson, 'r') as f:
       jsondata = json.load(f)
@@ -37,8 +45,8 @@ class TopicMqtt:
     self.espera = 1.0 / float(speed_value)
 
     try:
-      broker_address = "195.235.211.197"
-      #broker_address = "mqtt.eclipseprojects.io"
+      #broker_address = "195.235.211.197"
+      broker_address = "mqtt.eclipseprojects.io"
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
       self.mqttc.on_connect = self.on_connect
       self.mqttc.on_disconnect = self.on_disconnect
@@ -65,7 +73,6 @@ class TopicMqtt:
     self.conetado = False
     miLog("on_disconnect", reason_code)
 
-
   def on_message(self, mqttc, obj, msg):
     self.espera = 1.0 / float(msg.payload.decode())
     miLog("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
@@ -74,11 +81,22 @@ class TopicMqtt:
     miLog("on_subscribe", f"{mid}, {reason_code_list}")
 
   def loop(self):
-    ahora = time.time()
-    if ahora - self.ultimo > self.espera:  # Espera variable.
+    while True:
       canal_actual = self.enabled_items[self.indice_canal]
-      #miLog("loop_in", canal_actual['topic'])
-      self.mqttc.publish(canal_actual['topic'], str(self.sm[canal_actual['canal']]), qos=0)
-      #self.mqttc.publish(canal_actual['topic'], inventa(canal_actual['canal']), qos=0)
+      self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), str(self.sm[canal_actual['canal']]), qos=0)
+      #self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), inventa(canal_actual['canal']), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
-      self.ultimo = time.time()
+      time.sleep(self.espera)
+
+  def start(self) -> int:
+    self.sm = messaging.SubMaster(['accelerometer', 'androidLog', 'cameraOdometry', 'carControl', 'carOutput', 'carParams', 'carState',
+                                   'controlsState', 'deviceState', 'driverCameraState', 'driverMonitoringState', 'driverStateV2',
+                                   'gpsLocation', 'gpsLocationExternal', 'gyroscope', 'liveCalibration', 'liveLocationKalman', 'liveParameters',
+                                   'liveTorqueParameters', 'logMessage', 'longitudinalPlan', 'longitudinalPlanSP', 'managerState', 'modelV2',
+                                   'modelV2SP', 'pandaStates', 'peripheralState', 'radarState', 'roadCameraState', 'testJoystick',
+                                   'wideRoadCameraState', 'mapRenderState'])
+    time.sleep(2)
+    hilo = Thread(target=self.loop)
+    hilo.start()
+    miLog("Terminado programa principal", 0)
+    return 0

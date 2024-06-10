@@ -90,6 +90,7 @@ function launch {
   ./sunnylink.py; ./mapd_installer.py; 
   
   # [Start Bemposta] ****************************************************************************
+  '''
   sleep 60
   ip a > /data/openpilot/install_mix.txt
   whoami >> /data/openpilot/install_mix.txt
@@ -100,6 +101,7 @@ function launch {
   echo "3==================" &>> /data/openpilot/install_mix.txt
   /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt &>> /data/openpilot/install_mix.txt
   echo "4==================" &>> /data/openpilot/install_mix.txt
+  '''
   #/usr/local/pyenv/shims/pip3 install confluent-kafka >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix2.txt
   # [End Bemposta] ******************************************************************************
   
