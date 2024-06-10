@@ -69,17 +69,19 @@ class SicMqttHilo:
   #-----------------------------------------------Adrian Cañadas Gallardo
   
   def conexion(self, url='http://www.google.com', intervalo=5):
-    while True:
+    conectado = False
+    while not conectado:
       try:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
           print("Conexión a Internet exitosa.")
           miLog("Conexión a Internet exitosa.", "OK")
-          return True
+          conectado = True
       except requests.ConnectionError:
         print("No hay conexión a Internet. Intentando nuevamente en {} segundos...".format(intervalo))
         miLog("No hay conexión a Internet. Intentando nuevamente.", "ERROR")
-        time.sleep(intervalo
+        time.sleep(intervalo)
+    
     try:
       #broker_address = "195.235.211.197"
       broker_address = "mqtt.eclipseprojects.io"
@@ -91,6 +93,7 @@ class SicMqttHilo:
       self.mqttc.subscribe("telemetry_config/speed", 0)
       self.mqttc.on_message = self.on_message
       self.mqttc.loop_start()
+      miLog("Conectado SicMqttHilo corectamente.", 0)
     except Exception as e:
       miLog("Error de conexion en TopicMqtt", e)
   
