@@ -199,9 +199,10 @@
 			"topic": "telemetry_config/speed",
 			"descripcion": "Numero de mensajes por segundo en la telemetria"
 		},
-		"time": {
-			"value": 3,
-			"descripcion": "Tiempo transcurrido"
+		"send": {
+			"value": 1,
+			"topic": "telemetry_config/pausarHilo",
+			"descripcion": "Transimitir datos. 1:transmite, 0:no transmite"
 		}
 	}
 }

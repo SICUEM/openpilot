@@ -43,6 +43,10 @@ class SicMqttHilo:
     self.enabled_items = [item for item in jsondata['canales'] if item['enable'] == 1]
     speed_value = jsondata['config']['speed']['value']
     self.espera = 1.0 / float(speed_value)
+    send_value = int(jsondata['config']['send']['value'])
+    miLog("Init send value:", send_value)
+    if send_value == 0:
+      self.pause_event.clear()
 
   def ping(self):
     miLog("Ping", "OK")
@@ -63,12 +67,12 @@ class SicMqttHilo:
   #-INI----------------------------------------------Adrian Cañadas Gallardo
     elif msg.topic == "telemetry_config/pausarHilo":  
       value = int(msg.payload.decode()) 
-      if value == 1:  
-        self.pause_event.clear()  
-        miLog("Hilo pausado", "OK")  
+      if value == 1:
+        miLog("Hilo reanudado", "Set")  
+        self.pause_event.set()
       elif value == 0:
-        self.pause_event.set() 
-        miLog("Hilo reanudado", "OK")  
+        miLog("Hilo pausado", "Clear")   
+        self.pause_event.clear()
   #---FIN--------------------------------------------Adrian Cañadas Gallardo
 
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
@@ -110,7 +114,7 @@ class SicMqttHilo:
 
     while True:
       self.pause_event.wait()  #-----------------------------------------------Adrian Cañadas Gallardo
-      sm.update(1000)
+      self.sm.update()
       canal_actual = self.enabled_items[self.indice_canal]
       self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), str(self.sm[canal_actual['canal']]), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
