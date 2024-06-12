@@ -22,6 +22,7 @@ function install_paho() {
     else
         echo "La biblioteca paho-mqtt no está instalada. Instalando..."
         pip install paho-mqtt
+        sudo reboot
     fi
 }
 
