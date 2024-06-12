@@ -31,7 +31,6 @@ class SicMqttHilo:
     self.conetado = False
     self.pause_event = Event()    #-----------------------------------------------Adrian Cañadas Gallardo
     self.pause_event.set()        #-----------------------------------------------Adrian Cañadas Gallardo
-
     params = Params()
     self.DongleID = params.get("DongleId").decode('utf-8')
     if self.DongleID is None:
@@ -40,6 +39,8 @@ class SicMqttHilo:
     with open(fileJson, 'r') as f:
       jsondata = json.load(f)
 
+     # -----------------------------------------------Adrian Cañadas Gallardo
+    self.lista_suscripciones = [item['canal'] for item in jsondata['canales'] if item['enable'] == 1]
     self.enabled_items = [item for item in jsondata['canales'] if item['enable'] == 1]
     speed_value = jsondata['config']['speed']['value']
     self.espera = 1.0 / float(speed_value)
@@ -53,6 +54,11 @@ class SicMqttHilo:
   def ping(self):
     miLog("Ping", "OK")
 
+
+
+  def generar_lista_suscripciones(self):
+    suscripciones = [item['topic'].format(self.DongleID) for item in self.jsondata['canales'] if item['enable'] == 1]
+    return suscripciones
   def on_connect(self, mqttc, obj, flags, reason_code, properties):
     if reason_code == 0:
       self.conetado = True
@@ -119,13 +125,11 @@ class SicMqttHilo:
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
       time.sleep(self.espera)
 
+
   def start(self) -> int:
-    self.sm = messaging.SubMaster(['accelerometer', 'androidLog', 'cameraOdometry', 'carControl', 'carOutput', 'carParams', 'carState',
-                                   'controlsState', 'deviceState', 'driverCameraState', 'driverMonitoringState', 'driverStateV2',
-                                   'gpsLocation', 'gpsLocationExternal', 'gyroscope', 'liveCalibration', 'liveLocationKalman', 'liveParameters',
-                                   'liveTorqueParameters', 'logMessage', 'longitudinalPlan', 'longitudinalPlanSP', 'managerState', 'modelV2',
-                                   'modelV2SP', 'pandaStates', 'peripheralState', 'radarState', 'roadCameraState', 'testJoystick',
-                                   'wideRoadCameraState', 'mapRenderState'])
+
+    self.sm = messaging.SubMaster(self.lista_suscripciones)   #-----------------------------------------------Adrian Cañadas Gallardo
+
     time.sleep(2)
     hilo = Thread(target=self.loop)
     hilo.start()
