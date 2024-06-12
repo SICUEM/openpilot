@@ -933,8 +933,8 @@ class Controls:
 
     if self.current_destination_index < len(checkpoints) and self.distance_traveled > checkpoints[self.current_destination_index]:
         self.current_destination_index += 1
-    if self.current_destination_index < len(self.destinations):
-        self.establecer_destino(self.destinations[self.current_destination_index])
+        if self.current_destination_index < len(self.destinations):
+            self.establecer_destino(self.destinations[self.current_destination_index])
 
 
   #=========== FIN 3ª CAMBIO SAMUEL ================================================
