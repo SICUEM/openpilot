@@ -93,7 +93,7 @@ function launch {
   # echo "***************** iniciamos instalacion *****************************************************"
   echo "iniciamos instalacion" &>> /data/openpilot/sicuem/sic_install.txt
   chmod +x /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
-  # /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt &
+  /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt &
   echo "continuamos arranque" &>> /data/openpilot/sicuem/sic_install.txt
   # [End Bemposta] ******************************************************************************
 
