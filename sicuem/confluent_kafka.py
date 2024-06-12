@@ -3,7 +3,8 @@ import bz2
 
 # Configuración del producer
 producer = Producer({
-    'bootstrap.servers': '195.235.211.197:9092'
+    'bootstrap.servers': '195.235.211.197:9092',
+    value_serializer=lambda m: json.dumps(m).encode('utf-8')
 })
 
 def delivery_report(err, msg):
