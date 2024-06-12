@@ -47,6 +47,8 @@ class SicMqttHilo:
     miLog("Init send value:", send_value)
     if send_value == 0:
       self.pause_event.clear()
+    self.broker_address = jsondata['config']['IpServer']['value']
+    miLog("Default Server URL:", self.broker_address)
 
   def ping(self):
     miLog("Ping", "OK")
@@ -94,14 +96,12 @@ class SicMqttHilo:
         time.sleep(intervalo)
   #---FIN--------------------------------------------Adrian Cañadas Gallardo
     try:
-      #broker_address = "195.235.211.197"
-      broker_address = "mqtt.eclipseprojects.io"
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
       self.mqttc.on_connect = self.on_connect
       self.mqttc.on_disconnect = self.on_disconnect
       self.mqttc.on_subscribe = self.on_subscribe
       self.mqttc.on_message = self.on_message
-      self.mqttc.connect(broker_address, 1883, 60)
+      self.mqttc.connect(self.broker_address, 1883, 60)
       self.mqttc.subscribe("telemetry_config/speed", 0)
       self.mqttc.subscribe("telemetry_config/pausarHilo", 0)  #-----------------------------------------------Adrian Cañadas Gallardo 0 continuar, 1 pausar
       self.mqttc.loop_start()
@@ -111,7 +111,6 @@ class SicMqttHilo:
   
   def loop(self):
     self.conexion()
-
     while True:
       self.pause_event.wait()  #-----------------------------------------------Adrian Cañadas Gallardo
       self.sm.update()
