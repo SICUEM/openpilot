@@ -129,7 +129,7 @@ class Controls:
         ]
         
     self.current_destination_index = 0
-    self.distance_traveled = 0  # Suponiendo que tienes una forma de obtener la distancia recorrida
+    self.distance_traveled = 0  
     self.establecer_destino(self.destinations[self.current_destination_index])
     #=====FIN 1ºcambio Samuel Ortega===============================================
     
