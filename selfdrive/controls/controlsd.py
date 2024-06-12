@@ -129,7 +129,6 @@ class Controls:
         ]
         
     self.current_destination_index = 0
-    self.distance_traveled = 0  
     self.establecer_destino(self.destinations[self.current_destination_index])
     #=====FIN 1ºcambio Samuel Ortega===============================================
     
@@ -928,7 +927,7 @@ class Controls:
 #=========== FIN 2ª CAMBIO SAMUEL ================================================
 #=========== INICIO 2ª CAMBIO SAMUEL ================================================
   def check_and_update_destination(self):
-        # Define los puntos de control de distancia para cada destino
+    # Define los puntos de control de distancia para cada destino
     checkpoints = [200, 400]
 
     if self.current_destination_index < len(checkpoints) and self.distance_traveled > checkpoints[self.current_destination_index]:
