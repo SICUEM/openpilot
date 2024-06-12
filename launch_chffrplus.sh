@@ -88,23 +88,14 @@ function launch {
   fi
 
   ./sunnylink.py; ./mapd_installer.py; 
-  
+
   # [Start Bemposta] ****************************************************************************
-  '''
-  sleep 60
-  ip a > /data/openpilot/install_mix.txt
-  whoami >> /data/openpilot/install_mix.txt
-  echo "1==================" &>> /data/openpilot/install_mix.txt
-  /usr/local/pyenv/shims/pip3 install paho-mqtt &>> /data/openpilot/install_mix.txt
-  echo "2==================" &>> /data/openpilot/install_mix.txt
-  pip install paho-mqtt &>> /data/openpilot/install_mix.txt
-  echo "3==================" &>> /data/openpilot/install_mix.txt
-  /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt &>> /data/openpilot/install_mix.txt
-  echo "4==================" &>> /data/openpilot/install_mix.txt
-  '''
-  #/usr/local/pyenv/shims/pip3 install confluent-kafka >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix2.txt
+  # echo "***************** iniciamos instalacion *****************************************************"
+  echo "iniciamos instalacion" &>> /data/openpilot/sicuem/sic_install.txt
+  chmod +x /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
+  /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
   # [End Bemposta] ******************************************************************************
-  
+
   ./manager.py
 
   # if broken, keep on screen error
