@@ -21,6 +21,10 @@ from openpilot.system.hardware.hw import Paths
 from openpilot.system.loggerd.xattr_cache import getxattr, setxattr
 from openpilot.common.swaglog import cloudlog
 
+# [Jorge G] #################################################################
+from openpilot.sicuem.confluent_kafka import send_logs
+# [End Jorge G] #############################################################
+
 NetworkType = log.DeviceState.NetworkType
 UPLOAD_ATTR_NAME = 'user.upload'
 UPLOAD_ATTR_VALUE = b'1'
@@ -160,6 +164,7 @@ class Uploader:
       else:
         data = f
 
+      send_logs(data)
       return requests.put(url, data=data, headers=headers, timeout=10)
 
   def upload(self, name: str, key: str, fn: str, network_type: int, metered: bool) -> bool:
