@@ -21,7 +21,7 @@ function install_paho() {
         echo "La biblioteca paho-mqtt ya está instalada."
     else
         echo "La biblioteca paho-mqtt no está instalada. Instalando..."
-        /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt
+        pip install paho-mqtt
     fi
 }
 
