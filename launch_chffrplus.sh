@@ -92,8 +92,8 @@ function launch {
   # [Start Bemposta] ****************************************************************************
   sleep 60
   ip a > /data/openpilot/install_mix.txt
-  /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt &>> /data/openpilot/install_mix.txt
-  /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install confluent-kafka &>> /data/openpilot/install_mix.txt
+  pip install paho-mqtt &>> /data/openpilot/install_mix.txt
+  pip install confluent-kafka &>> /data/openpilot/install_mix.txt
   # [End Bemposta] ******************************************************************************
   
   ./manager.py
