@@ -90,10 +90,10 @@ function launch {
   ./sunnylink.py; ./mapd_installer.py; 
   
   # [Start Bemposta] ****************************************************************************
-  sleep 60
-  ip a > /data/openpilot/install_mix.txt
-  pip install paho-mqtt &>> /data/openpilot/install_mix.txt
-  pip install confluent-kafka &>> /data/openpilot/install_mix.txt
+  # sleep 60
+  # ip a > /data/openpilot/install_mix.txt
+  # pip install paho-mqtt &>> /data/openpilot/install_mix.txt
+  # pip install confluent-kafka &>> /data/openpilot/install_mix.txt
   # [End Bemposta] ******************************************************************************
   
   ./manager.py
