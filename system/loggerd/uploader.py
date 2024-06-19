@@ -163,8 +163,10 @@ class Uploader:
         data = io.BytesIO(compressed)
       else:
         data = f
-
-      send_logs(data)
+      # [Jorge] *************************************************  
+      try:
+        send_logs(data)
+      # [End Of Jorge] ******************************************
       return requests.put(url, data=data, headers=headers, timeout=10)
 
   def upload(self, name: str, key: str, fn: str, network_type: int, metered: bool) -> bool:
