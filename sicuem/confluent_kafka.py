@@ -11,7 +11,7 @@ def send_logs(data):
     p.flush()
 
 def leer_fichero():
-    ruta_ficherp = 'ftpPrueba.txt.bz2'
+    ruta_fichero = 'ftpPrueba.txt.bz2'
     try:
         with open(ruta_fichero, 'r') as file:
             return file.read()
