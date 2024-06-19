@@ -76,7 +76,7 @@ class SicMqttHilo:
         self.pause_event.clear()
     elif msg.topic == "telemetry_config/dataSender":
       miLog("on_message", f"telemetry_config/dataSender:, value: {msg.payload.decode()}")
-      self.mqttc.publish("telemetry_config/dataSenderEcho", msg.payload.decode(), qos=0)
+      self.mqttc.publish("telemetry_config/dataSenderEcho", f"Desde Comma: {msg.payload.decode()}", qos=0)
 
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
     miLog("on_subscribe", f"{mid}, {reason_code_list}")
