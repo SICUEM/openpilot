@@ -21,37 +21,37 @@
 		{
 			"topic": "telemetry_mqtt/{0}/carControl",
 			"canal": "carControl",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
 			"topic": "telemetry_mqtt/{0}/carOutput",
 			"canal": "carOutput",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
 			"topic": "telemetry_mqtt/{0}/carParams",
 			"canal": "carParams",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
 			"topic": "telemetry_mqtt/{0}/carState",
 			"canal": "carState",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
 			"topic": "telemetry_mqtt/{0}/controlsState",
 			"canal": "controlsState",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
 			"topic": "telemetry_mqtt/{0}/deviceState",
 			"canal": "deviceState",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
@@ -75,19 +75,19 @@
 		{
 			"topic": "telemetry_mqtt/{0}/gpsLocation",
 			"canal": "gpsLocation",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
 			"topic": "telemetry_mqtt/{0}/gpsLocationExternal",
 			"canal": "gpsLocationExternal",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
 			"topic": "telemetry_mqtt/{0}/gyroscope",
 			"canal": "gyroscope",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
@@ -111,7 +111,7 @@
 		{
 			"topic": "telemetry_mqtt/{0}/liveTorqueParameters",
 			"canal": "liveTorqueParameters",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
@@ -135,7 +135,7 @@
 		{
 			"topic": "telemetry_mqtt/{0}/managerState",
 			"canal": "managerState",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
@@ -159,7 +159,7 @@
 		{
 			"topic": "telemetry_mqtt/{0}/pandaStates",
 			"canal": "pandaStates",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
@@ -171,7 +171,7 @@
 		{
 			"topic": "telemetry_mqtt/{0}/radarState",
 			"canal": "radarState",
-			"enable": 1,
+			"enable": 0,
 			"descripcion": "canal donde se pubnli…"
 		},
 		{
