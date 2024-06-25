@@ -6,7 +6,6 @@ import threading
 
 import requests
 
-
 import cereal.messaging as messaging
 from cereal import log
 from openpilot.common.api import Api
@@ -17,6 +16,7 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                     minimum_distance,
                                     parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
+from route_utils import recompute_route  # Importar el método independiente
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
@@ -76,7 +76,7 @@ class RouteEngine:
 
     self.update_location()
     try:
-      self.recompute_route()
+      recompute_route(self)  # Llamar al método independiente
       self.send_instruction()
     except Exception:
       cloudlog.exception("navd.failed_to_compute")
@@ -90,43 +90,6 @@ class RouteEngine:
     if self.localizer_valid:
       self.last_bearing = math.degrees(location.calibratedOrientationNED.value[2])
       self.last_position = Coordinate(location.positionGeodetic.value[0], location.positionGeodetic.value[1])
-
-  def recompute_route(self, new_destination=None):
-    if self.last_position is None:
-        return
-
-    # Obtener nuevo destino si no se pasa como parámetro
-    if new_destination is None:
-        new_destination = coordinate_from_param("NavDestination", self.params)
-    
-    # Si no hay nuevo destino, limpiar la ruta y resetear los límites de recomputación
-    if new_destination is None:
-        self.clear_route()
-        self.reset_recompute_limits()
-        return
-
-    should_recompute = self.should_recompute()
-
-    # Verificar si el nuevo destino es diferente del actual
-    if new_destination != self.nav_destination:
-        cloudlog.warning(f"Got new destination from NavDestination param {new_destination}")
-        should_recompute = True
-        self.nav_destination = new_destination
-
-    # No recomputar cuando el GPS no es confiable y step_idx no es None
-    if not self.gps_ok and self.step_idx is not None:
-        return
-
-    # Verificar si se debe recomputar la ruta
-    if self.recompute_countdown == 0 and should_recompute:
-        # Realizar el cálculo de la ruta con el nuevo destino
-        self.recompute_countdown = 2 ** self.recompute_backoff
-        self.recompute_backoff = min(6, self.recompute_backoff + 1)
-        self.calculate_route(self.nav_destination)
-        self.reroute_counter = 0
-    else:
-        # Reducir el contador de recomputación
-        self.recompute_countdown = max(0, self.recompute_countdown - 1)
 
   def calculate_route(self, destination):
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
