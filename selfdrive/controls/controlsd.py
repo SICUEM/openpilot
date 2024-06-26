@@ -35,7 +35,7 @@ from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE
 
 #============================CAMBIO 1 SAMUEL==================================
-from custom_route_manager import CustomRouteManager
+from openpilot.sicuem.custom_route_manager import CustomRouteManager
 from openpilot.selfdrive.navd.helpers import Coordinate 
 #============================ FIN CAMBIO 1 SAMUEL==================================
 
