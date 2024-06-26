@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-import bisect
 import math
 import os
 from enum import IntEnum
@@ -51,7 +50,7 @@ class Events:
   def __init__(self):
     self.events: list[int] = []
     self.static_events: list[int] = []
-    self.event_counters = dict.fromkeys(EVENTS.keys(), 0)
+    self.events_prev = dict.fromkeys(EVENTS.keys(), 0)
 
   @property
   def names(self) -> list[int]:
@@ -62,11 +61,11 @@ class Events:
 
   def add(self, event_name: int, static: bool=False) -> None:
     if static:
-      bisect.insort(self.static_events, event_name)
-    bisect.insort(self.events, event_name)
+      self.static_events.append(event_name)
+    self.events.append(event_name)
 
   def clear(self) -> None:
-    self.event_counters = {k: (v + 1 if k in self.events else 0) for k, v in self.event_counters.items()}
+    self.events_prev = {k: (v + 1 if k in self.events else 0) for k, v in self.events_prev.items()}
     self.events = self.static_events.copy()
 
   def contains(self, event_type: str) -> bool:
@@ -85,7 +84,7 @@ class Events:
           if not isinstance(alert, Alert):
             alert = alert(*callback_args)
 
-          if DT_CTRL * (self.event_counters[e] + 1) >= alert.creation_delay:
+          if DT_CTRL * (self.events_prev[e] + 1) >= alert.creation_delay:
             alert.alert_type = f"{EVENT_NAME[e]}/{et}"
             alert.event_type = et
             ret.append(alert)
@@ -93,7 +92,7 @@ class Events:
 
   def add_from_msg(self, events):
     for e in events:
-      bisect.insort(self.events, e.name.raw)
+      self.events.append(e.name.raw)
 
   def to_msg(self):
     ret = []
@@ -151,6 +150,19 @@ class NoEntryAlert(Alert):
     super().__init__(alert_text_1, alert_text_2, AlertStatus.normal,
                      AlertSize.mid, Priority.LOW, visual_alert,
                      AudibleAlert.refuse, 3.)
+
+
+
+#-----------------------------------------------Adrian Cañadas Gallardo
+class AlertaPersonalizada(Alert):
+    def __init__(self, alert_text_2: str,
+                 alert_text_1: str = "ESO ES UNA PRUEBA PARA VER SI FUNCIONA SICUEM",
+                 visual_alert: car.CarControl.HUDControl.VisualAlert=VisualAlert.none):
+        super().__init__(alert_text_1, alert_text_2, AlertStatus.normal,
+                         AlertSize.mid, Priority.LOW, visual_alert,
+                         AudibleAlert.refuse, 3.)
+
+#-----------------------------------------------Adrian Cañadas Gallardo
 
 
 class SoftDisableAlert(Alert):
@@ -217,6 +229,16 @@ def soft_disable_alert(alert_text_2: str) -> AlertCallbackType:
     return SoftDisableAlert(alert_text_2)
   return func
 
+#-----------------------------------------------Adrian Cañadas Gallardo
+
+def alerta_personalizada(alert_text_2: str) -> AlertCallbackType:
+    def func(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int) -> Alert:
+        if soft_disable_time < int(0.5 / DT_CTRL):
+          return ImmediateDisableAlert(alert_text_2)
+        return AlertaPersonalizada(alert_text_2)
+    return func
+
+#-----------------------------------------------Adrian Cañadas Gallardo
 def user_soft_disable_alert(alert_text_2: str) -> AlertCallbackType:
   def func(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int) -> Alert:
     if soft_disable_time < int(0.5 / DT_CTRL):
@@ -361,7 +383,6 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   # ********** events with no alerts **********
 
   EventName.stockFcw: {},
-  EventName.actuatorsApiUnavailable: {},
 
   # ********** events only containing alerts displayed in all states **********
 
@@ -538,7 +559,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
       "Press Resume to Exit Standstill",
       "",
       AlertStatus.userPrompt, AlertSize.small,
-      Priority.LOW, VisualAlert.none, AudibleAlert.none, .2),
+      Priority.MID, VisualAlert.none, AudibleAlert.none, .2),
   },
 
   EventName.belowSteerSpeed: {
@@ -634,6 +655,16 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
     ET.SOFT_DISABLE: soft_disable_alert("Camera Frame Rate Low"),
     ET.NO_ENTRY: NoEntryAlert("Camera Frame Rate Low: Reboot Your Device"),
   },
+
+  #-----------------------------------------------Adrian Cañadas Gallardo
+
+    EventName.alertaPersonalizada: {
+    ET.PERMANENT: alerta_personalizada("esto es una prueba SICUEM"),
+    ET.SOFT_DISABLE: soft_disable_alert("esto es una prueba SICUEM"),
+    ET.NO_ENTRY: NoEntryAlert("esto es una prueba SICUEM"),
+    },
+
+    #-----------------------------------------------Adrian Cañadas Gallardo
 
   # Unused
 
