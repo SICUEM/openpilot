@@ -9,6 +9,8 @@ import cereal.messaging as messaging
 
 from cereal import car, log, custom
 
+#from msgq.visionipc import VisionIpcClient, VisionStreamType
+
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.git import get_short_branch
 from openpilot.common.numpy_fast import clip
@@ -29,7 +31,7 @@ from openpilot.selfdrive.controls.lib.vehicle_model import VehicleModel
 from openpilot.selfdrive.modeld.model_capabilities import ModelCapabilities
 from openpilot.selfdrive.sunnypilot import get_model_generation
 
-from openpilot.system.athena.registration import is_registered_device
+#from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE
 
 #============================CAMBIO 1 SAMUEL==================================
@@ -106,7 +108,6 @@ class Controls:
     # TODO: de-couple controlsd with card/conflate on carState without introducing controls mismatches
     self.car_state_sock = messaging.sub_sock('carState', timeout=20)
 
-    self.d_camera_hardware_missing = self.params.get_bool("DriverCameraHardwareMissing") and not is_registered_device()
     if self.d_camera_hardware_missing:
       IGNORE_PROCESSES.update({"dmonitoringd", "dmonitoringmodeld"})
       self.camera_packets.remove("driverCameraState")
@@ -459,6 +460,7 @@ class Controls:
     CS = car_state.carState if car_state else self.CS_prev
 
     self.sm.update(0)
+
 
     # When the panda and controlsd do not agree on controls_allowed
     # we want to disengage openpilot. However the status from the panda goes through
