@@ -8,8 +8,6 @@ from typing import SupportsFloat
 import cereal.messaging as messaging
 
 from cereal import car, log, custom
-from msgq.visionipc import VisionIpcClient, VisionStreamType
-
 
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.git import get_short_branch
@@ -461,30 +459,6 @@ class Controls:
     CS = car_state.carState if car_state else self.CS_prev
 
     self.sm.update(0)
-
-    if not self.initialized:
-      all_valid = CS.canValid and self.sm.all_checks()
-      timed_out = self.sm.frame * DT_CTRL > 6.
-      if all_valid or timed_out or (SIMULATION and not REPLAY):
-        available_streams = VisionIpcClient.available_streams("camerad", block=False)
-        if VisionStreamType.VISION_STREAM_ROAD not in available_streams:
-          self.sm.ignore_alive.append('roadCameraState')
-        if VisionStreamType.VISION_STREAM_WIDE_ROAD not in available_streams:
-          self.sm.ignore_alive.append('wideRoadCameraState')
-
-        self.initialized = True
-        self.set_initial_state()
-
-        cloudlog.event(
-          "controlsd.initialized",
-          dt=self.sm.frame*DT_CTRL,
-          timeout=timed_out,
-          canValid=CS.canValid,
-          invalid=[s for s, valid in self.sm.valid.items() if not valid],
-          not_alive=[s for s, alive in self.sm.alive.items() if not alive],
-          not_freq_ok=[s for s, freq_ok in self.sm.freq_ok.items() if not freq_ok],
-          error=True,
-        )
 
     # When the panda and controlsd do not agree on controls_allowed
     # we want to disengage openpilot. However the status from the panda goes through
