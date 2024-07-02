@@ -1,0 +1,18 @@
+{
+	"config": {
+		"speed": {
+			"value": 1,
+			"topic": "telemetry_config/speed",
+			"descripcion": "Numero de mensajes por segundo en la telemetria"
+		},
+		"send": {
+			"value": 0,
+			"topic": "telemetry_config/pausarHilo",
+			"descripcion": "Transimitir datos. 1:transmite, 0:no transmite"
+		},
+		"IpServer": {
+			"value": "195.235.211.197",
+			"descripcion": "URL Server. Ejemplos: mqtt.eclipseprojects.io, 195.235.211.197,"
+		}
+	}
+}
