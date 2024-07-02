@@ -25,7 +25,8 @@ class SicMqttHilo:
 
   def __init__(self):
     # fileJson = "/data/openpilot/sicuem/canales.json"
-    fileJson = "../../sicuem/canales.json"
+    jsonCanales = "../../sicuem/canales.json"
+    self.jsonConfig = "../../sicuem/config.json"
     self.espera = 0.5
     self.indice_canal = 0
     self.conetado = False
@@ -36,18 +37,21 @@ class SicMqttHilo:
     if self.DongleID is None:
       self.DongleID = "DongleID"
 
-    with open(fileJson, 'r') as f:
-      jsondata = json.load(f)
+    with open(jsonCanales, 'r') as f:
+      dataCanales = json.load(f)
+    self.lista_suscripciones = [item['canal'] for item in dataCanales['canales'] if item['enable'] == 1]
+    self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
 
-    self.lista_suscripciones = [item['canal'] for item in jsondata['canales'] if item['enable'] == 1]
-    self.enabled_items = [item for item in jsondata['canales'] if item['enable'] == 1]
-    speed_value = jsondata['config']['speed']['value']
+    with open(self.jsonConfig, 'r') as f:
+      self.dataConfig = json.load(f)
+    speed_value = self.dataConfig['config']['speed']['value']
     self.espera = 1.0 / float(speed_value)
-    send_value = int(jsondata['config']['send']['value'])
+    miLog("Init speed value:", speed_value)
+    send_value = int(self.dataConfig['config']['send']['value'])
     miLog("Init send value:", send_value)
     if send_value == 0:
       self.pause_event.clear()
-    self.broker_address = jsondata['config']['IpServer']['value']
+    self.broker_address = self.dataConfig['config']['IpServer']['value']
     miLog("Default Server URL:", self.broker_address)
 
   def ping(self):
@@ -65,9 +69,11 @@ class SicMqttHilo:
   def on_message(self, mqttc, obj, msg):
     if msg.topic == "telemetry_config/speed":
       self.espera = 1.0 / float(msg.payload.decode())
+      self.dataConfig['config']['speed']['value'] = float(msg.payload.decode())
       miLog("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
     elif msg.topic == "telemetry_config/pausarHilo":
       value = int(msg.payload.decode())
+      self.dataConfig['config']['send']['value'] = value
       if value == 1:
         miLog("Hilo reanudado", "Set")
         self.pause_event.set()
@@ -77,6 +83,10 @@ class SicMqttHilo:
     elif msg.topic == "telemetry_config/dataSender":
       miLog("on_message", f"telemetry_config/dataSender:, value: {msg.payload.decode()}")
       self.mqttc.publish("telemetry_config/dataSenderEcho", f"Desde Comma: {msg.payload.decode()}", qos=0)
+    elif msg.topic == "telemetry_config/guardar":
+      miLog("on_message", f"telemetry_config/guardar:, value: {msg.payload.decode()}")
+      with open(self.jsonConfig, 'w') as f:
+        json.dump(self.dataConfig, f, indent=4)
 
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
     miLog("on_subscribe", f"{mid}, {reason_code_list}")
@@ -104,6 +114,7 @@ class SicMqttHilo:
       self.mqttc.subscribe("telemetry_config/speed", 0)
       self.mqttc.subscribe("telemetry_config/pausarHilo", 0)
       self.mqttc.subscribe("telemetry_config/dataSender", 0)
+      self.mqttc.subscribe("telemetry_config/guardar", 0)
       self.mqttc.loop_start()
       miLog("Conectado SicMqttHilo correctamente.", 0)
     except Exception as e:
