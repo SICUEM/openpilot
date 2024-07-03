@@ -36,7 +36,9 @@ from openpilot.system.hardware import HARDWARE
 
 #============================CAMBIO 1 SAMUEL==================================
 from openpilot.sicuem.custom_route_manager import CustomRouteManager
-from openpilot.selfdrive.navd.helpers import Coordinate 
+from openpilot.selfdrive.navd.helpers import Coordinate
+from openpilot.selfdrive.navd.navd import RouteEngine
+
 #============================ FIN CAMBIO 1 SAMUEL==================================
 
 
@@ -87,13 +89,18 @@ class Controls:
       self.CI, self.CP = CI, CI.CP
     #============================CAMBIO 2 SAMUEL==================================
     waypoints = [
-          (longitude1, latitude1),
-          (longitude2, latitude2),
-          (longitude3, latitude3)
+          #longitude.latitude
+          (1, 1),
+          (1, 1),
+          (1, 1)
         ]
-    self.route_manager = CustomRouteManager(self.sm, self.pm, waypoints)
+    #self.route_manager = CustomRouteManager(self.sm, self.pm, waypoints)
+    self.route_manager = RouteEngine(self.CI, self.params)
+    self.route_manager.waypoints = waypoints
+    RouteEngine.recompute_route(self.route_manager)
+
     #============================FIN CAMBIO 2 SAMUEL==================================
-    
+
     # Ensure the current branch is cached, otherwise the first iteration of controlsd lags
     self.branch = get_short_branch()
 

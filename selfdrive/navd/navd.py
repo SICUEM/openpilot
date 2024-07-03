@@ -16,7 +16,7 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                               minimum_distance, parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
 #========samuel:importo el metodo ya independiente
-from openpilot.siuem.custom_route_manager import recompute_route  
+#from openpilot.sicuem.custom_route_manager import recompute_route
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
@@ -75,7 +75,7 @@ class RouteEngine:
 
         self.update_location()
         try:
-            recompute_route(self)  # Llamar al método independiente
+            self.recompute_route()  
             self.send_instruction()
         except Exception:
             cloudlog.exception("navd.failed_to_compute")
@@ -89,6 +89,37 @@ class RouteEngine:
         if self.localizer_valid:
             self.last_bearing = math.degrees(location.calibratedOrientationNED.value[2])
             self.last_position = Coordinate(location.positionGeodetic.value[0], location.positionGeodetic.value[1])
+
+    def recompute_route(route_manager_instance):
+        # Lógica del método aquí
+        if route_manager_instance.last_position is None:
+            return
+
+        if route_manager_instance.current_waypoint_idx >= len(route_manager_instance.waypoints):
+            # Todos los waypoints han sido alcanzados
+            route_manager_instance.clear_route()
+            return
+
+        new_destination = route_manager_instance.waypoints[route_manager_instance.current_waypoint_idx]  # Próximo destino
+        should_recompute = route_manager_instance.should_recompute()
+        if new_destination != route_manager_instance.nav_destination:
+            # Se ha recibido un nuevo destino
+            should_recompute = True
+
+        if not route_manager_instance.gps_ok and route_manager_instance.step_idx is not None:
+            # No recomputar si el GPS no es confiable y hay una ruta en curso
+            return
+
+        if route_manager_instance.recompute_countdown == 0 and should_recompute:
+            # Recalcula la ruta si es necesario
+            route_manager_instance.recompute_countdown = 2 ** route_manager_instance.recompute_backoff
+            route_manager_instance.recompute_backoff = min(6, route_manager_instance.recompute_backoff + 1)
+            route_manager_instance.calculate_route(new_destination)
+            route_manager_instance.reroute_counter = 0
+        else:
+            # Decrementa el contador de recomputación
+            route_manager_instance.recompute_countdown = max(0, route_manager_instance.recompute_countdown - 1)
+
 
     def calculate_route(self, destination):
         cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
