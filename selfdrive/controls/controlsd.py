@@ -39,6 +39,10 @@ from openpilot.system.hardware import HARDWARE
 from openpilot.sicuem.topicmqtt import TopicMqtt
 # [End Bemposta] ******************************************************************************
 
+# [Start Jorge]********************************************************************************
+from openpilot.sicuem.confluent_kafka import send_logs
+# [End Jorge] *********************************************************************************
+
 SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
 LANE_DEPARTURE_THRESHOLD = 0.1
