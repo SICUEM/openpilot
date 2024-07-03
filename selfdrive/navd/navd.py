@@ -16,7 +16,7 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                               minimum_distance, parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
 #========samuel:importo el metodo ya independiente
-#from openpilot.sicuem.custom_route_manager import recompute_route
+from openpilot.siuem.custom_route_manager import recompute_route  
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
