@@ -151,20 +151,6 @@ class NoEntryAlert(Alert):
                      AlertSize.mid, Priority.LOW, visual_alert,
                      AudibleAlert.refuse, 3.)
 
-
-
-#-----------------------------------------------Adrian Cañadas Gallardo
-class AlertaPersonalizada(Alert):
-    def __init__(self, alert_text_2: str,
-                 alert_text_1: str = "ESO ES UNA PRUEBA PARA VER SI FUNCIONA SICUEM",
-                 visual_alert: car.CarControl.HUDControl.VisualAlert=VisualAlert.none):
-        super().__init__(alert_text_1, alert_text_2, AlertStatus.normal,
-                         AlertSize.mid, Priority.LOW, visual_alert,
-                         AudibleAlert.refuse, 3.)
-
-#-----------------------------------------------Adrian Cañadas Gallardo
-
-
 class SoftDisableAlert(Alert):
   def __init__(self, alert_text_2: str):
     super().__init__("TAKE CONTROL IMMEDIATELY", alert_text_2,
@@ -229,16 +215,6 @@ def soft_disable_alert(alert_text_2: str) -> AlertCallbackType:
     return SoftDisableAlert(alert_text_2)
   return func
 
-#-----------------------------------------------Adrian Cañadas Gallardo
-
-def alerta_personalizada(alert_text_2: str) -> AlertCallbackType:
-    def func(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int) -> Alert:
-        if soft_disable_time < int(0.5 / DT_CTRL):
-          return ImmediateDisableAlert(alert_text_2)
-        return AlertaPersonalizada(alert_text_2)
-    return func
-
-#-----------------------------------------------Adrian Cañadas Gallardo
 def user_soft_disable_alert(alert_text_2: str) -> AlertCallbackType:
   def func(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int) -> Alert:
     if soft_disable_time < int(0.5 / DT_CTRL):
@@ -655,16 +631,6 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
     ET.SOFT_DISABLE: soft_disable_alert("Camera Frame Rate Low"),
     ET.NO_ENTRY: NoEntryAlert("Camera Frame Rate Low: Reboot Your Device"),
   },
-
-  #-----------------------------------------------Adrian Cañadas Gallardo
-
-    EventName.alertaPersonalizada: {
-    ET.PERMANENT: alerta_personalizada("esto es una prueba SICUEM"),
-    ET.SOFT_DISABLE: soft_disable_alert("esto es una prueba SICUEM"),
-    ET.NO_ENTRY: NoEntryAlert("esto es una prueba SICUEM"),
-    },
-
-    #-----------------------------------------------Adrian Cañadas Gallardo
 
   # Unused
 
