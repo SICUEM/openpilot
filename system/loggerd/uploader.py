@@ -164,10 +164,10 @@ class Uploader:
       else:
         data = f
       # [Jorge] *************************************************  
-      try:
-        send_logs(data)
-      except:
-        print("Datos no impresos")
+      # try:
+      #   send_logs(data)
+      # except:
+      #   print("Datos no impresos")
       # [End Of Jorge] ******************************************
       return requests.put(url, data=data, headers=headers, timeout=10)
 
