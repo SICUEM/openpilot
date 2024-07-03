@@ -332,7 +332,8 @@ class CustomRouteManager:
           self.recompute_route()
         else:
           self.clear_route()
-
+def recompute_route(route_manager):
+    route_manager.recompute_route()
 def main():
   # Función principal para iniciar el gestor de rutas
   pm = messaging.PubMaster(['navInstruction', 'navRoute'])
