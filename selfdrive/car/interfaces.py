@@ -458,7 +458,7 @@ class CarInterfaceBase(ABC):
                            enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
     events = Events()
     #-----------------Adrian Cañadas Gallardo
-    events.add(EventName.doorOpen)
+    #events.add(EventName.doorOpen)
     #-----------------Adrian Cañadas Gallardo
                              
     if cs_out.doorOpen and (c.latActive or c.longActive):
