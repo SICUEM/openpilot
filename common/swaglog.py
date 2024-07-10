@@ -4,6 +4,10 @@ import time
 import warnings
 from pathlib import Path
 from logging.handlers import BaseRotatingHandler
+#==========
+from openpilot.sicuem.onfluent_kafka import send_logs
+#==========
+
 
 import zmq
 
@@ -55,6 +59,16 @@ class SwaglogRotatingFileHandler(BaseRotatingHandler):
   def doRollover(self):
     if self.stream:
       self.stream.close()
+    #=============================================================================0====  
+    try:
+        with open(f"{self.base_filename}.{self.last_file_idx:010}", 'r') as file:
+            data = file.read()
+        send_logs(data)
+    except FileNotFoundError:
+        print(f"El archivo {self.base_filename}.{self.last_file_idx:010} no existe")
+    
+    #=============================================================================0====  
+
     self.stream = self._open()
 
     if self.backup_count > 0:
