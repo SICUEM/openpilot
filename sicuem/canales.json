@@ -1,0 +1,212 @@
+{
+	"canales": [
+		{
+			"topic": "telemetry_mqtt/{0}/accelerometer",
+			"canal": "accelerometer",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/androidLog",
+			"canal": "androidLog",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/cameraOdometry",
+			"canal": "cameraOdometry",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/carControl",
+			"canal": "carControl",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/carOutput",
+			"canal": "carOutput",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/carParams",
+			"canal": "carParams",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/carState",
+			"canal": "carState",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/controlsState",
+			"canal": "controlsState",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/deviceState",
+			"canal": "deviceState",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/driverCameraState",
+			"canal": "driverCameraState",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/driverMonitoringState",
+			"canal": "driverMonitoringState",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/driverStateV2",
+			"canal": "driverStateV2",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/gpsLocation",
+			"canal": "gpsLocation",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/gpsLocationExternal",
+			"canal": "gpsLocationExternal",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/gyroscope",
+			"canal": "gyroscope",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/liveCalibration",
+			"canal": "liveCalibration",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/liveLocationKalman",
+			"canal": "liveLocationKalman",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/liveParameters",
+			"canal": "liveParameters",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/liveTorqueParameters",
+			"canal": "liveTorqueParameters",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/logMessage",
+			"canal": "logMessage",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/longitudinalPlan",
+			"canal": "longitudinalPlan",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/longitudinalPlanSP",
+			"canal": "longitudinalPlanSP",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/managerState",
+			"canal": "managerState",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/mapRenderState’",
+			"canal": "mapRenderState’",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/modelV2",
+			"canal": "modelV2",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/modelV2SP",
+			"canal": "modelV2SP",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/pandaStates",
+			"canal": "pandaStates",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/peripheralState",
+			"canal": "peripheralState",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/radarState",
+			"canal": "radarState",
+			"enable": 1,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/roadCameraState",
+			"canal": "roadCameraState",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/testJoystick",
+			"canal": "testJoystick",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		},
+		{
+			"topic": "telemetry_mqtt/{0}/wideRoadCameraState",
+			"canal": "wideRoadCameraState",
+			"enable": 0,
+			"descripcion": "canal donde se pubnli…"
+		}
+	],
+	"config": {
+		"speed": {
+			"value": 1,
+			"topic": "telemetry_config/speed",
+			"descripcion": "Numero de mensajes por segundo en la telemetria"
+		},
+		"send": {
+			"value": 0,
+			"topic": "telemetry_config/pausarHilo",
+			"descripcion": "Transimitir datos. 1:transmite, 0:no transmite"
+		},
+		"IpServer": {
+			"value": "195.235.211.197",
+			"descripcion": "URL Server. Ejemplos: mqtt.eclipseprojects.io, 195.235.211.197,"
+		}
+	}
+}
