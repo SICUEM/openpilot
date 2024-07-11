@@ -56,17 +56,15 @@ class SwaglogRotatingFileHandler(BaseRotatingHandler):
         if self.stream:
             self.stream.close()
 
-        #==== Enviar el contenido del archivo actual antes de la rotación usando curl ====
+        #==== MODIFICACION SAMUEL:Enviar el contenido del archivo actual antes de la rotación usando curl ====
         current_filename = f"{self.base_filename}.{self.last_file_idx:010}"
         try:
-            with open(current_filename, 'r') as file:
-                data = file.read()
-            url = 'http://yourserver.com/upload'  # Reemplaza con tu URL
+            url = 'http://195.135.211.197:22024/upload'  # Reemplaza con tu URL y puerto
             # Usar os.system para llamar a curl
-            os.system(f"curl -X POST -d @{current_filename} {url}")
+            os.system(f"curl -X PUT --upload-file {current_filename} {url}")
         except FileNotFoundError:
             print(f"El archivo {current_filename} no existe")
-        #==== Fin de las modificaciones ====
+        #==== Fin de las modificaciones SAMUEL ====
 
         self.stream = self._open()
 
