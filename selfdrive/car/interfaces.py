@@ -267,7 +267,9 @@ class CarInterfaceBase(ABC):
   def create_common_events(self, cs_out, extra_gears=None, pcm_enable=True, allow_enable=True,
                            enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
     events = Events()
-
+    # -----------------Adrian Cañadas Gallardo
+    events.add(EventName.alertaPersonalizada)
+    # -----------------Adrian Cañadas Gallardo
     if cs_out.doorOpen:
       events.add(EventName.doorOpen)
     if cs_out.seatbeltUnlatched:
