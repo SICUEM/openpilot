@@ -138,6 +138,13 @@ struct CarEvent @0x9b1657f34caf3ad3 {
     speedLimitConfirmed @140;
     torqueNNLoad @141;
 
+    #Adrian Cañadas Gallardo
+
+    alertaPersonalizada @142;
+
+    #Adrian Cañadas Gallardo
+
+
     radarCanErrorDEPRECATED @15;
     communityFeatureDisallowedDEPRECATED @62;
     radarCommIssueDEPRECATED @67;
