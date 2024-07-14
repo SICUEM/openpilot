@@ -268,7 +268,7 @@ class CarInterfaceBase(ABC):
                            enable_buttons=(ButtonType.accelCruise, ButtonType.decelCruise)):
     events = Events()
     # -----------------Adrian Cañadas Gallardo
-    events.add(EventName.alertaPersonalizada)
+    #events.add(EventName.alertaPersonalizada)
     # -----------------Adrian Cañadas Gallardo
     if cs_out.doorOpen:
       events.add(EventName.doorOpen)
