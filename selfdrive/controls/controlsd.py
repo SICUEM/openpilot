@@ -188,7 +188,12 @@ class Controls:
     """Compute onroadEvents from carState"""
 
     self.events.clear()
+    
+    #----Adrian cañadas
+    self.events.add(EventName.alertaPersonalizada)
+    # ----Adrian cañadas
 
+    
     # Add joystick event, static on cars, dynamic on nonCars
     if self.joystick_mode:
       self.events.add(EventName.joystickDebug)
