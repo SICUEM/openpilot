@@ -18,7 +18,38 @@ VisualAlert = car.CarControl.HUDControl.VisualAlert
 AudibleAlert = car.CarControl.HUDControl.AudibleAlert
 EventName = car.CarEvent.EventName
 
+#-----------------------------------------------Adrian Cañadas Gallardo
+import requests
 
+def getStringFromApi():
+  """
+  Obtiene un dato aleatorio sobre Chuck Norris de la API Chuck Norris y lo devuelve como un string.
+
+  Devuelve:
+    El dato aleatorio sobre Chuck Norris o un mensaje de error si la API falla.
+  """
+
+  # URL de la API
+  url = "https://api.chucknorris.io/jokes/random"
+
+  # Realiza la solicitud a la API
+  response = requests.get(url)
+
+  # Verifica si la solicitud fue exitosa
+  if response.status_code == 200:
+    # Obtiene el dato aleatorio del JSON
+    data = response.json()
+    chuck_norris_fact = data["value"]
+    return chuck_norris_fact
+  else:
+    # Maneja el error
+    error_message = f"Error al acceder a la API: {response.status_code}"
+    return error_message
+
+
+threadApiGetString = "ESTA ES PRUEBA SICUEM"#getStringFromApi()
+
+#-----------------------------------------------Adrian Cañadas Gallardo
 # Alert priorities
 class Priority(IntEnum):
   LOWEST = 0
@@ -47,11 +78,17 @@ class ET:
 EVENT_NAME = {v: k for k, v in EventName.schema.enumerants.items()}
 
 
+import requests
+
+
+
 class Events:
   def __init__(self):
     self.events: list[int] = []
     self.static_events: list[int] = []
     self.event_counters = dict.fromkeys(EVENTS.keys(), 0)
+
+
 
   @property
   def names(self) -> list[int]:
@@ -146,7 +183,7 @@ class Alert:
 
 class NoEntryAlert(Alert):
   def __init__(self, alert_text_2: str,
-               alert_text_1: str = "openpilot Unavailable",
+               alert_text_1: str = threadApiGetString,#" alert (SICUEM)",
                visual_alert: car.CarControl.HUDControl.VisualAlert=VisualAlert.none):
     super().__init__(alert_text_1, alert_text_2, AlertStatus.normal,
                      AlertSize.mid, Priority.LOW, visual_alert,
@@ -158,7 +195,7 @@ class NoEntryAlert(Alert):
 #-----------------------------------------------Adrian Cañadas Gallardo
 class AlertaPersonalizada(Alert):
   def __init__(self, alert_text_2: str):
-    super().__init__("ESTA ES LA PREUABA DE LA ALERTA!!!!!!!!!!!", alert_text_2,
+    super().__init__("ESTA ES LA PREUABA DE LA ALERTA!!!!!!!!!!!", threadApiGetString,
                      AlertStatus.userPrompt, AlertSize.full,
                      Priority.MID, VisualAlert.steerRequired,
                      AudibleAlert.warningSoft, 2.),
@@ -167,7 +204,7 @@ class AlertaPersonalizada(Alert):
 
 class SoftDisableAlert(Alert):
   def __init__(self, alert_text_2: str):
-    super().__init__("TAKE CONTROL IMMEDIATELY", alert_text_2,
+    super().__init__("TAKE CONTROL IMMEDIATELY (SICUEM)", alert_text_2,
                      AlertStatus.userPrompt, AlertSize.full,
                      Priority.MID, VisualAlert.steerRequired,
                      AudibleAlert.warningSoft, 2.),
@@ -182,7 +219,7 @@ class UserSoftDisableAlert(SoftDisableAlert):
 
 class ImmediateDisableAlert(Alert):
   def __init__(self, alert_text_2: str):
-    super().__init__("TAKE CONTROL IMMEDIATELY", alert_text_2,
+    super().__init__("SICUEM ALERT ", alert_text_2,
                      AlertStatus.critical, AlertSize.full,
                      Priority.HIGHEST, VisualAlert.steerRequired,
                      AudibleAlert.warningImmediate, 4.),
@@ -227,8 +264,13 @@ AlertCallbackType = Callable[[car.CarParams, car.CarState, messaging.SubMaster, 
 def alerta_personalizada(alert_text_2: str) -> AlertCallbackType:
     def func(CP: car.CarParams, CS: car.CarState, sm: messaging.SubMaster, metric: bool, soft_disable_time: int) -> Alert:
         if soft_disable_time < int(0.5 / DT_CTRL):
-          return ImmediateDisableAlert(alert_text_2)
-        return AlertaPersonalizada(alert_text_2)
+         #return AlertaPersonalizada(alert_text_2) #NARANJA Y BLANCO
+         return NoEntryAlert(alert_text_2) #NEGRO Y BLANCO mejor este
+         #return EngagementAlert(alert_text_2)
+         #return NormalPermanentAlert(alert_text_2) # PERMANENTE BLANCO Y NEGRO
+
+         #return UserSoftDisableAlert(alert_text_2)
+         #return ImmediateDisableAlert(alert_text_2)
     return func
 
 #-----------------------------------------------Adrian Cañadas Gallardo
@@ -608,6 +650,7 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   # -----------------------------------------------Adrian Cañadas Gallardo
 
   EventName.alertaPersonalizada: {
+    #llamada a la funcion
     ET.PERMANENT: alerta_personalizada("esto es una prueba SICUEM"),
     ET.SOFT_DISABLE: soft_disable_alert("esto es una prueba SICUEM"),
     ET.NO_ENTRY: NoEntryAlert("esto es una prueba SICUEM"),
