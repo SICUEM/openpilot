@@ -114,11 +114,13 @@ class Events:
       callback_args = []
 
     ret = []
+    self.events = list(set(self.events))
     for e in self.events:
       types = EVENTS[e].keys()
       for et in event_types:
         if et in types:
           alert = EVENTS[e][et]
+
           if not isinstance(alert, Alert):
             alert = alert(*callback_args)
 
@@ -126,6 +128,7 @@ class Events:
             alert.alert_type = f"{EVENT_NAME[e]}/{et}"
             alert.event_type = et
             ret.append(alert)
+
     return ret
 
   def add_from_msg(self, events):
@@ -195,7 +198,7 @@ class NoEntryAlert(Alert):
 #-----------------------------------------------Adrian Cañadas Gallardo
 class AlertaPersonalizada(Alert):
   def __init__(self, alert_text_2: str):
-    super().__init__("ESTA ES LA PREUABA DE LA ALERTA!!!!!!!!!!!", threadApiGetString,
+    super().__init__("ESTA ES LA PRUEBA DE LA ALERTA!!!!!!!!!!!", threadApiGetString,
                      AlertStatus.userPrompt, AlertSize.full,
                      Priority.MID, VisualAlert.steerRequired,
                      AudibleAlert.warningSoft, 2.),
