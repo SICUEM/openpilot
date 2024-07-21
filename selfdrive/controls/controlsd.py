@@ -56,16 +56,20 @@ CSID_MAP = {"1": EventName.roadCameraError, "2": EventName.wideRoadCameraError, 
 ACTUATOR_FIELDS = tuple(car.CarControl.Actuators.schema.fields.keys())
 ACTIVE_STATES = (State.enabled, State.softDisabling, State.overriding)
 ENABLED_STATES = (State.preEnabled, *ACTIVE_STATES)
-
+PRUEBA=1
 
 class Controls:
   def __init__(self, CI=None):
+
+    #---Adrian cañadas
+    self.alertaPersonalizada=True
+    #---Adrian cañadas
+
     self.params = Params()
 
     if CI is None:
       cloudlog.info("controlsd is waiting for CarParams")
-      with car.CarParams.from_bytes(self.params.get("CarParams", block=True)) as msg:
-        self.CP = msg
+      self.CP = messaging.log_from_bytes(self.params.get("CarParams", block=True), car.CarParams)
       cloudlog.info("controlsd got CarParams")
 
       # Uses car interface helper functions, altering state won't be considered by card for actuation
@@ -96,7 +100,7 @@ class Controls:
     self.sm = messaging.SubMaster(['deviceState', 'pandaStates', 'peripheralState', 'modelV2', 'liveCalibration',
                                    'carOutput', 'driverMonitoringState', 'longitudinalPlan', 'liveLocationKalman',
                                    'managerState', 'liveParameters', 'radarState', 'liveTorqueParameters',
-                                   'testJoystick', 'longitudinalPlanSP', 'modelV2SP'] + self.camera_packets + self.sensor_packets,
+                                   'testJoystick'] + self.camera_packets + self.sensor_packets,
                                   ignore_alive=ignore, ignore_avg_freq=ignore+['radarState', 'testJoystick'], ignore_valid=['testJoystick', ],
                                   frequency=int(1/DT_CTRL))
 
@@ -154,8 +158,6 @@ class Controls:
     self.v_cruise_helper = VCruiseHelper(self.CP)
     self.recalibrating_seen = False
 
-    self.reverse_acc_change = False
-
     self.can_log_mono_time = 0
 
     self.startup_event = get_startup_event(car_recognized, not self.CP.passive, len(self.CP.carFw) > 0)
@@ -184,16 +186,29 @@ class Controls:
       if any(ps.controlsAllowed for ps in self.sm['pandaStates']):
         self.state = State.enabled
 
+
+
+  # ----Adrian cañadas
+  def ejecutar_tarea(self):
+    if self.eventoDeEntrada():
+      self.events = Events()
+      self.events.add(EventName.alertaPersonalizada)
+
+  # ----Adrian cañadas
+
   def update_events(self, CS):
     """Compute onroadEvents from carState"""
 
     self.events.clear()
-    
-    #----Adrian cañadas
-    self.events.add(EventName.alertaPersonalizada)
+
     # ----Adrian cañadas
 
-    
+    hilo = threading.Thread(target=self.ejecutar_tarea)
+    hilo.start()
+
+    # ----Adrian cañadas
+
+
     # Add joystick event, static on cars, dynamic on nonCars
     if self.joystick_mode:
       self.events.add(EventName.joystickDebug)
@@ -220,7 +235,6 @@ class Controls:
 
     if not self.CP.notCar:
       self.events.add_from_msg(self.sm['driverMonitoringState'].events)
-      self.events.add_from_msg(self.sm['longitudinalPlanSP'].events)
 
     # Add car events, ignore if CAN isn't valid
     if CS.canValid:
@@ -263,20 +277,16 @@ class Controls:
         self.events.add(EventName.calibrationInvalid)
 
     # Handle lane change
-    lane_change_set_timer = int(self.params.get("AutoLaneChangeTimer", encoding="utf8"))
     if self.sm['modelV2'].meta.laneChangeState == LaneChangeState.preLaneChange:
       direction = self.sm['modelV2'].meta.laneChangeDirection
-      lc_prev = self.sm['modelV2SP'].laneChangePrev
       if (CS.leftBlindspot and direction == LaneChangeDirection.left) or \
          (CS.rightBlindspot and direction == LaneChangeDirection.right):
         self.events.add(EventName.laneChangeBlocked)
       else:
         if direction == LaneChangeDirection.left:
-          self.events.add(EventName.preLaneChangeLeft) if lane_change_set_timer == 0 or lc_prev else \
-            self.events.add(EventName.laneChange)
+          self.events.add(EventName.preLaneChangeLeft)
         else:
-          self.events.add(EventName.preLaneChangeRight) if lane_change_set_timer == 0 or lc_prev else \
-            self.events.add(EventName.laneChange)
+          self.events.add(EventName.preLaneChangeRight)
     elif self.sm['modelV2'].meta.laneChangeState in (LaneChangeState.laneChangeStarting,
                                                     LaneChangeState.laneChangeFinishing):
       self.events.add(EventName.laneChange)
@@ -447,7 +457,7 @@ class Controls:
   def state_transition(self, CS):
     """Compute conditional state transitions and execute actions on state transitions"""
 
-    self.v_cruise_helper.update_v_cruise(CS, self.enabled, self.is_metric, self.reverse_acc_change)
+    self.v_cruise_helper.update_v_cruise(CS, self.enabled, self.is_metric)
 
     # decrement the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
@@ -717,11 +727,13 @@ class Controls:
     if self.enabled:
       clear_event_types.add(ET.NO_ENTRY)
 
+
     alerts = self.events.create_alerts(self.current_alert_types, [self.CP, CS, self.sm, self.is_metric, self.soft_disable_timer])
     self.AM.add_many(self.sm.frame, alerts)
     current_alert = self.AM.process_alerts(self.sm.frame, clear_event_types)
     if current_alert:
       hudControl.visualAlert = current_alert.visual_alert
+
 
     if not self.CP.passive and self.initialized:
       CO = self.sm['carOutput']
@@ -802,8 +814,6 @@ class Controls:
   def step(self):
     start_time = time.monotonic()
 
-    self.reverse_acc_change = self.params.get_bool("ReverseAccChange")
-
     # Sample data from sockets and get a carState
     CS = self.data_sample()
     cloudlog.timestamp("Data sampled")
@@ -849,6 +859,29 @@ class Controls:
     finally:
       e.set()
       t.join()
+
+#------Adrian Cañadas gallardo
+  def eventoDeEntrada(self):
+
+    import json
+
+    # Abre el archivo JSON en modo lectura
+    with open('../../sicuem/events.json', 'r') as archivo:
+      # Carga el contenido del archivo JSON en una variable
+      datos_json = json.load(archivo)
+
+    # Obtiene el valor de "mostrar" del archivo JSON
+    valor_mostrar = datos_json.get('mostrar')
+
+    # Verifica el valor de "mostrar" y devuelve el resultado correspondiente
+    if valor_mostrar == 1:
+      return True
+    elif valor_mostrar == 0:
+      return False
+    else:
+      # Si no se encuentra el valor o no es 0 o 1, se imprime un mensaje y se devuelve False
+      print("Valor de 'mostrar' no válido en el archivo JSON. Se devuelve False.")
+      return False
 
 
 def main():
