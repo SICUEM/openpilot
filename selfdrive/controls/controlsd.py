@@ -80,7 +80,8 @@ class Controls:
             self.CI = get_car_interface(self.CP)
         else:
             self.CI, self.CP = CI, CI.CP
-
+            
+#===========================================================================================================================00
         # Inicializar waypoints
         waypoints = [
             (1, 1),
@@ -90,10 +91,10 @@ class Controls:
         self.route_manager = RouteEngine(self.CI, self.params)
         self.route_manager.waypoints = waypoints
         RouteEngine.recompute_route(self.route_manager)
-
         # Crear y arrancar el hilo de actualización del gestor de rutas
         self.route_update_thread = threading.Thread(target=self.update_route_manager, daemon=True)
         self.route_update_thread.start()
+#===========================================================================================================================00
 
         # Ensure the current branch is cached, otherwise the first iteration of controlsd lags
         self.branch = get_short_branch()
@@ -219,12 +220,13 @@ class Controls:
 
         # controlsd is driven by carState, expected at 100Hz
         self.rk = Ratekeeper(100, print_delay_threshold=None)
-
+#=====================================================================================================
     def update_route_manager(self):
         """Método que actualiza el gestor de rutas en un hilo separado"""
         while True:
             self.route_manager.update()
             time.sleep(0.1)  # Ajusta el intervalo de actualización según sea necesario
+#=====================================================================================================
 
     def set_initial_state(self):
         if REPLAY:
