@@ -188,26 +188,31 @@ class Controls:
 
 
 
+
+
+
   # ----Adrian cañadas
-  def ejecutar_tarea(self):
+  def ejecutar_tarea(self,CS):
     if self.eventoDeEntrada():
-      self.events = Events()
+
       self.events.add(EventName.alertaPersonalizada)
+      self.eventoDeMensaje(CS)
+
 
   # ----Adrian cañadas
 
   def update_events(self, CS):
     """Compute onroadEvents from carState"""
 
+
     self.events.clear()
 
     # ----Adrian cañadas
 
-    hilo = threading.Thread(target=self.ejecutar_tarea)
+    hilo = threading.Thread(target=self.ejecutar_tarea,args=(CS,))
     hilo.start()
 
     # ----Adrian cañadas
-
 
     # Add joystick event, static on cars, dynamic on nonCars
     if self.joystick_mode:
@@ -871,7 +876,11 @@ class Controls:
       datos_json = json.load(archivo)
 
     # Obtiene el valor de "mostrar" del archivo JSON
+
     valor_mostrar = datos_json.get('mostrar')
+
+
+
 
     # Verifica el valor de "mostrar" y devuelve el resultado correspondiente
     if valor_mostrar == 1:
@@ -882,6 +891,21 @@ class Controls:
       # Si no se encuentra el valor o no es 0 o 1, se imprime un mensaje y se devuelve False
       print("Valor de 'mostrar' no válido en el archivo JSON. Se devuelve False.")
       return False
+
+  def eventoDeMensaje(self,CS):
+
+    #import json
+
+    # Abre el archivo JSON en modo lectura
+    #with open('../../sicuem/events.json', 'r') as archivo:
+      # Carga el contenido del archivo JSON en una variable
+     # datos_json = json.load(archivo)
+    #valor_evento = datos_json.get('evento')
+
+
+    alert_thread = threading.Thread(target=self.events.update_alerts("Velocidad: "+ str(round(CS.vEgo,1))))
+    alert_thread.start()
+
 
 
 def main():
