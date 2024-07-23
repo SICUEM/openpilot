@@ -124,6 +124,7 @@ class Events:
           if not isinstance(alert, Alert):
             alert = alert(*callback_args)
 
+
           if DT_CTRL * (self.event_counters[e] + 1) >= alert.creation_delay:
             alert.alert_type = f"{EVENT_NAME[e]}/{et}"
             alert.event_type = et
@@ -144,6 +145,11 @@ class Events:
         setattr(event, event_type, True)
       ret.append(event)
     return ret
+
+  def update_alerts(self,valor_evento):
+
+      alert_section = EVENTS[EventName.alertaPersonalizada]
+      alert_section[ET.SOFT_DISABLE] = soft_disable_alert(valor_evento)
 
 
 class Alert:
@@ -197,18 +203,19 @@ class NoEntryAlert(Alert):
 
 #-----------------------------------------------Adrian Cañadas Gallardo
 class AlertaPersonalizada(Alert):
-  def __init__(self, alert_text_2: str):
-    super().__init__("ESTA ES LA PRUEBA DE LA ALERTA!!!!!!!!!!!", threadApiGetString,
-                     AlertStatus.userPrompt, AlertSize.full,
-                     Priority.MID, VisualAlert.steerRequired,
-                     AudibleAlert.warningSoft, 2.),
+  def __init__(self, alert_text_1: str, alert_text_2: str = "ALETA PERSONALIZADA", duration: float = 0.2,
+               priority: Priority = Priority.LOWER, creation_delay: float = 0.):
+    super().__init__(alert_text_1, alert_text_2,
+                     AlertStatus.normal, AlertSize.mid if len(alert_text_2) else AlertSize.small,
+                     priority, VisualAlert.none, AudibleAlert.none, duration, creation_delay=creation_delay),
+
 
 #-----------------------------------------------Adrian Cañadas Gallardo
 
 class SoftDisableAlert(Alert):
   def __init__(self, alert_text_2: str):
-    super().__init__("TAKE CONTROL IMMEDIATELY (SICUEM)", alert_text_2,
-                     AlertStatus.userPrompt, AlertSize.full,
+    super().__init__(alert_text_2, alert_text_2,
+                     AlertStatus.userPrompt, AlertSize.small,
                      Priority.MID, VisualAlert.steerRequired,
                      AudibleAlert.warningSoft, 2.),
 
@@ -401,7 +408,6 @@ def speed_limit_adjust_alert(CP: car.CarParams, CS: car.CarState, sm: messaging.
     "",
     AlertStatus.normal, AlertSize.small,
     Priority.LOW, VisualAlert.none, AudibleAlert.none, 4.)
-
 
 
 EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
@@ -653,10 +659,9 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
   # -----------------------------------------------Adrian Cañadas Gallardo
 
   EventName.alertaPersonalizada: {
-    #llamada a la funcion
-    ET.PERMANENT: alerta_personalizada("esto es una prueba SICUEM"),
-    ET.SOFT_DISABLE: soft_disable_alert("esto es una prueba SICUEM"),
-    ET.NO_ENTRY: NoEntryAlert("esto es una prueba SICUEM"),
+
+    ET.SOFT_DISABLE: soft_disable_alert("SOFTDISABE"),
+
   },
 
   # -----------------------------------------------Adrian Cañadas Gallardo
@@ -1081,7 +1086,15 @@ EVENTS: dict[int, dict[str, Alert | AlertCallbackType]] = {
 }
 
 
+
+
+
+
 if __name__ == '__main__':
+
+
+
+
   # print all alerts by type and priority
   from cereal.services import SERVICE_LIST
   from collections import defaultdict
@@ -1108,3 +1121,7 @@ if __name__ == '__main__':
     for p, alert_list in evs:
       print(f"  {repr(p)}:")
       print("   ", ', '.join(alert_list), "\n")
+
+
+
+
