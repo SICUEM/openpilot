@@ -18,33 +18,6 @@ VisualAlert = car.CarControl.HUDControl.VisualAlert
 AudibleAlert = car.CarControl.HUDControl.AudibleAlert
 EventName = car.CarEvent.EventName
 
-#-----------------------------------------------Adrian Cañadas Gallardo
-import requests
-
-def getStringFromApi():
-  """
-  Obtiene un dato aleatorio sobre Chuck Norris de la API Chuck Norris y lo devuelve como un string.
-
-  Devuelve:
-    El dato aleatorio sobre Chuck Norris o un mensaje de error si la API falla.
-  """
-
-  # URL de la API
-  url = "https://api.chucknorris.io/jokes/random"
-
-  # Realiza la solicitud a la API
-  response = requests.get(url)
-
-  # Verifica si la solicitud fue exitosa
-  if response.status_code == 200:
-    # Obtiene el dato aleatorio del JSON
-    data = response.json()
-    chuck_norris_fact = data["value"]
-    return chuck_norris_fact
-  else:
-    # Maneja el error
-    error_message = f"Error al acceder a la API: {response.status_code}"
-    return error_message
 
 
 threadApiGetString = "ESTA ES PRUEBA SICUEM"#getStringFromApi()
