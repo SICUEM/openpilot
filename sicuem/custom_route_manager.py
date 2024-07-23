@@ -1,5 +1,4 @@
 def recompute_route(route_manager_instance):
-    # Lógica del método aquí
     if route_manager_instance.last_position is None:
         return
 
