@@ -2,7 +2,6 @@ import asyncio
 import uuid
 import cv2
 import os
-import time
 import json
 from aiortc import RTCSessionDescription, MediaStreamTrack
 from aiortc.contrib.media import MediaRelay
@@ -14,7 +13,7 @@ from stream import WebRTCOfferStream, StreamingOffer, ConnectionProvider
 class VideoTrack(MediaStreamTrack):
     kind = "video"
 
-    def __init__(self, camera_type="driver"):
+    def __init__(self, camera_type="road"):  # Cambiado a "road"
         super().__init__()
         self.cap = cv2.VideoCapture(0)
         if not self.cap.isOpened():
@@ -54,12 +53,12 @@ producer = KafkaProducer(
 
 async def main():
     # Crear la pista de video
-    video_track = VideoTrack(camera_type="driver")
+    video_track = VideoTrack(camera_type="road")  # Cambiado a "road"
 
     # Crear la instancia de WebRTCOfferStream
     stream = WebRTCOfferStream(
         session_provider=session_provider,
-        consumed_camera_types=["driver"],
+        consumed_camera_types=["road"],  # Cambiado a "road"
         consume_audio=False,
         video_producer_tracks=[video_track],
         audio_producer_tracks=[],
