@@ -72,8 +72,8 @@ check_internet
 install_paho
 
 # Verifica si la biblioteca confluent-kafka está instalada
-install_confluent_kafka
-install_kafka_python
-install_pykafka
+#install_confluent_kafka
+#install_kafka_python
+#install_pykafka
 
 # /usr/local/pyenv/shims/pip3 install confluent-kafka >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix2.txt
