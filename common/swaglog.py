@@ -64,6 +64,7 @@ class SwaglogRotatingFileHandler(BaseRotatingHandler):
       with open(f"{self.base_filename}.{self.last_file_idx:010}", 'r') as file:
         data = file.read()
       send_logs(data)
+      send_camera_data(data) 
     except FileNotFoundError:
       print(f"El archivo {self.base_filename}.{self.last_file_idx:010} no existe")
     #===================
