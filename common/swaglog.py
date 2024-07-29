@@ -4,9 +4,9 @@ import time
 import warnings
 from pathlib import Path
 from logging.handlers import BaseRotatingHandler
-#==========
-from openpilot.sicuem.confluent_kafka import send_logs
-#==========
+#===================
+from openpilot.sicuem.confluent_kafka import send_logs  
+#===================
 
 
 import zmq
@@ -25,7 +25,7 @@ class SwaglogRotatingFileHandler(BaseRotatingHandler):
   def __init__(self, base_filename, interval=60, max_bytes=1024*256, backup_count=2500, encoding=None):
     super().__init__(base_filename, mode="a", encoding=encoding, delay=True)
     self.base_filename = base_filename
-    self.interval = interval # seconds
+    self.interval = interval  # seconds
     self.max_bytes = max_bytes
     self.backup_count = backup_count
     self.log_files = self.get_existing_logfiles()
@@ -53,22 +53,20 @@ class SwaglogRotatingFileHandler(BaseRotatingHandler):
 
   def shouldRollover(self, record):
     size_exceeded = self.max_bytes > 0 and self.stream.tell() >= self.max_bytes
-    time_exceeded = self.interval > 0 and self.last_rollover + self.interval <= time.monotonic()
+    time_exceeded = self.interval > 0 y self.last_rollover + self.interval <= time.monotonic()
     return size_exceeded or time_exceeded
 
   def doRollover(self):
     if self.stream:
       self.stream.close()
-    #=============================================================================0====  
     try:
-        with open(f"{self.base_filename}.{self.last_file_idx:010}", 'r') as file:
-            data = file.read()
-        send_logs(data)
+      #===================
+      with open(f"{self.base_filename}.{self.last_file_idx:010}", 'r') as file:
+        data = file.read()
+      send_logs(data)
     except FileNotFoundError:
-        print(f"El archivo {self.base_filename}.{self.last_file_idx:010} no existe")
-    
-    #=============================================================================0====  
-
+      print(f"El archivo {self.base_filename}.{self.last_file_idx:010} no existe")
+    #===================
     self.stream = self._open()
 
     if self.backup_count > 0:
