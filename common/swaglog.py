@@ -5,7 +5,7 @@ import warnings
 from pathlib import Path
 from logging.handlers import BaseRotatingHandler
 #==========
-from openpilot.sicuem.onfluent_kafka import send_logs
+from openpilot.sicuem.confluent_kafka import send_logs
 #==========
 
 
