@@ -27,19 +27,19 @@ function install_paho() {
 }
 
 # Función para verificar/instalar la librería confluent-kafka en el sistema
-function install_confluent_kafka() {
-    python -c "from confluent_kafka import Producer" &> /dev/null
-    if [ $? -eq 0 ]; then
-        echo "La biblioteca confluent-kafka ya está instalada."
-    else
-        echo "La biblioteca confluent-kafka no está instalada. Instalando dependencias del sistema..."
-        sudo apt-get update
-        sudo apt-get install -y librdkafka-dev
-        echo "Instalando la biblioteca confluent-kafka..."
-        pip install confluent-kafka
-        sudo reboot
-    fi
-}
+#function install_confluent_kafka() {
+#   python -c "from confluent_kafka import Producer" &> /dev/null
+#   if [ $? -eq 0 ]; then
+#       echo "La biblioteca confluent-kafka ya está instalada."
+#   else
+#       echo "La biblioteca confluent-kafka no está instalada. Instalando dependencias del sistema..."
+#       sudo apt-get update
+#       sudo apt-get install -y librdkafka-dev
+#       echo "Instalando la biblioteca confluent-kafka..."
+#       pip install confluent-kafka
+#       sudo reboot
+#   fi
+#}
 
 # Función para verificar/instalar la librería kafka-python en el sistema
 function install_kafka_python() {
@@ -73,7 +73,7 @@ check_internet
 install_paho
 
 # Verifica si la biblioteca confluent-kafka está instalada
-install_confluent_kafka
+#install_confluent_kafka
 install_kafka_python
 install_pykafka
 
