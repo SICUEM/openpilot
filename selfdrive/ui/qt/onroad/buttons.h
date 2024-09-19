@@ -27,6 +27,7 @@ private:
   void changeMode();
 
   Params params;
+  QPixmap uem_img;//Adri
   QPixmap engage_img;
   QPixmap experimental_img;
 };

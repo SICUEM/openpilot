@@ -17,10 +17,12 @@ void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrus
 
 // ExperimentalButton
 ExperimentalButton::ExperimentalButton(QWidget *parent) : experimental_mode(false), engageable(false), QPushButton(parent) {
-  setFixedSize(btn_size, btn_size);
+  setFixedSize(btn_size+btn_size, btn_size);//Adri
 
+  uem_img = loadPixmap("../assets/navigation/uem_logo.svg", {img_size, img_size});//Adri
   engage_img = loadPixmap("../assets/img_chffr_wheel.png", {img_size, img_size});
   experimental_img = loadPixmap("../assets/img_experimental.svg", {img_size, img_size});
+
   QObject::connect(this, &QPushButton::clicked, this, &ExperimentalButton::changeMode);
 }
 
@@ -45,5 +47,8 @@ void ExperimentalButton::updateState(const UIState &s) {
 void ExperimentalButton::paintEvent(QPaintEvent *event) {
   QPainter p(this);
   QPixmap img = experimental_mode ? experimental_img : engage_img;
-  drawIcon(p, QPoint(btn_size / 2, btn_size / 2), img, QColor(0, 0, 0, 166), (isDown() || !engageable) ? 0.6 : 1.0);
+  drawIcon(p, QPoint(btn_size+btn_size/2, btn_size / 2), img, QColor(0, 0, 0, 166), (isDown() || !engageable) ? 0.6 : 1.0);
+  drawIcon(p, QPoint(btn_size/2 , btn_size / 2), uem_img, QColor(0, 0, 0, 166), (isDown() || !engageable) ? 0.6 : 1.0);//Adri
+
 }
+
