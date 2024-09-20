@@ -509,7 +509,7 @@ SettingsWindowSP::SettingsWindowSP(QWidget *parent) : SettingsWindow(parent) {
   QList<PanelInfo> panels = {
 //Adri ini
 
-    PanelInfo("   " + tr("UEM"), togglesUEM, "../assets/navigation/uem_logo.svg"),//Adrian
+    PanelInfo("   " + tr("UEM"), new SunnypilotPanel(this,1), "../assets/navigation/uem_logo.svg"),//Adrian
 
 //Adri fin
     PanelInfo("   " + tr("Device"), device, "../assets/navigation/icon_home.svg"),

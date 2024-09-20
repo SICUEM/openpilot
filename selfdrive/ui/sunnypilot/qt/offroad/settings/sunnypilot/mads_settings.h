@@ -37,7 +37,8 @@ class MadsSettings : public QWidget {
   Q_OBJECT
 
 public:
-  explicit MadsSettings(QWidget* parent = nullptr);
+
+  explicit MadsSettings(QWidget* parent = nullptr,int edit=0);//Adri
   void showEvent(QShowEvent *event) override;
 
 signals:
