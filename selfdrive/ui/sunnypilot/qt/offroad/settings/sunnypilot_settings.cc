@@ -161,7 +161,7 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent,int edit) : QFrame(parent) {
     main_layout->setCurrentWidget(mads_settings);
   });
 
-  mads_settings = new MadsSettings(this);
+  mads_settings = new MadsSettings(this,edit);
   connect(mads_settings, &MadsSettings::backPress, [=]() {
     scrollView->restoreScrollPosition();
     main_layout->setCurrentWidget(sunnypilotScreen);
