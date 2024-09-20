@@ -31,7 +31,7 @@ Last updated: July 29, 2024
 
 #include "common/model.h"
 
-SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
+SunnypilotPanel::SunnypilotPanel(QWidget *parent,int edit) : QFrame(parent) {
   main_layout = new QStackedLayout(this);
 
   ListWidgetSP *list = new ListWidgetSP(this, false);

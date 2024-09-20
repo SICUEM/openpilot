@@ -68,7 +68,7 @@ class SunnypilotPanel : public QFrame {
   Q_OBJECT
 
 public:
-  explicit SunnypilotPanel(QWidget *parent = nullptr);
+  explicit SunnypilotPanel(QWidget *parent = nullptr,int edit);
   void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent* event) override;
 
