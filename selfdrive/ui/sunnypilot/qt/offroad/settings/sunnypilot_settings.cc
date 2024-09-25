@@ -156,6 +156,23 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent,int edit) : QFrame(parent) {
       tr("TELEMETRIA UEM"),
       tr("EXPLICACION TELEMETRIA UEM"),
       "../assets/offroad/icon_blank.png",
+    },
+     {
+      "toggle_op1",
+      tr("op1"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
+    },
+      {
+      "toggle_op2",
+      tr("op2"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
+    }, {
+      "toggle_op3",
+      tr("op3"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
     }
   };
 
