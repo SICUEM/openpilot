@@ -113,6 +113,7 @@ TogglesPanelSP::TogglesPanelSP(SettingsWindow *parent) : TogglesPanel(parent) {
       tr("Display speed in km/h instead of mph."),
       "../assets/offroad/icon_blank.png",
     },
+
 #ifdef ENABLE_MAPS
     {
       "NavSettingTime24h",
@@ -325,46 +326,48 @@ void TogglesPanelSP::updateToggles() {
 TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) {
   // param, title, desc, icon
   std::vector<std::tuple<QString, QString, QString, QString>> toggle_defs{
+       //----------------------------------------------------------------------ADRIAN CAÑADAS GALLARDO INI
     {
-      "Toggle1",
-      tr("OPCION 1"),
-      tr("Descripción del OPCION 1."),
-      "../assets/navigation/uem_logo.svg",
+      "ActivateEvent",
+      tr("TELEMTRIA (SICUEM)"),
+      tr("Activar evento a mostrar"),
+      "../assets/offroad/alerta.png",
     },
+    //----------------------------------------------------------------------ADRIAN CAÑADAS GALLARDO FIN
     {
       "Toggle2",
-      tr("OPCION 2"),
+      tr("OPCION 2 TELEMTRIA"),
       tr("Descripción del OPCION 2."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle3",
-      tr("OPCION 3"),
+      tr("OPCION 3 TELEMTRIA"),
       tr("Descripción del OPCION 3."),
       "../assets/navigation/uem_logo.svg",
     },
      {
       "Toggle4",
-      tr("OPCION 4"),
+      tr("OPCION 4 TELEMTRIA"),
       tr("Descripción del OPCION 4."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle5",
-      tr("OPCION 5"),
+      tr("OPCION 5 TELEMTRIA"),
       tr("Descripción del OPCION 5."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle6",
-      tr("OPCION 6"),
+      tr("OPCION 6 TELEMTRIA"),
       tr("Descripción del OPCION 6."),
       "../assets/navigation/uem_logo.svg",
     }
   };
 
 
-
+/*
  std::vector<QString> longi_button_texts{tr("OP 1"), tr("OP 2"), tr("OP 3"), tr("OP 4")};
   long_personality_setting = new ButtonParamControlSP("LongitudinalPersonality", tr("OPCIONES UEM 1"),
                                           tr(""),
@@ -380,7 +383,7 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
                                           "",
                                           accel_personality_texts);
   accel_personality_setting->showDescription();
-
+*/
 
   // set up uiState update for personality setting
   QObject::connect(uiStateSP(), &UIStateSP::uiUpdate, this, &TogglesPanelUEM::updateState);
@@ -396,8 +399,8 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
 
     // insert longitudinal personality after NDOG toggle
     if (param == "Toggle6") {
-      addItem(long_personality_setting);
-      addItem(accel_personality_setting);
+      //addItem(long_personality_setting);
+      //addItem(accel_personality_setting);
     }
   }
 
@@ -406,6 +409,7 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
   QObject::connect(param_watcher, &ParamWatcher::paramChanged, [=](const QString &param_name, const QString &param_value) {
     updateToggles();
   });
+
 }
 
 void TogglesPanelUEM::updateState(const UIStateSP &s) {
@@ -426,6 +430,9 @@ void TogglesPanelUEM::updateState(const UIStateSP &s) {
     }
     uiStateSP()->scene.accel_personality = accel_personality;
   }
+
+
+
 }
 
 void TogglesPanelUEM::showEvent(QShowEvent *event) {
@@ -435,21 +442,42 @@ void TogglesPanelUEM::showEvent(QShowEvent *event) {
 void TogglesPanelUEM::updateToggles() {
   param_watcher->addParam("LongitudinalPersonality");
 
-  if (!isVisible()) return;
+  //if (!isVisible()) return;
+//imprimir en consola si esta visible
 
-  auto toggle1 = toggles["Toggle1"];
+
+
+  auto toggle1 = toggles["ActivateEvent"];
   auto toggle2 = toggles["Toggle2"];
   auto toggle3 = toggles["Toggle3"];
-
-  const bool is_release = params.getBool("IsReleaseBranch");
-
-  toggle1->setEnabled(!is_release);
-  toggle2->setEnabled(!is_release);
-  toggle3->setEnabled(!is_release);
+  auto toggle4 = toggles["Toggle4"];
+  auto toggle5 = toggles["Toggle5"];
+  auto toggle6 = toggles["Toggle6"];
 
   toggle1->refresh();
   toggle2->refresh();
   toggle3->refresh();
+  toggle4->refresh();
+  toggle5->refresh();
+  toggle6->refresh();
+
+   // Lógica para mostrar/ocultar Toggle2 y Toggle3 en función de ActivateEvent
+  bool isActivateEventOn = toggle1->isToggled(); // Usamos isToggled() en lugar de isChecked()
+ // bool isActivateEventOn = params.getBool("ActivateEvent");
+
+  toggle2->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle2
+  toggle3->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle3
+  toggle4->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle4
+  toggle5->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle5
+  toggle6->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle6
+
+  toggle1->refresh();
+  toggle2->refresh();
+  toggle3->refresh();
+
+  this->update();  // Esto redibuja todo el panel
+
+
 }
 
 
@@ -509,7 +537,9 @@ SettingsWindowSP::SettingsWindowSP(QWidget *parent) : SettingsWindow(parent) {
   QList<PanelInfo> panels = {
 //Adri ini
 
-    PanelInfo("   " + tr("UEM"), new SunnypilotPanel(this,1), "../assets/navigation/uem_logo.svg"),//Adrian
+
+    //PanelInfo("   " + tr("UEM"), new SunnypilotPanel(this,1), "../assets/navigation/uem_logo.svg"),//Adrian
+    PanelInfo("   " + tr("UEM"),  togglesUEM, "../assets/navigation/uem_logo.svg"),//Adrian
 
 //Adri fin
     PanelInfo("   " + tr("Device"), device, "../assets/navigation/icon_home.svg"),

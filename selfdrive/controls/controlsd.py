@@ -117,6 +117,8 @@ class Controls:
     # read params
     self.is_metric = self.params.get_bool("IsMetric")
     self.is_alerta_SICUEM = self.params.get_bool("ActivateEvent") #Adrian Cañadas Gsllardo
+    #ESTE ES EL TOGGLE PARA LA TELEMETRIA
+
 
     self.is_ldw_enabled = self.params.get_bool("IsLdwEnabled")
 
