@@ -390,12 +390,24 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
 
   for (auto &[param, title, desc, icon] : toggle_defs) {
     auto toggle = new ParamControlSP(param, title, desc, icon, this);
-
+// Conectar el evento de cambio de estado (toggle flipped)
+    QObject::connect(toggle, &ParamControlSP::toggleFlipped, [=]() {
+      this->updateToggles();  // Actualizar los toggles
+      this->update();         // Forzar la repintura del panel
+    });
+  }
     bool locked = params.getBool((param + "Lock").toStdString());
     toggle->setEnabled(!locked);
 
     addItem(toggle);
     toggles[param.toStdString()] = toggle;
+
+    // Conectar el evento de cambio de estado (toggle flipped)
+    QObject::connect(toggle, &ParamControlSP::toggleFlipped, [=]() {
+      this->updateToggles();  // Actualizar los toggles
+      this->update();         // Forzar la repintura del panel
+    });
+
 
     // insert longitudinal personality after NDOG toggle
     if (param == "Toggle6") {
@@ -476,6 +488,7 @@ void TogglesPanelUEM::updateToggles() {
   toggle3->refresh();
 
   this->update();  // Esto redibuja todo el panel
+
 
 
 }
