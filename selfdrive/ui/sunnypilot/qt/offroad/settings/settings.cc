@@ -329,38 +329,38 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
        //----------------------------------------------------------------------ADRIAN CAÑADAS GALLARDO INI
     {
       "ActivateEvent",
-      tr("TELEMTRIA (SICUEM)"),
+      tr("TELEMETRIA UEM"),
       tr("Activar evento a mostrar"),
-      "../assets/offroad/alerta.png",
+      "../assets/navigation/uem_logo.svg",
     },
     //----------------------------------------------------------------------ADRIAN CAÑADAS GALLARDO FIN
     {
       "Toggle2",
-      tr("OP2 TELEMTRIA"),
+      tr("OP2 TELEMETRIA"),
       tr("Descripción del OPCION 2."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle3",
-      tr("OP3 TELEMTRIA"),
+      tr("OP3 TELEMETRIA"),
       tr("Descripción del OPCION 3."),
       "../assets/navigation/uem_logo.svg",
     },
      {
       "Toggle4",
-      tr("OP4 TELEMTRIA"),
+      tr("OP4 TELEMETRIA"),
       tr("Descripción del OPCION 4."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle5",
-      tr("OP5 TELEMTRIA"),
+      tr("OP5 TELEMETRIA"),
       tr("Descripción del OPCION 5."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle6",
-      tr("OP6 TELEMTRIA"),
+      tr("OP6 TELEMETRIA"),
       tr("Descripción del OPCION 6."),
       "../assets/navigation/uem_logo.svg",
     }
@@ -391,7 +391,7 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
   for (auto &[param, title, desc, icon] : toggle_defs) {
     auto toggle = new ParamControlSP(param, title, desc, icon, this);
 // Conectar el evento de cambio de estado (toggle flipped)
-  
+
     bool locked = params.getBool((param + "Lock").toStdString());
     toggle->setEnabled(!locked);
 
