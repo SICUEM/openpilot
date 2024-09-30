@@ -336,31 +336,31 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
     //----------------------------------------------------------------------ADRIAN CAÑADAS GALLARDO FIN
     {
       "Toggle2",
-      tr("OPCION 2 TELEMTRIA"),
+      tr("OP2 TELEMTRIA"),
       tr("Descripción del OPCION 2."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle3",
-      tr("OPCION 3 TELEMTRIA"),
+      tr("OP3 TELEMTRIA"),
       tr("Descripción del OPCION 3."),
       "../assets/navigation/uem_logo.svg",
     },
      {
       "Toggle4",
-      tr("OPCION 4 TELEMTRIA"),
+      tr("OP4 TELEMTRIA"),
       tr("Descripción del OPCION 4."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle5",
-      tr("OPCION 5 TELEMTRIA"),
+      tr("OP5 TELEMTRIA"),
       tr("Descripción del OPCION 5."),
       "../assets/navigation/uem_logo.svg",
     },
     {
       "Toggle6",
-      tr("OPCION 6 TELEMTRIA"),
+      tr("OP6 TELEMTRIA"),
       tr("Descripción del OPCION 6."),
       "../assets/navigation/uem_logo.svg",
     }
@@ -391,11 +391,7 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
   for (auto &[param, title, desc, icon] : toggle_defs) {
     auto toggle = new ParamControlSP(param, title, desc, icon, this);
 // Conectar el evento de cambio de estado (toggle flipped)
-    QObject::connect(toggle, &ParamControlSP::toggleFlipped, [=]() {
-      this->updateToggles();  // Actualizar los toggles
-      this->update();         // Forzar la repintura del panel
-    });
-  }
+  
     bool locked = params.getBool((param + "Lock").toStdString());
     toggle->setEnabled(!locked);
 
