@@ -335,7 +335,7 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
     },
     //----------------------------------------------------------------------ADRIAN CAÑADAS GALLARDO FIN
     {
-      "Toggle2",
+      "carState_toggle",
       tr("OP2 TELEMETRIA"),
       tr("Descripción del OPCION 2."),
       "../assets/navigation/uem_logo.svg",
@@ -456,7 +456,7 @@ void TogglesPanelUEM::updateToggles() {
 
 
   auto toggle1 = toggles["ActivateEvent"];
-  auto toggle2 = toggles["Toggle2"];
+  auto toggle2 = toggles["carState_toggle"];
   auto toggle3 = toggles["Toggle3"];
   auto toggle4 = toggles["Toggle4"];
   auto toggle5 = toggles["Toggle5"];
