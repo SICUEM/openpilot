@@ -3,6 +3,8 @@
 
 import time
 import json
+import signal
+import sys
 from datetime import datetime
 from threading import Thread, Event
 from openpilot.common.params import Params
@@ -21,11 +23,15 @@ def miLog(msg, code):
 class SicMqttHilo:
 
   def __init__(self):
+    # Inicialización de atributos y registro de la señal SIGINT (CTRL+C)
+    signal.signal(signal.SIGINT, self.signal_handler)
+
     self.jsonCanales = "../../sicuem/canales.json"
     self.jsonConfig = "../../sicuem/config.json"
     self.espera = 0.5
     self.indice_canal = 0
     self.conetado = False
+    self.sm = None  # Inicializar self.sm como None para verificar después si está disponible
     self.pause_event = Event()
     self.pause_event.set()
     params = Params()
@@ -44,12 +50,19 @@ class SicMqttHilo:
     self.broker_address = self.dataConfig['config']['IpServer']['value']
     miLog("Default Server URL:", self.broker_address)
 
-  # Función para cargar los canales habilitados
-  def cargar_canales(self):
-    with open(self.jsonCanales, 'r') as f:
-      dataCanales = json.load(f)
+  def signal_handler(self, sig, frame):
+    """Manejador de la señal SIGINT para detener el programa de forma controlada."""
+    print('Se recibió SIGINT (CTRL+C), cerrando el programa de manera controlada...')
+    self.cleanup()
+    sys.exit(0)
 
-    # Revisión de parámetros como carControl_toggle
+  def cleanup(self):
+    """Función de limpieza para detener hilos o cerrar conexiones antes de salir."""
+    self.pause_event.set()  # Detener los hilos si están esperando
+    miLog("Limpieza completada, cerrando el programa.", "INFO")
+
+  def verificar_toggle_canales(self, dataCanales):
+    """Revisa los toggles asociados a los canales y actualiza su estado 'enable' en función de los valores en Params."""
     params = Params()
 
     for item in dataCanales['canales']:
@@ -64,6 +77,14 @@ class SicMqttHilo:
       except Exception as e:
         miLog(f"No se encontró un parámetro toggle para {item['canal']}. Manteniendo el estado actual.", "INFO")
 
+  # Función para cargar los canales habilitados
+  def cargar_canales(self):
+    with open(self.jsonCanales, 'r') as f:
+      dataCanales = json.load(f)
+
+    # Llamar a la función que revisa los toggles de los canales
+    self.verificar_toggle_canales(dataCanales)
+
     # Actualizar las listas de canales habilitados
     self.lista_suscripciones = [item['canal'] for item in dataCanales['canales'] if item['enable'] == 1]
     self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
@@ -71,8 +92,8 @@ class SicMqttHilo:
     # Si no hay ningún canal habilitado, usar un canal predeterminado
     if not self.lista_suscripciones:
       miLog("No hay canales habilitados. Suscribiéndose a un canal por defecto.", "INFO")
-      self.lista_suscripciones = ["dummy_channel"]
-      self.enabled_items = [{"canal": "dummy_channel", "topic": "dummy_topic"}]
+      self.lista_suscripciones = []
+      self.enabled_items = []
 
     miLog("Canales cargados", len(self.enabled_items))
 
@@ -178,15 +199,29 @@ class SicMqttHilo:
       self.cargar_canales()  # Recargar los canales habilitados en cada ciclo
 
       # Verificar si hay canales habilitados antes de continuar
-      if not self.enabled_items:
-        miLog("No hay canales habilitados para enviar datos", "WARN")
-        time.sleep(self.espera)
-        continue
+      if len(self.enabled_items) > 0 and self.sm:  # Asegurarse de que self.sm esté inicializado
+        for canal_actual in self.enabled_items:
+          canal_nombre = canal_actual['canal']
 
-      self.sm.update()
-      canal_actual = self.enabled_items[self.indice_canal]
-      self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), str(self.sm[canal_actual['canal']]), qos=0)
-      self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
+          # Verificar si el canal está disponible en self.sm.data
+          if canal_nombre in self.sm.data:
+            try:
+              self.sm.update()
+              self.mqttc.publish(
+                str(canal_actual['topic']).format(self.DongleID),
+                str(self.sm[canal_nombre]),
+                qos=0
+              )
+              print(f"Enviando datos para {canal_nombre}")
+            except KeyError as e:
+              miLog(f"Error al acceder a {canal_nombre}: {str(e)}", "ERROR")
+              continue  # Continuar con el siguiente canal si ocurre un KeyError
+          else:
+            miLog(f"Canal {canal_nombre} no disponible en SubMaster.", "WARN")
+      else:
+        # Publicar por MQTT que no hay canales activados
+        self.mqttc.publish("telemetry_mqtt/vacio", "ningun canal activado...", qos=0)
+
       print(f"telemetry_mqtt/#")
       time.sleep(self.espera)
 
@@ -201,7 +236,12 @@ class SicMqttHilo:
     self.cargar_canales()  # Cargar los canales habilitados
 
     # Crear el objeto SubMaster aunque sea con el canal por defecto
-    self.sm = messaging.SubMaster(self.lista_suscripciones)
+    if self.lista_suscripciones:
+      try:
+        self.sm = messaging.SubMaster(self.lista_suscripciones)
+      except Exception as e:
+        miLog("Error creando SubMaster", str(e))
+        self.sm = None  # Asegurarse de que self.sm esté definido
 
     time.sleep(2)
 
