@@ -21,8 +21,7 @@ function install_paho() {
         echo "La biblioteca paho-mqtt ya está instalada."
     else
         echo "La biblioteca paho-mqtt no está instalada. Instalando..."
-        pip install paho-mqtt
-        sudo reboot
+        /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt
     fi
 }
 
@@ -31,5 +30,3 @@ check_internet
 
 # Verifica si la biblioteca paho-mqtt está instalada
 install_paho
-
-# /usr/local/pyenv/shims/pip3 install confluent-kafka >> /data/openpilot/install_mix.txt 2> /data/openpilot/error_mix2.txt

@@ -1,23 +1,192 @@
-[2024/10/02_11:02:48] - Init speed value:. code:1
-[2024/10/02_11:02:48] - Init send value:. code:0
-[2024/10/02_11:02:48] - Default Server URL:. code:195.235.211.197
-[2024/10/02_11:02:50] - Terminado programa principal. code:0
-[2024/10/02_11:02:51] - Conexión a Internet exitosa.. code:OK
-[2024/10/02_11:02:56] - Error de conexión en TopicMqtt. code:timed out
-[2024/10/02_11:04:54] - Init speed value:. code:1
-[2024/10/02_11:04:54] - Init send value:. code:0
-[2024/10/02_11:04:54] - Default Server URL:. code:195.235.211.197
-[2024/10/02_11:04:56] - Terminado programa principal. code:0
-[2024/10/02_11:04:56] - Conexión a Internet exitosa.. code:OK
-[2024/10/02_11:05:01] - Error de conexión en TopicMqtt. code:timed out
-[2024/10/02_11:05:18] - Init speed value:. code:1
-[2024/10/02_11:05:18] - Init send value:. code:0
-[2024/10/02_11:05:18] - Default Server URL:. code:195.235.211.197
-[2024/10/02_11:05:20] - Terminado programa principal. code:0
-[2024/10/02_11:05:20] - Conexión a Internet exitosa.. code:OK
-[2024/10/02_11:05:35] - Init speed value:. code:1
-[2024/10/02_11:05:35] - Init send value:. code:0
-[2024/10/02_11:05:35] - Default Server URL:. code:195.235.211.197
-[2024/10/02_11:05:37] - Terminado programa principal. code:0
-[2024/10/02_11:05:38] - Conexión a Internet exitosa.. code:OK
-[2024/10/02_11:05:43] - Error de conexión en TopicMqtt. code:timed out
+[2024/07/16_13:32:37] - Init speed value:. code:0.5
+[2024/07/16_13:32:37] - Init send value:. code:1
+[2024/07/16_13:32:37] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_13:32:39] - Terminado programa principal. code:0
+[2024/07/16_13:32:39] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_13:32:39] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_13:32:39] - on_connect. code:Success
+[2024/07/16_13:32:40] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:32:40] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:32:40] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:32:40] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:33:39] - Init speed value:. code:0.5
+[2024/07/16_13:33:39] - Init send value:. code:1
+[2024/07/16_13:33:39] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_13:33:41] - Terminado programa principal. code:0
+[2024/07/16_13:33:41] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_13:33:41] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_13:33:41] - on_connect. code:Success
+[2024/07/16_13:33:41] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:33:41] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:33:41] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:33:41] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:34:17] - on_message. code:telemetry_config/dataSender:, value: 1721129657.6413736
+[2024/07/16_13:34:19] - on_message. code:telemetry_config/dataSender:, value: 1721129659.6427164
+[2024/07/16_13:34:21] - on_message. code:telemetry_config/dataSender:, value: 1721129661.6438274
+[2024/07/16_13:34:23] - on_message. code:telemetry_config/dataSender:, value: 1721129663.6450725
+[2024/07/16_13:34:25] - on_message. code:telemetry_config/dataSender:, value: 1721129665.6460762
+[2024/07/16_13:34:27] - on_message. code:telemetry_config/dataSender:, value: 1721129667.6473153
+[2024/07/16_13:34:29] - on_message. code:telemetry_config/dataSender:, value: 1721129669.6483958
+[2024/07/16_13:34:31] - on_message. code:telemetry_config/dataSender:, value: 1721129671.649347
+[2024/07/16_13:34:33] - on_message. code:telemetry_config/dataSender:, value: 1721129673.6499772
+[2024/07/16_13:34:35] - on_message. code:telemetry_config/dataSender:, value: 1721129675.651018
+[2024/07/16_13:34:37] - on_message. code:telemetry_config/dataSender:, value: 1721129677.651889
+[2024/07/16_13:34:39] - on_message. code:telemetry_config/dataSender:, value: 1721129679.6529963
+[2024/07/16_13:34:41] - on_message. code:telemetry_config/dataSender:, value: 1721129681.6539426
+[2024/07/16_13:34:43] - on_message. code:telemetry_config/dataSender:, value: 1721129683.6554873
+[2024/07/16_13:34:45] - on_message. code:telemetry_config/dataSender:, value: 1721129685.6565747
+[2024/07/16_13:34:47] - on_message. code:telemetry_config/dataSender:, value: 1721129687.6578438
+[2024/07/16_13:34:49] - on_message. code:telemetry_config/dataSender:, value: 1721129689.6587832
+[2024/07/16_13:34:51] - on_message. code:telemetry_config/dataSender:, value: 1721129691.660092
+[2024/07/16_13:34:53] - on_message. code:telemetry_config/dataSender:, value: 1721129693.6608157
+[2024/07/16_13:34:55] - on_message. code:telemetry_config/dataSender:, value: 1721129695.6618698
+[2024/07/16_13:34:57] - on_message. code:telemetry_config/dataSender:, value: 1721129697.6626644
+[2024/07/16_13:34:59] - on_message. code:telemetry_config/dataSender:, value: 1721129699.6642742
+[2024/07/16_13:35:01] - on_message. code:telemetry_config/dataSender:, value: 1721129701.6649058
+[2024/07/16_13:35:03] - on_message. code:telemetry_config/dataSender:, value: 1721129703.6660476
+[2024/07/16_13:35:05] - on_message. code:telemetry_config/dataSender:, value: 1721129705.6669502
+[2024/07/16_13:35:07] - on_message. code:telemetry_config/dataSender:, value: 1721129707.668492
+[2024/07/16_13:35:09] - on_message. code:telemetry_config/dataSender:, value: 1721129709.6695068
+[2024/07/16_13:35:11] - on_message. code:telemetry_config/dataSender:, value: 1721129711.670569
+[2024/07/16_13:35:13] - on_message. code:telemetry_config/dataSender:, value: 1721129713.6715508
+[2024/07/16_13:35:15] - on_message. code:telemetry_config/dataSender:, value: 1721129715.6729572
+[2024/07/16_13:35:17] - on_message. code:telemetry_config/dataSender:, value: 1721129717.6738632
+[2024/07/16_13:35:19] - on_message. code:telemetry_config/dataSender:, value: 1721129719.6750593
+[2024/07/16_13:35:21] - on_message. code:telemetry_config/dataSender:, value: 1721129721.6757953
+[2024/07/16_13:35:23] - on_message. code:telemetry_config/dataSender:, value: 1721129723.67714
+[2024/07/16_13:35:25] - on_message. code:telemetry_config/dataSender:, value: 1721129725.678256
+[2024/07/16_13:35:27] - on_message. code:telemetry_config/dataSender:, value: 1721129727.6799216
+[2024/07/16_13:57:24] - Init speed value:. code:0.5
+[2024/07/16_13:57:24] - Init send value:. code:1
+[2024/07/16_13:57:24] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_13:57:26] - Terminado programa principal. code:0
+[2024/07/16_13:57:26] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_13:57:26] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_13:57:26] - on_connect. code:Success
+[2024/07/16_13:57:26] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:57:26] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:57:26] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:57:26] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_13:57:26] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:53:01] - Init speed value:. code:0.5
+[2024/07/16_14:53:01] - Init send value:. code:1
+[2024/07/16_14:53:01] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_14:53:03] - Terminado programa principal. code:0
+[2024/07/16_14:53:04] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_14:53:04] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_14:53:04] - on_connect. code:Success
+[2024/07/16_14:53:04] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:53:04] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:53:04] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:53:04] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:53:04] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:54:01] - Init speed value:. code:0.5
+[2024/07/16_14:54:01] - Init send value:. code:1
+[2024/07/16_14:54:01] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_14:54:03] - Terminado programa principal. code:0
+[2024/07/16_14:54:03] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_14:54:03] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_14:54:04] - on_connect. code:Success
+[2024/07/16_14:54:04] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:54:04] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:54:04] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:54:04] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_14:54:04] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:18:57] - Init speed value:. code:2
+[2024/07/16_15:18:57] - Init send value:. code:1
+[2024/07/16_15:18:57] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_15:18:59] - Terminado programa principal. code:0
+[2024/07/16_15:18:59] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_15:19:00] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_15:19:00] - on_connect. code:Success
+[2024/07/16_15:19:00] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:19:00] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:19:00] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:19:00] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:19:00] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:37:58] - Init speed value:. code:2
+[2024/07/16_15:37:58] - Init send value:. code:1
+[2024/07/16_15:37:58] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_15:38:00] - Terminado programa principal. code:0
+[2024/07/16_15:38:00] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_15:38:01] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_15:38:01] - on_connect. code:Success
+[2024/07/16_15:38:01] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:38:01] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:38:01] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:38:01] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:38:01] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:39:19] - Init speed value:. code:2
+[2024/07/16_15:39:19] - Init send value:. code:1
+[2024/07/16_15:39:19] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_15:39:21] - Terminado programa principal. code:0
+[2024/07/16_15:39:21] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_15:39:21] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_15:39:21] - on_connect. code:Success
+[2024/07/16_15:39:21] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:39:22] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:39:22] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:39:22] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:39:22] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:41:03] - Init speed value:. code:2
+[2024/07/16_15:41:03] - Init send value:. code:1
+[2024/07/16_15:41:03] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_15:41:05] - Terminado programa principal. code:0
+[2024/07/16_15:41:05] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_15:41:05] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_15:41:06] - on_connect. code:Success
+[2024/07/16_15:41:06] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:41:06] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:41:06] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:41:06] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:41:06] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:43:33] - Init speed value:. code:2
+[2024/07/16_15:43:33] - Init send value:. code:1
+[2024/07/16_15:43:33] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_15:53:42] - Init speed value:. code:2
+[2024/07/16_15:53:42] - Init send value:. code:1
+[2024/07/16_15:53:42] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_15:53:44] - Terminado programa principal. code:0
+[2024/07/16_15:53:44] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_15:53:45] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_15:53:45] - on_connect. code:Success
+[2024/07/16_15:53:45] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:53:45] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:53:45] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:53:45] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:53:45] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:54:50] - Hilo reanudado. code:Set
+[2024/07/16_15:54:53] - Hilo pausado. code:Clear
+[2024/07/16_15:55:02] - Hilo reanudado. code:Set
+[2024/07/16_15:55:07] - Hilo pausado. code:Clear
+[2024/07/16_15:55:15] - Hilo reanudado. code:Set
+[2024/07/16_15:55:45] - Init speed value:. code:2
+[2024/07/16_15:55:45] - Init send value:. code:1
+[2024/07/16_15:55:45] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/16_15:55:47] - Terminado programa principal. code:0
+[2024/07/16_15:55:48] - Conexión a Internet exitosa.. code:OK
+[2024/07/16_15:55:48] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/16_15:55:48] - on_connect. code:Success
+[2024/07/16_15:55:48] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:55:48] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:55:48] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:55:48] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:55:48] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/16_15:55:53] - Hilo pausado. code:Clear
+[2024/07/16_15:55:58] - Hilo reanudado. code:Set
+[2024/07/16_15:56:06] - Hilo pausado. code:Clear
+[2024/07/16_15:56:10] - Hilo reanudado. code:Set
+[2024/07/17_10:52:03] - Init speed value:. code:2
+[2024/07/17_10:52:03] - Init send value:. code:1
+[2024/07/17_10:52:03] - Default Server URL:. code:mqtt.eclipseprojects.io
+[2024/07/17_10:52:05] - Terminado programa principal. code:0
+[2024/07/17_10:52:05] - Conexión a Internet exitosa.. code:OK
+[2024/07/17_10:52:05] - Conectado SicMqttHilo correctamente.. code:0
+[2024/07/17_10:52:06] - on_connect. code:Success
+[2024/07/17_10:52:06] - on_subscribe. code:1, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/17_10:52:06] - on_subscribe. code:2, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/17_10:52:06] - on_subscribe. code:3, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/17_10:52:06] - on_subscribe. code:4, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/17_10:52:06] - on_subscribe. code:5, [ReasonCode(Suback, 'Granted QoS 0')]
+[2024/07/17_11:26:06] - on_message. code:telemetry_config/speed:12, value: 0.08333333333333333
+[2024/07/17_11:26:21] - Hilo pausado. code:Clear

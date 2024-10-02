@@ -4,6 +4,7 @@
 import time
 import json
 from datetime import datetime
+import time
 from threading import Thread, Event
 from openpilot.common.params import Params
 import cereal.messaging as messaging
@@ -54,9 +55,6 @@ class SicMqttHilo:
     self.broker_address = self.dataConfig['config']['IpServer']['value']
     miLog("Default Server URL:", self.broker_address)
 
-  def ping(self):
-    miLog("Ping", "OK")
-
   def on_connect(self, mqttc, obj, flags, reason_code, properties):
     if reason_code == 0:
       self.conetado = True
@@ -82,11 +80,16 @@ class SicMqttHilo:
         self.pause_event.clear()
     elif msg.topic == "telemetry_config/dataSender":
       miLog("on_message", f"telemetry_config/dataSender:, value: {msg.payload.decode()}")
-      self.mqttc.publish("telemetry_config/dataSenderEcho", f"Desde Comma: {msg.payload.decode()}", qos=0)
+      self.mqttc.publish("telemetry_config/dataSenderEcho", f"#{time.time()}#{msg.payload.decode()}#", qos=0)
     elif msg.topic == "telemetry_config/guardar":
       miLog("on_message", f"telemetry_config/guardar:, value: {msg.payload.decode()}")
       with open(self.jsonConfig, 'w') as f:
         json.dump(self.dataConfig, f, indent=4)
+    elif msg.topic == "telemetry_config/pingEcho":
+      ahora = time.time()
+      envio = float(msg.payload.decode())
+      tiempo = "{:.3f}".format(ahora - envio)
+      self.mqttc.publish("telemetry_config/dataSenderEcho", f"{envio}->{ahora}=>{tiempo}", qos=0)
 
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
     miLog("on_subscribe", f"{mid}, {reason_code_list}")
@@ -115,6 +118,7 @@ class SicMqttHilo:
       self.mqttc.subscribe("telemetry_config/pausarHilo", 0)
       self.mqttc.subscribe("telemetry_config/dataSender", 0)
       self.mqttc.subscribe("telemetry_config/guardar", 0)
+      self.mqttc.subscribe("telemetry_config/pingEcho", 0)
       self.mqttc.loop_start()
       miLog("Conectado SicMqttHilo correctamente.", 0)
     except Exception as e:
@@ -122,18 +126,28 @@ class SicMqttHilo:
 
   def loop(self):
     self.conexion()
+    hilo_ping = Thread(target=self.loopPing)
+    hilo_ping.start()
     while True:
       self.pause_event.wait()
       self.sm.update()
       canal_actual = self.enabled_items[self.indice_canal]
       self.mqttc.publish(str(canal_actual['topic']).format(self.DongleID), str(self.sm[canal_actual['canal']]), qos=0)
       self.indice_canal = (self.indice_canal + 1) % len(self.enabled_items)
+      print(f"telemetry_mqtt/#")
       time.sleep(self.espera)
+
+  def loopPing(self):
+    while True:
+      self.pause_event.wait()
+      self.mqttc.publish("telemetry_config/ping", str(time.time()), qos=0)
+      print(f"telemetry_config/ping")
+      time.sleep(3)
 
   def start(self) -> int:
     self.sm = messaging.SubMaster(self.lista_suscripciones)
     time.sleep(2)
-    hilo = Thread(target=self.loop)
-    hilo.start()
+    hilo_telemetry = Thread(target=self.loop)
+    hilo_telemetry.start()
     miLog("Terminado programa principal", 0)
     return 0
