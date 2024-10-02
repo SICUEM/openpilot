@@ -241,15 +241,21 @@ def manager_thread() -> None:
 
   # [Start Bemposta] ****************************************************************************
 
-  if params.get_bool("ActivateEvent"):  # Adrian Cañadas Gallardo
-    sicMqtt = SicMqttHilo()
-    sicMqtt.start()
+  sicMqtt = SicMqttHilo()
+  sicMqtt.start()
   # [End Bemposta] ******************************************************************************
 
 
   while True:
     sm.update(1000)
 
+    #Adri ini
+    if params.get_bool("ActivateEvent"):
+      sicMqtt.reanudar_envio()# reanudar hilo
+    else:
+      sicMqtt.pausar_envio()# pausar hilo
+
+    #Adri fin
     started = sm['deviceState'].started
 
     if started and not started_prev:

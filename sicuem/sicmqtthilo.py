@@ -25,7 +25,7 @@ def inventa(topic):
 class SicMqttHilo:
 
   def __init__(self):
-    # fileJson = "/data/openpilot/sicuem/canales.json"
+    # Inicialización de variables
     jsonCanales = "../../sicuem/canales.json"
     self.jsonConfig = "../../sicuem/config.json"
     self.espera = 0.5
@@ -34,9 +34,7 @@ class SicMqttHilo:
     self.pause_event = Event()
     self.pause_event.set()
     params = Params()
-    self.DongleID = params.get("DongleId").decode('utf-8')
-    if self.DongleID is None:
-      self.DongleID = "DongleID"
+    self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
 
     with open(jsonCanales, 'r') as f:
       dataCanales = json.load(f)
@@ -54,6 +52,21 @@ class SicMqttHilo:
       self.pause_event.clear()
     self.broker_address = self.dataConfig['config']['IpServer']['value']
     miLog("Default Server URL:", self.broker_address)
+
+  def pausar_envio(self):
+    miLog("Hilo pausado", "Clear")
+    print("Hilo pausado")
+    self.pause_event.clear()
+    self.dataConfig['config']['send']['value'] = 0
+
+    # Nueva función para reanudar el envío
+
+  def reanudar_envio(self):
+    miLog("Hilo reanudado", "Set")
+    print("Hilo reanudado")
+    self.pause_event.set()
+    self.dataConfig['config']['send']['value'] = 1
+
 
   def on_connect(self, mqttc, obj, flags, reason_code, properties):
     if reason_code == 0:
@@ -73,11 +86,9 @@ class SicMqttHilo:
       value = int(msg.payload.decode())
       self.dataConfig['config']['send']['value'] = value
       if value == 1:
-        miLog("Hilo reanudado", "Set")
-        self.pause_event.set()
+        self.reanudar_envio()  # Llamar a la función de reanudar
       elif value == 0:
-        miLog("Hilo pausado", "Clear")
-        self.pause_event.clear()
+        self.pausar_envio()  # Llamar a la función de pausar
     elif msg.topic == "telemetry_config/dataSender":
       miLog("on_message", f"telemetry_config/dataSender:, value: {msg.payload.decode()}")
       self.mqttc.publish("telemetry_config/dataSenderEcho", f"#{time.time()}#{msg.payload.decode()}#", qos=0)
