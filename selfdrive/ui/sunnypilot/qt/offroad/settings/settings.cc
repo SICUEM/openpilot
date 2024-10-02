@@ -336,32 +336,20 @@ TogglesPanelUEM::TogglesPanelUEM(SettingsWindow *parent) : TogglesPanel(parent) 
     //----------------------------------------------------------------------ADRIAN CAÑADAS GALLARDO FIN
     {
       "carState_toggle",
-      tr("OP2 TELEMETRIA"),
+      tr("CarState TELEMETRIA"),
       tr("Descripción del OPCION 2."),
       "../assets/navigation/uem_logo.svg",
     },
     {
-      "Toggle3",
-      tr("OP3 TELEMETRIA"),
+      "gpsLocationExternal_toggle",
+      tr("GPSLocation TELEMETRIA"),
       tr("Descripción del OPCION 3."),
       "../assets/navigation/uem_logo.svg",
     },
      {
-      "Toggle4",
-      tr("OP4 TELEMETRIA"),
+      "carControl_toggle",
+      tr("CarControl TELEMETRIA"),
       tr("Descripción del OPCION 4."),
-      "../assets/navigation/uem_logo.svg",
-    },
-    {
-      "Toggle5",
-      tr("OP5 TELEMETRIA"),
-      tr("Descripción del OPCION 5."),
-      "../assets/navigation/uem_logo.svg",
-    },
-    {
-      "Toggle6",
-      tr("OP6 TELEMETRIA"),
-      tr("Descripción del OPCION 6."),
       "../assets/navigation/uem_logo.svg",
     }
   };
@@ -457,17 +445,14 @@ void TogglesPanelUEM::updateToggles() {
 
   auto toggle1 = toggles["ActivateEvent"];
   auto toggle2 = toggles["carState_toggle"];
-  auto toggle3 = toggles["Toggle3"];
-  auto toggle4 = toggles["Toggle4"];
-  auto toggle5 = toggles["Toggle5"];
-  auto toggle6 = toggles["Toggle6"];
+  auto toggle3 = toggles["gpsLocationExternal_toggle"];
+  auto toggle4 = toggles["carControl_toggle"];
+
 
   toggle1->refresh();
   toggle2->refresh();
   toggle3->refresh();
   toggle4->refresh();
-  toggle5->refresh();
-  toggle6->refresh();
 
    // Lógica para mostrar/ocultar Toggle2 y Toggle3 en función de ActivateEvent
   bool isActivateEventOn = toggle1->isToggled(); // Usamos isToggled() en lugar de isChecked()
@@ -476,8 +461,6 @@ void TogglesPanelUEM::updateToggles() {
   toggle2->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle2
   toggle3->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle3
   toggle4->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle4
-  toggle5->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle5
-  toggle6->setVisible(isActivateEventOn); // Mostrar u ocultar Toggle6
 
   toggle1->refresh();
   toggle2->refresh();
