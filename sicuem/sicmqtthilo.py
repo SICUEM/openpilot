@@ -55,7 +55,7 @@ class SicMqttHilo:
 
   def pausar_envio(self):
     miLog("Hilo pausado", "Clear")
-    print("Hilo pausado")
+    print("NO ENVIANDO DATOS")
     self.pause_event.clear()
     self.dataConfig['config']['send']['value'] = 0
 
@@ -63,7 +63,7 @@ class SicMqttHilo:
 
   def reanudar_envio(self):
     miLog("Hilo reanudado", "Set")
-    print("Hilo reanudado")
+    print("ENVIANDO DATOS")
     self.pause_event.set()
     self.dataConfig['config']['send']['value'] = 1
 
