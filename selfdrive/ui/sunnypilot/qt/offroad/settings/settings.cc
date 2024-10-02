@@ -530,7 +530,7 @@ SettingsWindowSP::SettingsWindowSP(QWidget *parent) : SettingsWindow(parent) {
 //Adri ini
 
 
-    //PanelInfo("   " + tr("UEM"), new SunnypilotPanel(this,1), "../assets/navigation/uem_logo.svg"),//Adrian
+    //PanelInfo("   " + tr("UEM"), new UemPanel(this), "../assets/navigation/uem_logo.svg"),//Adrian
     PanelInfo("   " + tr("UEM"),  togglesUEM, "../assets/navigation/uem_logo.svg"),//Adrian
 
 //Adri fin

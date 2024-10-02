@@ -5,6 +5,8 @@ widgets_src = [
   "sunnypilot/qt/network/networking.cc",
   "sunnypilot/qt/offroad/settings/display_settings.cc",
   "sunnypilot/qt/offroad/settings/sunnypilot_settings.cc",
+  "sunnypilot/qt/offroad/settings/uem_settings.cc",
+
   "sunnypilot/qt/offroad/settings/vehicle_settings.cc",
   "sunnypilot/qt/offroad/settings/visuals_settings.cc",
   "sunnypilot/qt/offroad/settings/trips_settings.cc",
@@ -30,7 +32,7 @@ sp_maps_widgets_src = [
 ]
 
 sp_qt_util = [
-  # "#selfdrive/ui/sunnypilot/qt/api.cc", 
+  # "#selfdrive/ui/sunnypilot/qt/api.cc",
   "#selfdrive/ui/sunnypilot/qt/util.cc",
 ]
 

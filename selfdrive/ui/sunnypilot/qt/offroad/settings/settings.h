@@ -84,4 +84,7 @@ protected:
 
     PanelInfo(const QString &name, QWidget *widget, const QString &icon) : name(name), widget(widget), icon(icon) {}
   };
+
+
+
 };
