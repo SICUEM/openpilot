@@ -21,6 +21,10 @@ from openpilot.common.swaglog import cloudlog, add_file_handler
 from openpilot.system.hardware.hw import Paths
 from openpilot.system.version import get_build_metadata, terms_version, terms_version_sp, training_version
 
+# [Start Bemposta] ****************************************************************************
+from openpilot.sicuem.sicmqtthilo import SicMqttHilo
+# [End Bemposta] ******************************************************************************
+
 
 def manager_init() -> None:
   save_bootlog()
@@ -234,6 +238,14 @@ def manager_thread() -> None:
   ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore)
 
   started_prev = False
+
+  # [Start Bemposta] ****************************************************************************
+
+  if params.get_bool("ActivateEvent"):  # Adrian Cañadas Gallardo
+    sicMqtt = SicMqttHilo()
+    sicMqtt.start()
+  # [End Bemposta] ******************************************************************************
+
 
   while True:
     sm.update(1000)

@@ -1,0 +1,23 @@
+[2024/10/02_11:02:48] - Init speed value:. code:1
+[2024/10/02_11:02:48] - Init send value:. code:0
+[2024/10/02_11:02:48] - Default Server URL:. code:195.235.211.197
+[2024/10/02_11:02:50] - Terminado programa principal. code:0
+[2024/10/02_11:02:51] - Conexión a Internet exitosa.. code:OK
+[2024/10/02_11:02:56] - Error de conexión en TopicMqtt. code:timed out
+[2024/10/02_11:04:54] - Init speed value:. code:1
+[2024/10/02_11:04:54] - Init send value:. code:0
+[2024/10/02_11:04:54] - Default Server URL:. code:195.235.211.197
+[2024/10/02_11:04:56] - Terminado programa principal. code:0
+[2024/10/02_11:04:56] - Conexión a Internet exitosa.. code:OK
+[2024/10/02_11:05:01] - Error de conexión en TopicMqtt. code:timed out
+[2024/10/02_11:05:18] - Init speed value:. code:1
+[2024/10/02_11:05:18] - Init send value:. code:0
+[2024/10/02_11:05:18] - Default Server URL:. code:195.235.211.197
+[2024/10/02_11:05:20] - Terminado programa principal. code:0
+[2024/10/02_11:05:20] - Conexión a Internet exitosa.. code:OK
+[2024/10/02_11:05:35] - Init speed value:. code:1
+[2024/10/02_11:05:35] - Init send value:. code:0
+[2024/10/02_11:05:35] - Default Server URL:. code:195.235.211.197
+[2024/10/02_11:05:37] - Terminado programa principal. code:0
+[2024/10/02_11:05:38] - Conexión a Internet exitosa.. code:OK
+[2024/10/02_11:05:43] - Error de conexión en TopicMqtt. code:timed out

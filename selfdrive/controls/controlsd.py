@@ -957,7 +957,7 @@ class Controls:
     try:
       t.start()
       while True:
-        
+
         #if (self.is_alerta_SICUEM):
         self.step()
         self.rk.monitor_time()
