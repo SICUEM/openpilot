@@ -13,12 +13,6 @@ import requests
 import paho.mqtt.client as mqtt
 
 
-def miLog(msg, code):
-  fileLog = "../../sicuem/mqttDebug.txt"
-  sttime = datetime.now().strftime('%Y/%m/%d_%H:%M:%S')
-  with open(fileLog, "a") as f:
-    f.write(f"[{sttime}] - {msg}. code:{code}\n")
-
 
 class SicMqttHilo:
 
@@ -42,13 +36,13 @@ class SicMqttHilo:
       self.dataConfig = json.load(f)
     speed_value = self.dataConfig['config']['speed']['value']
     self.espera = 1.0 / float(speed_value)
-    miLog("Init speed value:", speed_value)
+    print("Init speed value:", speed_value)
     send_value = int(self.dataConfig['config']['send']['value'])
-    miLog("Init send value:", send_value)
+    print("Init send value:", send_value)
     if send_value == 0:
       self.pause_event.clear()
     self.broker_address = self.dataConfig['config']['IpServer']['value']
-    miLog("Default Server URL:", self.broker_address)
+    print("Default Server URL:", self.broker_address)
 
   def signal_handler(self, sig, frame):
     """Manejador de la señal SIGINT para detener el programa de forma controlada."""
@@ -59,7 +53,7 @@ class SicMqttHilo:
   def cleanup(self):
     """Función de limpieza para detener hilos o cerrar conexiones antes de salir."""
     self.pause_event.set()  # Detener los hilos si están esperando
-    miLog("Limpieza completada, cerrando el programa.", "INFO")
+    print("Limpieza completada, cerrando el programa.", "INFO")
 
   def verificar_toggle_canales(self, dataCanales):
     """Revisa los toggles asociados a los canales y actualiza su estado 'enable' en función de los valores en Params."""
@@ -72,10 +66,11 @@ class SicMqttHilo:
         if toggle_value is not None:
           nuevo_estado = 1 if toggle_value else 0
           if item['enable'] != nuevo_estado:
-            miLog(f"Cambiando estado de {item['canal']} a {nuevo_estado} según {toggle_param_name}", "OK")
+            print(f"Cambiando estado de {item['canal']} a {nuevo_estado} según {toggle_param_name}", "OK")
             self.cambiar_enable_canal(item['canal'], nuevo_estado)
       except Exception as e:
-        miLog(f"No se encontró un parámetro toggle para {item['canal']}. Manteniendo el estado actual.", "INFO")
+        print()
+        #print(f"No se encontró un parámetro toggle para {item['canal']}. Manteniendo el estado actual.", "INFO")
 
   # Función para cargar los canales habilitados
   def cargar_canales(self):
@@ -86,16 +81,16 @@ class SicMqttHilo:
     self.verificar_toggle_canales(dataCanales)
 
     # Actualizar las listas de canales habilitados
-    self.lista_suscripciones = [item['canal'] for item in dataCanales['canales'] if item['enable'] == 1]
+    self.lista_suscripciones = [item['canal'] for item in dataCanales['canales']]
     self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
 
     # Si no hay ningún canal habilitado, usar un canal predeterminado
     if not self.lista_suscripciones:
-      miLog("No hay canales habilitados. Suscribiéndose a un canal por defecto.", "INFO")
+      print("No hay canales habilitados. Suscribiéndose a un canal por defecto.", "INFO")
       self.lista_suscripciones = []
       self.enabled_items = []
 
-    miLog("Canales cargados", len(self.enabled_items))
+    print("Canales cargados", len(self.enabled_items))
 
   # Función para cambiar el estado 'enable' de un canal
   def cambiar_enable_canal(self, canal, estado):
@@ -104,20 +99,20 @@ class SicMqttHilo:
     for item in dataCanales['canales']:
       if item['canal'] == canal:
         item['enable'] = estado
-        miLog(f"Cambiando estado de {canal} a {estado}", "OK")
+        print(f"Cambiando estado de {canal} a {estado}", "OK")
         break
     with open(self.jsonCanales, 'w') as f:
       json.dump(dataCanales, f, indent=4)
     self.cargar_canales()
 
   def pausar_envio(self):
-    miLog("Hilo pausado", "Clear")
+    print("Hilo pausado", "Clear")
     print("NO ENVIANDO DATOS")
     self.pause_event.clear()
     self.dataConfig['config']['send']['value'] = 0
 
   def reanudar_envio(self):
-    miLog("Hilo reanudado", "Set")
+    print("Hilo reanudado", "Set")
     print("ENVIANDO DATOS")
     self.pause_event.set()
     self.dataConfig['config']['send']['value'] = 1
@@ -125,17 +120,17 @@ class SicMqttHilo:
   def on_connect(self, mqttc, obj, flags, reason_code, properties):
     if reason_code == 0:
       self.conetado = True
-      miLog("on_connect", reason_code)
+      print("on_connect", reason_code)
 
   def on_disconnect(self, client, userdata, disconnect_flags, reason_code, properties):
     self.conetado = False
-    miLog("on_disconnect", reason_code)
+    print("on_disconnect", reason_code)
 
   def on_message(self, mqttc, obj, msg):
     if msg.topic == "telemetry_config/speed":
       self.espera = 1.0 / float(msg.payload.decode())
       self.dataConfig['config']['speed']['value'] = float(msg.payload.decode())
-      miLog("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
+      print("on_message", f"{msg.topic}:{msg.payload.decode()}, value: {self.espera}")
     elif msg.topic == "telemetry_config/pausarHilo":
       value = int(msg.payload.decode())
       self.dataConfig['config']['send']['value'] = value
@@ -144,10 +139,10 @@ class SicMqttHilo:
       elif value == 0:
         self.pausar_envio()
     elif msg.topic == "telemetry_config/dataSender":
-      miLog("on_message", f"telemetry_config/dataSender:, value: {msg.payload.decode()}")
+      print("on_message", f"telemetry_config/dataSender:, value: {msg.payload.decode()}")
       self.mqttc.publish("telemetry_config/dataSenderEcho", f"#{time.time()}#{msg.payload.decode()}#", qos=0)
     elif msg.topic == "telemetry_config/guardar":
-      miLog("on_message", f"telemetry_config/guardar:, value: {msg.payload.decode()}")
+      print("on_message", f"telemetry_config/guardar:, value: {msg.payload.decode()}")
       with open(self.jsonConfig, 'w') as f:
         json.dump(self.dataConfig, f, indent=4)
     elif msg.topic == "telemetry_config/pingEcho":
@@ -157,7 +152,7 @@ class SicMqttHilo:
       self.mqttc.publish("telemetry_config/dataSenderEcho", f"{envio}->{ahora}=>{tiempo}", qos=0)
 
   def on_subscribe(self, mqttc, obj, mid, reason_code_list, properties):
-    miLog("on_subscribe", f"{mid}, {reason_code_list}")
+    print("on_subscribe", f"{mid}, {reason_code_list}")
 
   def conexion(self, url='http://www.google.com', intervalo=5):
     conectado = False
@@ -166,11 +161,11 @@ class SicMqttHilo:
         response = requests.get(url, timeout=5)
         if response.status_code == 200:
           print("Conexión a Internet exitosa.")
-          miLog("Conexión a Internet exitosa.", "OK")
+          print("Conexión a Internet exitosa.", "OK")
           conectado = True
       except requests.ConnectionError:
         print(f"No hay conexión a Internet. Intentando nuevamente en {intervalo} segundos...")
-        miLog("No hay conexión a Internet. Intentando nuevamente.", "ERROR")
+        print("No hay conexión a Internet. Intentando nuevamente.", "ERROR")
         time.sleep(intervalo)
     try:
       self.mqttc = mqtt.Client(mqtt.CallbackAPIVersion.VERSION2)
@@ -185,9 +180,9 @@ class SicMqttHilo:
       self.mqttc.subscribe("telemetry_config/guardar", 0)
       self.mqttc.subscribe("telemetry_config/pingEcho", 0)
       self.mqttc.loop_start()
-      miLog("Conectado SicMqttHilo correctamente.", 0)
+      print("Conectado SicMqttHilo correctamente.", 0)
     except Exception as e:
-      miLog("Error de conexión en TopicMqtt", e)
+      print("Error de conexión en TopicMqtt", e)
 
   def loop(self):
     self.conexion()
@@ -214,10 +209,10 @@ class SicMqttHilo:
               )
               print(f"Enviando datos para {canal_nombre}")
             except KeyError as e:
-              miLog(f"Error al acceder a {canal_nombre}: {str(e)}", "ERROR")
+              print(f"Error al acceder a {canal_nombre}: {str(e)}", "ERROR")
               continue  # Continuar con el siguiente canal si ocurre un KeyError
           else:
-            miLog(f"Canal {canal_nombre} no disponible en SubMaster.", "WARN")
+            print(f"Canal {canal_nombre} no disponible en SubMaster.", "WARN")
       else:
         # Publicar por MQTT que no hay canales activados
         self.mqttc.publish("telemetry_mqtt/vacio", "ningun canal activado...", qos=0)
@@ -238,9 +233,9 @@ class SicMqttHilo:
     # Crear el objeto SubMaster aunque sea con el canal por defecto
     if self.lista_suscripciones:
       try:
-        self.sm = messaging.SubMaster(self.lista_suscripciones)
+        self.sm = messaging.SubMaster(['carState', 'controlsState', 'liveCalibration','carControl','gpsLocationExternal'])
       except Exception as e:
-        miLog("Error creando SubMaster", str(e))
+        print("Error creando SubMaster", str(e))
         self.sm = None  # Asegurarse de que self.sm esté definido
 
     time.sleep(2)
@@ -248,5 +243,5 @@ class SicMqttHilo:
     hilo_telemetry = Thread(target=self.loop)
     hilo_telemetry.start()
 
-    miLog("Terminado programa principal", 0)
+    print("Terminado programa principal", 0)
     return 0
