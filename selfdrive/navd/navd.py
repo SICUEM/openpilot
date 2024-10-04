@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 import json
 import math
 import os
@@ -20,6 +19,7 @@ from openpilot.common.swaglog import cloudlog
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
 REROUTE_COUNTER_MIN = 3
+MAPBOX_RESPONSE_FILE = "mapbox_response.json"  # Adrian Cañadas Gallardo - Nuevo archivo para guardar la respuesta de la API
 
 
 class RouteEngine:
@@ -47,7 +47,6 @@ class RouteEngine:
     self.ui_pid = None
 
     self.reroute_counter = 0
-
 
     self.api = None
     self.mapbox_token = None
@@ -140,7 +139,6 @@ class RouteEngine:
       'language': lang,
     }
 
-    # TODO: move waypoints into NavDestination param?
     waypoints = self.params.get('NavDestinationWaypoints', encoding='utf8')
     waypoint_coords = []
     if waypoints is not None and len(waypoints) > 0:
@@ -164,6 +162,14 @@ class RouteEngine:
       resp.raise_for_status()
 
       r = resp.json()
+
+      # Guardar la respuesta de la API en un archivo JSON - Adrian Cañadas Gallardo
+      with open(MAPBOX_RESPONSE_FILE, 'w') as json_file:
+        json.dump(r, json_file, indent=2)  # Guardar el JSON con formato legible - Adrian Cañadas Gallardo
+        print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
+
+        cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
+
       if len(r['routes']):
         self.route = r['routes'][0]['legs'][0]['steps']
         self.route_geometry = []
@@ -195,8 +201,6 @@ class RouteEngine:
         cloudlog.warning("Got empty route response")
         self.clear_route()
 
-      # clear waypoints to avoid a re-route including past waypoints
-      # TODO: only clear once we're past a waypoint
       self.params.remove('NavDestinationWaypoints')
 
     except requests.exceptions.RequestException:
@@ -204,6 +208,9 @@ class RouteEngine:
       self.clear_route()
 
     self.send_route()
+
+  # (rest of the code remains unchanged)
+
 
   def send_instruction(self):
     msg = messaging.new_message('navInstruction', valid=True)
