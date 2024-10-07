@@ -67,6 +67,8 @@ private:
   int drawDevUiRight(QPainter &p, int x, int y, const QString &value, const QString &label, const QString &units, QColor &color);
   int drawNewDevUi(QPainter &p, int x, int y, const QString &value, const QString &label, const QString &units, QColor &color);
   void drawNewDevUi2(QPainter &p, int x, int y);
+  void drawNewDevUi3(QPainter &p, int x, int y);//Adrian Cañadas gallardo
+
   void drawCenteredLeftText(QPainter &p, int x, int y, const QString &text1, QColor color1, const QString &text2, const QString &text3, QColor color2);
 
   // ############################## DEV UI END ##############################

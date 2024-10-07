@@ -542,7 +542,8 @@ void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
       drawNewDevUi2(p, bar_rect1.left(), bar_rect1.center().y());
 
 
-      drawNewDevUi2(p, bar_rect2.left()+450, bar_rect1.center().y()-60);
+      drawNewDevUi3(p, bar_rect2.left()+450, bar_rect1.center().y()-60);
+
     }
 
     // ####### 1 COLUMN ########
@@ -832,6 +833,20 @@ int AnnotatedCameraWidgetSP::drawNewDevUi(QPainter &p, int x, int y, const QStri
   drawCenteredLeftText(p, x, y, label, whiteColor(), value, units, color);
 
   return 430;
+}
+
+void AnnotatedCameraWidgetSP::drawNewDevUi3(QPainter &p, int x, int y) {
+
+//Aqui esta la barra
+  int rw = 550;
+
+  UiElement aEgoElement = DeveloperUi::getAEgo(aEgo);
+  rw += drawNewDevUi(p, rw, y, aEgoElement.value, aEgoElement.label, aEgoElement.units, aEgoElement.color);
+
+  UiElement vEgoLeadElement = DeveloperUi::getVEgoLead(lead_status, lead_v_rel, vEgo, is_metric, speedUnit);
+  rw += drawNewDevUi(p, rw, y, vEgoLeadElement.value, vEgoLeadElement.label, vEgoLeadElement.units, vEgoLeadElement.color);
+
+
 }
 
 void AnnotatedCameraWidgetSP::drawNewDevUi2(QPainter &p, int x, int y) {
