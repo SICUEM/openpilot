@@ -43,7 +43,7 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
 
   is_metric = s.scene.is_metric;
    //Adrian Cañadas Gallardo
-  //is_activateEvent = s.scene.is_activateEvent;
+  is_activateEvent = s.scene.is_activateEvent;
 
   // Handle older routes where vCruiseCluster is not set
   float v_cruise = cs.getVCruiseCluster() == 0.0 ? cs.getVCruise() : cs.getVCruiseCluster();
@@ -89,9 +89,9 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
 void AnnotatedCameraWidget::drawHud(QPainter &p) {
   p.save();
 
-  /*
 
- if(is_activateEvent){
+
+
    QLinearGradient bg(0, UI_HEADER_HEIGHT - (UI_HEADER_HEIGHT / 2.5), 0, UI_HEADER_HEIGHT);
   bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
   bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
@@ -285,7 +285,7 @@ p.setFont(labelFont);
 
     QRect imagen2_rect(width() - image2Width- 200 / 2, height() - image2Height - 200 / 2, image2Width, image2Height);
     p.drawPixmap(imagen2_rect, imagen2);
-}*/
+
 
 
   p.restore();

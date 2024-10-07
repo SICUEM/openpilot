@@ -532,11 +532,17 @@ void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
   if (!reversing) {
     // ####### 1 ROW #######
     QRect bar_rect1(rect().left(), rect().bottom() - 60, rect().width(), 61);
+    QRect bar_rect2(rect().left()+450, rect().bottom() - 120, rect().width(), 61);
+
     if (!splitPanelVisible && devUiInfo == 2) {
       p.setPen(Qt::NoPen);
       p.setBrush(QColor(0, 0, 0, 100));
       p.drawRect(bar_rect1);
+      p.drawRect(bar_rect2);
       drawNewDevUi2(p, bar_rect1.left(), bar_rect1.center().y());
+
+
+      drawNewDevUi2(p, bar_rect2.left()+450, bar_rect1.center().y()-60);
     }
 
     // ####### 1 COLUMN ########
@@ -829,6 +835,8 @@ int AnnotatedCameraWidgetSP::drawNewDevUi(QPainter &p, int x, int y, const QStri
 }
 
 void AnnotatedCameraWidgetSP::drawNewDevUi2(QPainter &p, int x, int y) {
+
+//Aqui esta la barra
   int rw = 90;
 
   UiElement aEgoElement = DeveloperUi::getAEgo(aEgo);
@@ -843,7 +851,8 @@ void AnnotatedCameraWidgetSP::drawNewDevUi2(QPainter &p, int x, int y) {
 
     UiElement latAccelFactorFilteredElement = DeveloperUi::getLatAccelFactorFiltered(latAccelFactorFiltered, liveValid);
     rw += drawNewDevUi(p, rw, y, latAccelFactorFilteredElement.value, latAccelFactorFilteredElement.label, latAccelFactorFilteredElement.units, latAccelFactorFilteredElement.color);
-  } else {
+  }
+  else {
     UiElement steeringTorqueEpsElement = DeveloperUi::getSteeringTorqueEps(steeringTorqueEps);
     rw += drawNewDevUi(p, rw, y, steeringTorqueEpsElement.value, steeringTorqueEpsElement.label, steeringTorqueEpsElement.units, steeringTorqueEpsElement.color);
 

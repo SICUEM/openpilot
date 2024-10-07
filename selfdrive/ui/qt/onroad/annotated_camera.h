@@ -31,7 +31,7 @@ private:
   bool v_ego_cluster_seen = false;
   int status = STATUS_DISENGAGED;
   std::unique_ptr<PubMaster> pm;
-  //bool is_activateEvent = false; //Adrian Cañadas gallardo
+  bool is_activateEvent = false; //Adrian Cañadas gallardo
   float horizontalAccuracy; //Adrian Cañadas gallardo
 
 
