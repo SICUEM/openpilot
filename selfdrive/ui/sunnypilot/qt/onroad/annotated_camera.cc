@@ -834,11 +834,15 @@ int AnnotatedCameraWidgetSP::drawNewDevUi(QPainter &p, int x, int y, const QStri
 
   return 430;
 }
-
+//Adri
 void AnnotatedCameraWidgetSP::drawNewDevUi3(QPainter &p, int x, int y) {
 
 //Aqui esta la barra
   int rw = 550;
+
+
+  UiElement getMemoryUsagePercentElement = DeveloperUi::getMemoryUsagePercent(memoryUsagePercent);
+    rw += drawNewDevUi(p, rw, y, getMemoryUsagePercentElement.value, getMemoryUsagePercentElement.label, getMemoryUsagePercentElement.units, getMemoryUsagePercentElement.color);
 
   UiElement aEgoElement = DeveloperUi::getAEgo(aEgo);
   rw += drawNewDevUi(p, rw, y, aEgoElement.value, aEgoElement.label, aEgoElement.units, aEgoElement.color);
@@ -846,9 +850,11 @@ void AnnotatedCameraWidgetSP::drawNewDevUi3(QPainter &p, int x, int y) {
   UiElement vEgoLeadElement = DeveloperUi::getVEgoLead(lead_status, lead_v_rel, vEgo, is_metric, speedUnit);
   rw += drawNewDevUi(p, rw, y, vEgoLeadElement.value, vEgoLeadElement.label, vEgoLeadElement.units, vEgoLeadElement.color);
 
+  UiElement getAltitudeElement = DeveloperUi::getAltitude(gpsAccuracy, altitude);
+    rw += drawNewDevUi(p, rw, y, getAltitudeElement.value, getAltitudeElement.label, getAltitudeElement.units, getAltitudeElement.color);
 
 }
-
+//Adri fin
 void AnnotatedCameraWidgetSP::drawNewDevUi2(QPainter &p, int x, int y) {
 
 //Aqui esta la barra
