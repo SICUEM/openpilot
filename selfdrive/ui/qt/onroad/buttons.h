@@ -33,3 +33,4 @@ private:
 };
 
 void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrush &bg, float opacity);
+void drawIconUEM(QPainter &p, const QPoint &center, const QPixmap &img, const QBrush &bg, float opacity);
