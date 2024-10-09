@@ -841,17 +841,16 @@ void AnnotatedCameraWidgetSP::drawNewDevUi3(QPainter &p, int x, int y) {
   int rw = 550;
 
 
-  UiElement getMemoryUsagePercentElement = DeveloperUi::getMemoryUsagePercent(memoryUsagePercent);
-    rw += drawNewDevUi(p, rw, y, getMemoryUsagePercentElement.value, getMemoryUsagePercentElement.label, getMemoryUsagePercentElement.units, getMemoryUsagePercentElement.color);
+  UiElement getVEgoElement = DeveloperUi::getVEgo(vEgo, is_metric, speedUnit);
+    rw += drawNewDevUi(p, rw, y, getVEgoElement.value, getVEgoElement.label, getVEgoElement.units, getVEgoElement.color);
 
-  UiElement aEgoElement = DeveloperUi::getAEgo(aEgo);
-  rw += drawNewDevUi(p, rw, y, aEgoElement.value, aEgoElement.label, aEgoElement.units, aEgoElement.color);
 
-  UiElement vEgoLeadElement = DeveloperUi::getVEgoLead(lead_status, lead_v_rel, vEgo, is_metric, speedUnit);
-  rw += drawNewDevUi(p, rw, y, vEgoLeadElement.value, vEgoLeadElement.label, vEgoLeadElement.units, vEgoLeadElement.color);
+  UiElement getLatitude = DeveloperUi::getLatitude(latitude);
+    rw += drawNewDevUi(p, rw, y, getLatitude.value, getLatitude.label, getLatitude.units, getLatitude.color);
 
-  UiElement getAltitudeElement = DeveloperUi::getAltitude(gpsAccuracy, altitude);
-    rw += drawNewDevUi(p, rw, y, getAltitudeElement.value, getAltitudeElement.label, getAltitudeElement.units, getAltitudeElement.color);
+    UiElement getLongitude = DeveloperUi::getLongitude(longitude);
+    rw += drawNewDevUi(p, rw, y, getLongitude.value, getLongitude.label, getLongitude.units, getLongitude.color);
+
 
 }
 //Adri fin

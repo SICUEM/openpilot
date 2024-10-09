@@ -128,6 +128,9 @@ private:
   bool standStill;
   float standstillElapsedTime;
 
+  float longitude;//Adri
+    float latitude;//Adri
+
   bool showVTC = false;
   QString vtcSpeed;
   QColor vtcColor;
