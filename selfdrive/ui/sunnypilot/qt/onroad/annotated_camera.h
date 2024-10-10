@@ -128,8 +128,7 @@ private:
   bool standStill;
   float standstillElapsedTime;
 
-  float longitude;//Adri
-    float latitude;//Adri
+
 
   bool showVTC = false;
   QString vtcSpeed;
@@ -173,6 +172,8 @@ private:
   float gpsAccuracy;
   float altitude;
   float vEgo;
+  float latitude;//Adri
+  float longitude;//Adri
   float aEgo;
   float steeringTorqueEps;
   float bearingAccuracyDeg;

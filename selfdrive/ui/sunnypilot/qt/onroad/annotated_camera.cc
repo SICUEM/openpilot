@@ -209,6 +209,8 @@ void AnnotatedCameraWidgetSP::updateState(const UIStateSP &s) {
   altitude = gpsLocation.getAltitude();
   vEgo = car_state.getVEgo();
   aEgo = car_state.getAEgo();
+  latitude = gpsLocation.getLatitude();//Adri
+  longitude = gpsLocation.getLongitude();//Adri
   steeringTorqueEps = car_state.getSteeringTorqueEps();
   bearingAccuracyDeg = gpsLocation.getBearingAccuracyDeg();
   bearingDeg = gpsLocation.getBearingDeg();
