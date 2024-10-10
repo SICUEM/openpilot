@@ -48,34 +48,25 @@ TelUemSettings::TelUemSettings(QWidget* parent) : QWidget(parent) {
   // param, title, desc, icon
   std::vector<std::tuple<QString, QString, QString, QString>> toggle_defs{
     {
-      "AccMadsCombo",
-      tr("Enable ACC+MADS with RES+/SET-"),
-      QString("%1<br>"
-              "<h4>%2</h4>")
-      .arg(tr("Engage both M.A.D.S. and ACC with a single press of RES+ or SET- button."))
-      .arg(tr("Note: Once M.A.D.S. is engaged via this mode, it will remain engaged until it is manually disabled via the M.A.D.S. button or car shut off.")),
-      "../assets/offroad/icon_blank.png",
+      "carState_toggle",
+      tr("CarState TELEMETRIA"),
+      tr("Descripción del OPCION 2."),
+      "../assets/navigation/uem_logo.svg",
     },
     {
-      "MadsCruiseMain",
-      tr("Toggle M.A.D.S. with Cruise Main"),
-      tr("Allows M.A.D.S. engagement/disengagement with \"Cruise Main\" cruise control button from the steering wheel."),
-      "../assets/offroad/icon_blank.png",
+      "gpsLocationExternal_toggle",
+      tr("GPSLocation TELEMETRIA"),
+      tr("Descripción del OPCION 3."),
+      "../assets/navigation/uem_logo.svg",
+    },
+     {
+      "carControl_toggle",
+      tr("CarControl TELEMETRIA"),
+      tr("Descripción del OPCION 4."),
+      "../assets/navigation/uem_logo.svg",
     }
   };
 
-  // Disengage Lateral on Brake (DLOB)
-  std::vector<QString> dlob_settings_texts{tr("Remain Active"), tr("Pause Steering")};
-  dlob_settings = new ButtonParamControlSP(
-    "DisengageLateralOnBrake",
-    tr("Steering Mode After Braking"),
-    tr("Choose how Automatic Lane Centering (ALC) behaves after the brake pedal is manually pressed in sunnypilot.\n\n"
-       "Remain Active: ALC will remain active even after the brake pedal is pressed.\nPause Steering: ALC will be paused after the brake pedal is manually pressed."),
-    "",
-    dlob_settings_texts,
-    500);
-  dlob_settings->showDescription();
-  list->addItem(dlob_settings);
 
   for (auto &[param, title, desc, icon] : toggle_defs) {
     auto toggle = new ParamControlSP(param, title, desc, icon, this);
@@ -88,7 +79,6 @@ TelUemSettings::TelUemSettings(QWidget* parent) : QWidget(parent) {
   }
 
   // trigger offroadTransition when going onroad/offroad
-  connect(uiStateSP(), &UIStateSP::offroadTransition, dlob_settings, &ButtonParamControlSP::setEnabled);
 
   main_layout->addWidget(new ScrollViewSP(list, this));
 
@@ -103,17 +93,4 @@ void TelUemSettings::updateToggles() {
   if (!isVisible()) {
     return;
   }
-
-  const bool is_offroad = !uiStateSP()->scene.started;
-  const bool enable_mads = params.getBool("EnableMads");
-  const bool enabled = is_offroad && enable_mads;
-
-
-
-  dlob_settings->setEnabled(enabled);
-
-
-
-
-
 }

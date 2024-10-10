@@ -530,8 +530,8 @@ SettingsWindowSP::SettingsWindowSP(QWidget *parent) : SettingsWindow(parent) {
 //Adri ini
 
 
-    //PanelInfo("   " + tr("UEM"), new UemPanel(this), "../assets/navigation/uem_logo.svg"),//Adrian
-    PanelInfo("   " + tr("UEM"),  togglesUEM, "../assets/navigation/uem_logo.svg"),//Adrian
+    PanelInfo("   " + tr("UEM"), new UemPanel(this), "../assets/navigation/uem_logo.svg"),//Adrian
+    //PanelInfo("   " + tr("UEM"),  togglesUEM, "../assets/navigation/uem_logo.svg"),//Adrian
 
 //Adri fin
     PanelInfo("   " + tr("Device"), device, "../assets/navigation/icon_home.svg"),

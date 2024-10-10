@@ -250,7 +250,7 @@ def manager_thread() -> None:
     sm.update(1000)
 
     #Adri ini
-    if params.get_bool("ActivateEvent"):
+    if params.get_bool("telemetria_uem"):
       sicMqtt.reanudar_envio()# reanudar hilo
     else:
       sicMqtt.pausar_envio()# pausar hilo

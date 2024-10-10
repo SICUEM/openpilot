@@ -78,6 +78,10 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
 
   // Establecer la pantalla principal como la pantalla predeterminada
   main_layout->setCurrentWidget(sunnypilotScreen);
+connect(toggles["telemetria_uem"], &ToggleControlSP::toggleFlipped, [=](bool state) {
+    madsSettings->setEnabled(state);
+  });
+    madsSettings->setEnabled(toggles["telemetria_uem"]->isToggled());
 
   setStyleSheet(R"(
     #back_btn {
@@ -104,6 +108,8 @@ void UemPanel::hideEvent(QHideEvent *event) {
 }
 
 void UemPanel::updateToggles() {
+
+
   if (!isVisible()) {
     return;
   }

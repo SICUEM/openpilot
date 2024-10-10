@@ -144,6 +144,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"IsMetric", PERSISTENT | BACKUP},
 
     {"ActivateEvent",PERSISTENT},//Adrian Cañadas Gallardo
+    {"telemetria_uem",PERSISTENT},//Adrian Cañadas Gallardo
     {"carState_toggle",PERSISTENT},//Adrian Cañadas Gallardo
     {"gpsLocationExternal_toggle",PERSISTENT},//Adrian Cañadas Gallardo
     {"carControl_toggle",PERSISTENT},//Adrian Cañadas Gallardo
