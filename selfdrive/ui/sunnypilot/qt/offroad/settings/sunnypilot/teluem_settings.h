@@ -37,7 +37,7 @@ class TelUemSettings : public QWidget {
   Q_OBJECT  // Necesario para usar señales y slots
 
 public:
-  explicit TelUemSettings(QWidget* parent = nullptr, int edit = 0);  // Constructor
+  explicit TelUemSettings(QWidget* parent = nullptr);  // Constructor
   void showEvent(QShowEvent* event) override;
 
 signals:
