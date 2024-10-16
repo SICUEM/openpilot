@@ -520,8 +520,8 @@ SettingsWindowSP::SettingsWindowSP(QWidget *parent) : SettingsWindow(parent) {
 
 //Adri ini
 
-    TogglesPanelUEM *togglesUEM = new TogglesPanelUEM(this);
-    QObject :: connect(this, &SettingsWindow::expandToggleDescription, togglesUEM, &TogglesPanel::expandToggleDescription);
+    //TogglesPanelUEM *togglesUEM = new TogglesPanelUEM(this);
+    //QObject :: connect(this, &SettingsWindow::expandToggleDescription, togglesUEM, &TogglesPanel::expandToggleDescription);
 
 //Adri fin
 
