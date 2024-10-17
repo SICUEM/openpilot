@@ -166,17 +166,17 @@ UiElement DeveloperUi::getVEgo(float v_ego, bool is_metric, const QString &speed
 
 
 UiElement DeveloperUi::getLatitude (float latitude) {
-  QString value = QString(QString::number(latitude, 'f', 2));
+  QString value = QString(QString::number(latitude, 'f', 6));
   QColor color = QColor(255, 255, 255, 255);
 
-  return UiElement(value, "LAT.", "", color);
+  return UiElement("LAT:"+value, "", "", color);
 }
 
 UiElement DeveloperUi::getLongitude ( float longitude) {
-  QString value = QString(QString::number(longitude, 'f', 2));
+  QString value = QString(QString::number(longitude, 'f', 6));
   QColor color = QColor(255, 255, 255, 255);
 
-  return UiElement(value, "LON.", "", color);
+  return UiElement("LON:"+value, "", "", color);
 }
 
 
