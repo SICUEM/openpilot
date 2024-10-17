@@ -15,8 +15,6 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                     minimum_distance,
                                     parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
-from sicuem.telemetria_mapbox import TelemetriaMapbox
-
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
@@ -122,7 +120,6 @@ class RouteEngine:
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
     self.nav_destination = destination
 
-    # Parámetros de la API de Mapbox
     lang = self.params.get('LanguageSetting', encoding='utf8')
     if lang is not None:
       lang = lang.replace('main_', '')
@@ -168,10 +165,10 @@ class RouteEngine:
 
       # Guardar la respuesta de la API en un archivo JSON - Adrian Cañadas Gallardo
       with open(MAPBOX_RESPONSE_FILE, 'w') as json_file:
-        json.dump(r, json_file, indent=2)  # Guardar el JSON con formato legible
-        print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")
+        json.dump(r, json_file, indent=2)  # Guardar el JSON con formato legible - Adrian Cañadas Gallardo
+        print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
 
-        cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")
+        cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
 
       if len(r['routes']):
         self.route = r['routes'][0]['legs'][0]['steps']
@@ -180,14 +177,14 @@ class RouteEngine:
         maxspeed_idx = 0
         maxspeeds = r['routes'][0]['legs'][0]['annotation']['maxspeed']
 
-        # Convertir las coordenadas
+        # Convert coordinates
         for step in self.route:
           coords = []
 
           for c in step['geometry']['coordinates']:
             coord = Coordinate.from_mapbox_tuple(c)
 
-            # Último paso no tiene maxspeed
+            # Last step does not have maxspeed
             if (maxspeed_idx < len(maxspeeds)):
               maxspeed = maxspeeds[maxspeed_idx]
               if ('unknown' not in maxspeed) and ('none' not in maxspeed):
@@ -197,7 +194,7 @@ class RouteEngine:
             maxspeed_idx += 1
 
           self.route_geometry.append(coords)
-          maxspeed_idx -= 1  # Cada segmento termina con la misma coordenada que el comienzo del siguiente
+          maxspeed_idx -= 1  # Every segment ends with the same coordinate as the start of the next
 
         self.step_idx = 0
       else:
@@ -205,10 +202,6 @@ class RouteEngine:
         self.clear_route()
 
       self.params.remove('NavDestinationWaypoints')
-
-      # Aquí llamamos a la clase TelemetriaMapbox y le pasamos el JSON generado
-      telemetria = TelemetriaMapbox()
-      telemetria.enviar_telemetria(r)  # Enviar el JSON completo por telemetría
 
     except requests.exceptions.RequestException:
       cloudlog.exception("failed to get route")
