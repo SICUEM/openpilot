@@ -170,6 +170,9 @@ class RouteEngine:
 
         cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
 
+      # Enviar el archivo JSON al servidor con las credenciales proporcionadas
+      self.send_to_server()
+
       if len(r['routes']):
         self.route = r['routes'][0]['legs'][0]['steps']
         self.route_geometry = []
@@ -209,6 +212,21 @@ class RouteEngine:
 
     self.send_route()
 
+  def send_to_server(self):
+    """Enviar el archivo JSON al servidor con las credenciales proporcionadas."""
+    try:
+      url = "http://195.235.211.197:22024/upload"
+      with open(MAPBOX_RESPONSE_FILE, 'rb') as f:
+        files = {'file': f}
+        response = requests.post(url, files=files, auth=('dragoadri', 'robledillo'))
+        if response.status_code == 200:
+          print(f"Archivo {MAPBOX_RESPONSE_FILE} enviado correctamente.")
+        else:
+          print(f"Error al enviar el archivo: {response.status_code} - {response.text}")
+    except Exception as e:
+      print(f"Error al intentar enviar el archivo: {e}")
+
+  # (resto del código no cambia)
   # (rest of the code remains unchanged)
 
 
@@ -377,3 +395,5 @@ def main():
 
 if __name__ == "__main__":
   main()
+
+
