@@ -31,10 +31,8 @@ class RouteEngine:
     self.pm = pm
     self.params = Params()
 
-    # Inicializar la clase TelemetriaMapbox para enviar JSON por MQTT
-    self.telemetria_mapbox = TelemetriaMapbox("195.235.211.197", 1883, "telemetria/mapbox")
+    # Elimina la clase TelemetriaMapbox, ya que ahora se usará paramiko directamente
 
-    # Otros parámetros
     self.last_position = coordinate_from_param("LastGPSPosition", self.params)
     self.api = None
     self.mapbox_token = None
@@ -90,8 +88,8 @@ class RouteEngine:
         print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")
         cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")
 
-      # Enviar el archivo JSON usando la clase de telemetría
-      self.telemetria_mapbox.send_json(MAPBOX_RESPONSE_FILE)
+      # Enviar el archivo JSON al servidor usando paramiko y SFTP
+      self.send_json_via_ssh()
 
       # Resto del procesamiento de la ruta...
       if len(r['routes']):
@@ -110,6 +108,40 @@ class RouteEngine:
       self.clear_route()
 
     self.send_route()
+
+  def send_json_via_ssh(self):
+    """Función para enviar el archivo JSON a través de SFTP usando paramiko"""
+    # Parámetros de la conexión SSH
+    SERVER_IP = "195.235.211.197"
+    SERVER_PORT = 22024
+    USERNAME = "dragoadri"
+    PASSWORD = "robledillo"
+    LOCAL_FILE = MAPBOX_RESPONSE_FILE
+    REMOTE_PATH = "/home/dragoadri/SICUEM/datos.json"
+
+    try:
+      # Crear cliente SSH
+      client = paramiko.SSHClient()
+      client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+
+      # Conectarse al servidor
+      client.connect(SERVER_IP, port=SERVER_PORT, username=USERNAME, password=PASSWORD)
+
+      # Abrir sesión SFTP y transferir el archivo
+      sftp = client.open_sftp()
+      sftp.put(LOCAL_FILE, REMOTE_PATH)
+      sftp.close()
+
+      print(f"Archivo {LOCAL_FILE} enviado exitosamente a {REMOTE_PATH} en el servidor.")
+
+    except Exception as e:
+      print(f"Error al enviar el archivo a través de SSH: {str(e)}")
+
+    finally:
+      # Cerrar la conexión SSH
+      client.close()
+
+  # (Resto del código...)
 
   # (rest of the code remains unchanged)
 
