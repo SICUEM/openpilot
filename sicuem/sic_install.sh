@@ -25,8 +25,22 @@ function install_paho() {
     fi
 }
 
+function install_paramiko() {
+    python -c "import paramiko" &> /dev/null
+    if [ $? -eq 0 ]; then
+        echo "La biblioteca paramiko ya está instalada."
+    else
+        echo "La biblioteca paramiko no está instalada. Instalando..."
+        /usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paramiko
+    fi
+}
+
+
 # Verifica la conexión a Internet
 check_internet
 
 # Verifica si la biblioteca paho-mqtt está instalada
 install_paho
+# Verifica si la biblioteca paramiko está instalada
+
+install_paramiko
