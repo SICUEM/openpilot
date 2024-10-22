@@ -2,7 +2,6 @@ import json
 import math
 import os
 import threading
-
 import requests
 
 import cereal.messaging as messaging
@@ -15,19 +14,22 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                     minimum_distance,
                                     parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
+from openpilot.sicuem.telemetria_mapbox import TelemetriaMapbox  # Nueva clase importada
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
 REROUTE_COUNTER_MIN = 3
-MAPBOX_RESPONSE_FILE = "mapbox_response.json"  # Adrian Cañadas Gallardo - Nuevo archivo para guardar la respuesta de la API
+MAPBOX_RESPONSE_FILE = "mapbox_response.json"  # Archivo para guardar la respuesta de la API
 
 
 class RouteEngine:
   def __init__(self, sm, pm):
     self.sm = sm
     self.pm = pm
-
     self.params = Params()
+
+    # Inicializar la clase TelemetriaMapbox para enviar JSON por MQTT
+    self.telemetria_mapbox = TelemetriaMapbox("195.235.211.197", 1883, "telemetria/mapbox")
 
     # Get last gps position from params
     self.last_position = coordinate_from_param("LastGPSPosition", self.params)
@@ -60,61 +62,6 @@ class RouteEngine:
     if self.mapbox_token != "" and self.params.get("CustomMapboxTokenSk") is not None:
       self.mapbox_token = self.params.get("CustomMapboxTokenSk")
       self.mapbox_host = "https://api.mapbox.com"
-
-  def update(self):
-    self.sm.update(0)
-
-    if self.sm.updated["managerState"]:
-      ui_pid = [p.pid for p in self.sm["managerState"].processes if p.name == "ui" and p.running]
-      if ui_pid:
-        if self.ui_pid and self.ui_pid != ui_pid[0]:
-          cloudlog.warning("UI restarting, sending route")
-          threading.Timer(5.0, self.send_route).start()
-        self.ui_pid = ui_pid[0]
-
-    self.update_location()
-    try:
-      self.recompute_route()
-      self.send_instruction()
-    except Exception:
-      cloudlog.exception("navd.failed_to_compute")
-
-  def update_location(self):
-    location = self.sm['liveLocationKalman']
-    self.gps_ok = location.gpsOK
-
-    self.localizer_valid = (location.status == log.LiveLocationKalman.Status.valid) and location.positionGeodetic.valid
-
-    if self.localizer_valid:
-      self.last_bearing = math.degrees(location.calibratedOrientationNED.value[2])
-      self.last_position = Coordinate(location.positionGeodetic.value[0], location.positionGeodetic.value[1])
-
-  def recompute_route(self):
-    if self.last_position is None:
-      return
-
-    new_destination = coordinate_from_param("NavDestination", self.params)
-    if new_destination is None:
-      self.clear_route()
-      self.reset_recompute_limits()
-      return
-
-    should_recompute = self.should_recompute()
-    if new_destination != self.nav_destination:
-      cloudlog.warning(f"Got new destination from NavDestination param {new_destination}")
-      should_recompute = True
-
-    # Don't recompute when GPS drifts in tunnels
-    if not self.gps_ok and self.step_idx is not None:
-      return
-
-    if self.recompute_countdown == 0 and should_recompute:
-      self.recompute_countdown = 2**self.recompute_backoff
-      self.recompute_backoff = min(6, self.recompute_backoff + 1)
-      self.calculate_route(new_destination)
-      self.reroute_counter = 0
-    else:
-      self.recompute_countdown = max(0, self.recompute_countdown - 1)
 
   def calculate_route(self, destination):
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
@@ -163,12 +110,14 @@ class RouteEngine:
 
       r = resp.json()
 
-      # Guardar la respuesta de la API en un archivo JSON - Adrian Cañadas Gallardo
+      # Guardar la respuesta de la API en un archivo JSON
       with open(MAPBOX_RESPONSE_FILE, 'w') as json_file:
-        json.dump(r, json_file, indent=2)  # Guardar el JSON con formato legible - Adrian Cañadas Gallardo
-        print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
+        json.dump(r, json_file, indent=2)
+        print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")
+        cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")
 
-        cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
+      # Usar la nueva clase para enviar el archivo JSON por MQTT
+      self.telemetria_mapbox.send_json(MAPBOX_RESPONSE_FILE)
 
       if len(r['routes']):
         self.route = r['routes'][0]['legs'][0]['steps']
@@ -177,14 +126,10 @@ class RouteEngine:
         maxspeed_idx = 0
         maxspeeds = r['routes'][0]['legs'][0]['annotation']['maxspeed']
 
-        # Convert coordinates
         for step in self.route:
           coords = []
-
           for c in step['geometry']['coordinates']:
             coord = Coordinate.from_mapbox_tuple(c)
-
-            # Last step does not have maxspeed
             if (maxspeed_idx < len(maxspeeds)):
               maxspeed = maxspeeds[maxspeed_idx]
               if ('unknown' not in maxspeed) and ('none' not in maxspeed):
@@ -194,8 +139,7 @@ class RouteEngine:
             maxspeed_idx += 1
 
           self.route_geometry.append(coords)
-          maxspeed_idx -= 1  # Every segment ends with the same coordinate as the start of the next
-
+          maxspeed_idx -= 1
         self.step_idx = 0
       else:
         cloudlog.warning("Got empty route response")
@@ -208,6 +152,7 @@ class RouteEngine:
       self.clear_route()
 
     self.send_route()
+
 
   # (rest of the code remains unchanged)
 
