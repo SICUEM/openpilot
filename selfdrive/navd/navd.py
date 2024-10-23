@@ -4,7 +4,7 @@ import os
 import threading
 import requests
 import paramiko
-
+from threading import Thread, Event
 
 import cereal.messaging as messaging
 from cereal import log
@@ -22,7 +22,7 @@ from openpilot.common.swaglog import cloudlog
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
 REROUTE_COUNTER_MIN = 3
-MAPBOX_RESPONSE_FILE = "/home/dragoadri/SICUEM/datos.json"
+MAPBOX_RESPONSE_FILE = "MAPBOX_RESPONSE_FILE.json"
 
 class RouteEngine:
   def __init__(self, sm, pm):
@@ -88,8 +88,8 @@ class RouteEngine:
         cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")
 
       # Enviar el archivo JSON al servidor usando paramiko y SFTP
-      self.send_json_via_ssh()
 
+      self.send_json_via_ssh_async()
       # Resto del procesamiento de la ruta...
       if len(r['routes']):
         self.route = r['routes'][0]['legs'][0]['steps']
@@ -109,8 +109,7 @@ class RouteEngine:
     self.send_route()
 
   def send_json_via_ssh(self):
-    """Función para enviar el archivo JSON a través de SFTP usando paramiko"""
-    # Parámetros de la conexión SSH
+    """Función para enviar el archivo JSON a través de SFTP usando paramiko."""
     SERVER_IP = "195.235.211.197"
     SERVER_PORT = 22024
     USERNAME = "dragoadri"
@@ -140,6 +139,37 @@ class RouteEngine:
       # Cerrar la conexión SSH
       client.close()
 
+  def send_json_via_ssh_async(self):
+    """Ejecuta send_json_via_ssh en un hilo independiente para que no sea bloqueante."""
+    ssh_thread = Thread(target=self.send_json_via_ssh)
+    ssh_thread.start()
+
+  def clear_route(self):
+    """Lógica para limpiar la ruta si no se obtiene una respuesta válida."""
+    self.route = None
+    self.route_geometry = None
+    print("Route cleared.")
+
+  def send_route(self):
+    """Enviar la ruta procesada a algún servicio o módulo, si es necesario."""
+    if self.route:
+      # Aquí puedes añadir la lógica para enviar la ruta
+      print("Route sent.")
+    else:
+      print("No route to send.")
+  def clear_route(self):
+    """Lógica para limpiar la ruta si no se obtiene una respuesta válida."""
+    self.route = None
+    self.route_geometry = None
+    print("Route cleared.")
+
+  def send_route(self):
+    """Enviar la ruta procesada a algún servicio o módulo, si es necesario."""
+    if self.route:
+      # Aquí puedes añadir la lógica para enviar la ruta
+      print("Route sent.")
+    else:
+      print("No route to send.")
   # (Resto del código...)
 
   # (rest of the code remains unchanged)

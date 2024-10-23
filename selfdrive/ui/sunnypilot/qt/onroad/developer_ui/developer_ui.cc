@@ -160,20 +160,20 @@ UiElement DeveloperUi::getVEgo(float v_ego, bool is_metric, const QString &speed
   QString value = QString::number(v_ego * (is_metric ? MS_TO_KPH : MS_TO_MPH), 'f', 0);
   QColor color = QColor(255, 255, 255, 255);
 
-  return UiElement(value, "V.E.", speed_unit, color);
+  return UiElement("V.E."+value, "", speed_unit, color);
 }
 
 
 
 UiElement DeveloperUi::getLatitude (float latitude) {
-  QString value = QString(QString::number(latitude, 'f', 6));
+  QString value = QString(QString::number(latitude, 'f', 4));
   QColor color = QColor(255, 255, 255, 255);
 
   return UiElement("LAT:"+value, "", "", color);
 }
 
 UiElement DeveloperUi::getLongitude ( float longitude) {
-  QString value = QString(QString::number(longitude, 'f', 6));
+  QString value = QString(QString::number(longitude, 'f', 4));
   QColor color = QColor(255, 255, 255, 255);
 
   return UiElement("LON:"+value, "", "", color);
