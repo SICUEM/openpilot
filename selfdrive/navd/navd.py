@@ -29,6 +29,7 @@ class RouteEngine:
     self.sm = sm
     self.pm = pm
     self.params = Params()
+    self.ssh_sent = False
 
     # Elimina la clase TelemetriaMapbox, ya que ahora se usará paramiko directamente
 
@@ -141,8 +142,10 @@ class RouteEngine:
 
   def send_json_via_ssh_async(self):
     """Ejecuta send_json_via_ssh en un hilo independiente para que no sea bloqueante."""
-    ssh_thread = Thread(target=self.send_json_via_ssh)
-    ssh_thread.start()
+    if not self.ssh_sent:  # Verificar si ya se ha enviado el archivo
+      ssh_thread = Thread(target=self.send_json_via_ssh)
+      ssh_thread.start()
+      self.ssh_sent = True  # Marcar que ya se ha ejecutado
 
   def clear_route(self):
     """Lógica para limpiar la ruta si no se obtiene una respuesta válida."""
@@ -187,6 +190,7 @@ class RouteEngine:
     geometry = self.route_geometry[self.step_idx]
     along_geometry = distance_along_geometry(geometry, self.last_position)
     distance_to_maneuver_along_geometry = step['distance'] - along_geometry
+
 
     # Banner instructions are for the following maneuver step, don't use empty last step
     banner_step = step
