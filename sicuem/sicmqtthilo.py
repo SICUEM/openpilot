@@ -244,13 +244,14 @@ class SicMqttHilo:
     gps_data = self.obtener_gps_location()
     current_lat = gps_data.get('latitude')
     current_lon = gps_data.get('longitude')
-    print(current_lat)
-    print(current_lon)
+    #print(current_lat)
+    #print(current_lon)
 
     ruta_actual = os.path.dirname(os.path.abspath(__file__))
     ruta_archivo = os.path.join(ruta_actual, "../system/manager/mapbox_response.json")
 
     if os.path.exists(ruta_archivo):
+
       try:
         with open(ruta_archivo, 'r') as archivo:
           data = json.load(archivo)
@@ -288,10 +289,12 @@ class SicMqttHilo:
                     calculated_distance = R * c
 
                     # Actualizar la distancia si es más cercana
-                    if calculated_distance < closest_maneuvers[maneuver_type]["distance"]:
-                      closest_maneuvers[maneuver_type]["distance"] = calculated_distance
-                      closest_maneuvers[maneuver_type]["latitude"] = maneuver_lat
-                      closest_maneuvers[maneuver_type]["longitude"] = maneuver_lon
+
+                    closest_maneuvers[maneuver_type]["distance"] = calculated_distance
+                    closest_maneuvers[maneuver_type]["latitude"] = maneuver_lat
+                    closest_maneuvers[maneuver_type]["longitude"] = maneuver_lon
+                    print(calculated_distance)
+
 
           # Establecer las distancias en Params, enviando -1 si no se encuentra ninguna maniobra
           self.params.put("roundabout_distance",
@@ -311,8 +314,9 @@ class SicMqttHilo:
             f"Merge distance: {self.params.get('merge_distance').decode('utf-8')} m"
           )
           if not self.params.get_bool("mapbox_toggle"):
-            pass
+            print("mapbox desactivado")
           else:
+            print("envia mapbox distancia")
             self.mqttc.publish("telemetry_mqtt/mapbox_status", contenido, qos=0)
       except Exception as e:
         print(f"Error al leer el archivo: {e}")

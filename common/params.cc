@@ -162,9 +162,10 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"sender_uem_left", PERSISTENT}, // Adrian Cañadas Gallardo
     {"sender_uem_right", PERSISTENT}, // Adrian Cañadas Gallardo
 // Add the distance parameters as strings
-    {"roundabout_distance", CLEAR_ON_MANAGER_START}, // Adrian Cañadas Gallardo
-    {"intersection_distance", CLEAR_ON_MANAGER_START}, // Adrian Cañadas Gallardo
-    {"merge_distance", CLEAR_ON_MANAGER_START}, // Adrian Cañadas Gallardo
+
+    {"roundabout_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"intersection_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"merge_distance", PERSISTENT}, // Adrian Cañadas Gallardo
 
 
 

@@ -53,7 +53,7 @@ class RouteEngine:
     self.api = None
     self.mapbox_token = None
 
-    self.eliminar_mapbox_response_file()
+    #self.eliminar_mapbox_response_file()
 
     if "MAPBOX_TOKEN" in os.environ:
       self.mapbox_token = os.environ["MAPBOX_TOKEN"]
