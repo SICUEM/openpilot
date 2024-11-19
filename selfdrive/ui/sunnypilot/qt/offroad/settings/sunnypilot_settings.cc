@@ -31,7 +31,7 @@ Last updated: July 29, 2024
 
 #include "common/model.h"
 
-SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
+SunnypilotPanel::SunnypilotPanel(QWidget *parent,int edit) : QFrame(parent) {
   main_layout = new QStackedLayout(this);
 
   ListWidgetSP *list = new ListWidgetSP(this, false);
@@ -149,8 +149,37 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
     }
   };
 
+  //Adri ini
+   std::vector<std::tuple<QString, QString, QString, QString>> toggle_defs_uem{
+    {
+      "telemetria_uem",
+      tr("TELEMETRIA UEM"),
+      tr("EXPLICACION TELEMETRIA UEM"),
+      "../assets/offroad/icon_blank.png",
+    },
+     {
+      "toggle_op1",
+      tr("op1"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
+    },
+      {
+      "toggle_op2",
+      tr("op2"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
+    }, {
+      "toggle_op3",
+      tr("op3"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
+    }
+  };
+
+    //Adri fin
+
   // M.A.D.S. Settings
-  SubPanelButton *madsSettings = new SubPanelButton(tr("Customize M.A.D.S."));
+  SubPanelButton *madsSettings = new SubPanelButton(tr(edit==0?"Customize M.A.D.S.":"Conf. TELEMETRIA UEM"));
   madsSettings->setObjectName("mads_btn");
   // Set margin on the outside of the button
   QVBoxLayout* madsSettingsLayout = new QVBoxLayout;
@@ -161,7 +190,7 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
     main_layout->setCurrentWidget(mads_settings);
   });
 
-  mads_settings = new MadsSettings(this);
+  mads_settings = new MadsSettings(this,edit);
   connect(mads_settings, &MadsSettings::backPress, [=]() {
     scrollView->restoreScrollPosition();
     main_layout->setCurrentWidget(sunnypilotScreen);
@@ -286,10 +315,15 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
   for (auto &[param, title, desc, icon] : toggle_defs) {
     auto toggle = new ParamControlSP(param, title, desc, icon, this);
 
+
+if (edit==0){
     list->addItem(toggle);
+}
+
     toggles[param.toStdString()] = toggle;
 
-    if (param == "EnableMads") {
+    if (param == "EnableMads" && edit==0) {
+
       list->addItem(madsSettingsLayout);
 
       list->addItem(horizontal_line());
@@ -298,30 +332,30 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
       list->addItem(dlp_settings);
     }
 
-    if (param == "VisionCurveLaneless") {
+    if (param == "VisionCurveLaneless"&& edit==0) {
       list->addItem(laneChangeSettingsLayout);
       list->addItem(horizontal_line());
 
       list->addItem(new LabelControlSP(tr("Speed Limit Assist")));
     }
 
-    if (param == "EnableSlc") {
+    if (param == "EnableSlc"&& edit==0) {
       list->addItem(slcSettingsLayout);
 
       list->addItem(warning_policy_layout);
       list->addItem(horizontal_line());
     }
 
-    if (param == "ReverseAccChange") {
+    if (param == "ReverseAccChange"&& edit==0) {
       list->addItem(horizontal_line());
     }
 
-    if (param == "CustomOffsets") {
+    if (param == "CustomOffsets"&& edit==0) {
       list->addItem(customOffsetsSettingsLayout);
       list->addItem(horizontal_line());
     }
 
-    if (param == "TorquedOverride") {
+    if (param == "TorquedOverride"&& edit==0) {
       // Control: FRICTION
       list->addItem(friction);
 
@@ -330,8 +364,34 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
 
       list->addItem(horizontal_line());
     }
+
+
   }
 
+ if (edit==1){
+for (auto &[param, title, desc, icon] : toggle_defs_uem) {
+    auto toggle = new ParamControlSP(param, title, desc, icon, this);
+
+
+    list->addItem(toggle);
+
+
+    toggles[param.toStdString()] = toggle;
+
+
+       if (param == "telemetria_uem") {
+      list->addItem(madsSettingsLayout);
+
+      list->addItem(horizontal_line());
+
+      // Controls: Dynamic Lane Profile group
+      //list->addItem(dlp_settings);
+    }
+
+  }
+
+
+}
   connect(toggles["NNFF"], &ToggleControlSP::toggleFlipped, [=](bool state) {
     if (state) {
       toggles["EnforceTorqueLateral"]->setEnabled(false);
@@ -368,9 +428,24 @@ SunnypilotPanel::SunnypilotPanel(QWidget *parent) : QFrame(parent) {
   toggles["CustomOffsets"]->showDescription();
 
   connect(toggles["EnableMads"], &ToggleControlSP::toggleFlipped, mads_settings, &MadsSettings::updateToggles);
+
+    if (edit==0){
+
   connect(toggles["EnableMads"], &ToggleControlSP::toggleFlipped, [=](bool state) {
     madsSettings->setEnabled(state);
-  });
+  });}
+
+  //Adri ini
+  toggles["EnableMads"]->setEnabled(false);
+
+  if (edit==1){
+  connect(toggles["telemetria_uem"], &ToggleControlSP::toggleFlipped, [=](bool state) {
+    madsSettings->setEnabled(state);
+  });}
+
+
+  //Adri fin
+
   madsSettings->setEnabled(toggles["EnableMads"]->isToggled());
 
   connect(toggles["EnableSlc"], &ToggleControlSP::toggleFlipped, slc_settings, &SlcSettings::updateToggles);

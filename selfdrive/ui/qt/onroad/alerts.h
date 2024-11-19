@@ -34,6 +34,8 @@ protected:
   void paintEvent(QPaintEvent*) override;
   OnroadAlerts::Alert getAlert(const SubMaster &sm, uint64_t started_frame);
 
+  QPixmap uem_img;//Adri
+
   QColor bg;
   Alert alert = {};
 };

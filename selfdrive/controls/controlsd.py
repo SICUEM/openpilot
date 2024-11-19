@@ -5,8 +5,6 @@ import time
 import threading
 from typing import SupportsFloat
 
-
-
 import cereal.messaging as messaging
 
 from cereal import car, log, custom
@@ -118,6 +116,10 @@ class Controls:
 
     # read params
     self.is_metric = self.params.get_bool("IsMetric")
+    self.is_alerta_SICUEM = self.params.get_bool("ActivateEvent") #Adrian Cañadas Gsllardo
+    #ESTE ES EL TOGGLE PARA LA TELEMETRIA
+
+
     self.is_ldw_enabled = self.params.get_bool("IsLdwEnabled")
 
     # detect sound card presence and ensure successful init
@@ -933,6 +935,8 @@ class Controls:
   def params_thread(self, evt):
     while not evt.is_set():
       self.is_metric = self.params.get_bool("IsMetric")
+      self.is_alerta_SICUEM = self.params.get_bool("ActivateEvent")  # Adrian Cañadas Gsllardo
+
       self.experimental_mode = self.params.get_bool("ExperimentalMode") and self.CP.openpilotLongitudinalControl
       self.personality = self.read_personality_param()
       self.dynamic_personality = self.params.get_bool("DynamicPersonality")
@@ -952,7 +956,10 @@ class Controls:
     t = threading.Thread(target=self.params_thread, args=(e, ))
     try:
       t.start()
+
       while True:
+
+        #if (self.is_alerta_SICUEM):
         self.step()
         self.rk.monitor_time()
     finally:

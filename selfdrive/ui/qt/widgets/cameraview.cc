@@ -183,6 +183,8 @@ void CameraWidget::initializeGL() {
 
 void CameraWidget::showEvent(QShowEvent *event) {
   if (!vipc_thread) {
+
+
     clearFrames();
     vipc_thread = new QThread();
     connect(vipc_thread, &QThread::started, [=]() { vipcThread(); });

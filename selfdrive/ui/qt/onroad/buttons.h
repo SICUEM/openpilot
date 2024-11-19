@@ -27,8 +27,10 @@ private:
   void changeMode();
 
   Params params;
+  QPixmap uem_img;//Adri
   QPixmap engage_img;
   QPixmap experimental_img;
 };
 
 void drawIcon(QPainter &p, const QPoint &center, const QPixmap &img, const QBrush &bg, float opacity);
+void drawIconUEM(QPainter &p, const QPoint &center, const QPixmap &img, const QBrush &bg, float opacity);

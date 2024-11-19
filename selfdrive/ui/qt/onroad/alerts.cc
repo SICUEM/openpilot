@@ -23,7 +23,7 @@ OnroadAlerts::Alert OnroadAlerts::getAlert(const SubMaster &sm, uint64_t started
   const uint64_t controls_frame = sm.rcv_frame("controlsState");
 
   Alert a = {};
-  if (controls_frame >= started_frame) {  // Don't get old alert.
+  if (controls_frame >= started_frame) {  // No obtener alertas antiguas.
     a = {cs.getAlertText1().cStr(), cs.getAlertText2().cStr(),
          cs.getAlertType().cStr(), cs.getAlertSize(), cs.getAlertStatus()};
   }
@@ -32,14 +32,11 @@ OnroadAlerts::Alert OnroadAlerts::getAlert(const SubMaster &sm, uint64_t started
     const int CONTROLS_TIMEOUT = 5;
     const int controls_missing = (nanos_since_boot() - sm.rcv_time("controlsState")) / 1e9;
 
-    // Handle controls timeout
     if (controls_frame < started_frame) {
-      // car is started, but controlsState hasn't been seen at all
       a = {tr("openpilot Unavailable"), tr("Waiting for controls to start"),
            "controlsWaiting", cereal::ControlsState::AlertSize::MID,
            cereal::ControlsState::AlertStatus::NORMAL};
     } else if (controls_missing > CONTROLS_TIMEOUT && !Hardware::PC()) {
-      // car is started, but controls is lagging or died
       if (cs.getEnabled() && (controls_missing - CONTROLS_TIMEOUT) < 10) {
         a = {tr("TAKE CONTROL IMMEDIATELY"), tr("Controls Unresponsive"),
              "controlsUnresponsive", cereal::ControlsState::AlertSize::FULL,
@@ -51,13 +48,30 @@ OnroadAlerts::Alert OnroadAlerts::getAlert(const SubMaster &sm, uint64_t started
       }
     }
   }
+
+
+  // Modificación: Crear una alerta adicional con el nombre "Adrián"
+  /*
+  Alert additional_alert = {tr("Adrián"), tr("Mensaje adicional de alerta"),
+                            "alertAdrian", cereal::ControlsState::AlertSize::SMALL,
+                            cereal::ControlsState::AlertStatus::NORMAL};
+
+
+  // Retornar la alerta original y luego la alerta adicional "Adrián".
+  if (a.size != cereal::ControlsState::AlertSize::NONE) {
+    return additional_alert;
+  }
+*/
   return a;
 }
 
 void OnroadAlerts::paintEvent(QPaintEvent *event) {
+  uem_img = loadPixmap("../assets/navigation/uem_alert.svg", {200, 200}); // Carga el logo UEM
+
   if (alert.size == cereal::ControlsState::AlertSize::NONE) {
     return;
   }
+
   static std::map<cereal::ControlsState::AlertSize, const int> alert_heights = {
     {cereal::ControlsState::AlertSize::SMALL, 271},
     {cereal::ControlsState::AlertSize::MID, 420},
@@ -75,7 +89,7 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
 
   QPainter p(this);
 
-  // draw background + gradient
+  // Fondo y gradiente
   p.setPen(Qt::NoPen);
   p.setCompositionMode(QPainter::CompositionMode_SourceOver);
   p.setBrush(QBrush(alert_colors[alert.status]));
@@ -90,7 +104,11 @@ void OnroadAlerts::paintEvent(QPaintEvent *event) {
   p.drawRoundedRect(r, radius, radius);
   p.setCompositionMode(QPainter::CompositionMode_SourceOver);
 
-  // text
+  // Dibuja el logo UEM
+  QPoint logo_position(500, 50); // Cambia la posición
+  p.drawPixmap(logo_position, uem_img);
+
+  // Texto de la alerta
   const QPoint c = r.center();
   p.setPen(QColor(0xff, 0xff, 0xff));
   p.setRenderHint(QPainter::TextAntialiasing);
