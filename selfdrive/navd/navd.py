@@ -15,7 +15,6 @@ from openpilot.selfdrive.navd.helpers import (Coordinate, coordinate_from_param,
                                     minimum_distance,
                                     parse_banner_instructions)
 from openpilot.common.swaglog import cloudlog
-from openpilot.sicuem.telemetria_mapbox import TelemetriaMapbox  # Importar la clase TelemetriaMapbox - Adrian Cañadas Gallardo
 
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10

@@ -293,7 +293,7 @@ class SicMqttHilo:
                     closest_maneuvers[maneuver_type]["distance"] = calculated_distance
                     closest_maneuvers[maneuver_type]["latitude"] = maneuver_lat
                     closest_maneuvers[maneuver_type]["longitude"] = maneuver_lon
-                    print(calculated_distance)
+                    #print(calculated_distance)
 
 
           # Establecer las distancias en Params, enviando -1 si no se encuentra ninguna maniobra
@@ -316,7 +316,7 @@ class SicMqttHilo:
           if not self.params.get_bool("mapbox_toggle"):
             print("mapbox desactivado")
           else:
-            print("envia mapbox distancia")
+            #print("envia mapbox distancia")
             self.mqttc.publish("telemetry_mqtt/mapbox_status", contenido, qos=0)
       except Exception as e:
         print(f"Error al leer el archivo: {e}")
