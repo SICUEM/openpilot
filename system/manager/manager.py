@@ -21,6 +21,10 @@ from openpilot.common.swaglog import cloudlog, add_file_handler
 from openpilot.system.hardware.hw import Paths
 from openpilot.system.version import get_build_metadata, terms_version, terms_version_sp, training_version
 
+# [Start Bemposta] ****************************************************************************
+from openpilot.sicuem.sicmqtthilo import SicMqttHilo
+# [End Bemposta] ******************************************************************************
+
 
 def manager_init() -> None:
   save_bootlog()
@@ -35,6 +39,9 @@ def manager_init() -> None:
     params.clear_all(ParamKeyType.DEVELOPMENT_ONLY)
 
   default_params: list[tuple[str, str | bytes]] = [
+    ("roundabout_distance","-1"),
+    ("intersection_distance", "-1"),
+    ("merge_distance", "-1"),
     ("CompletedTrainingVersion", "0"),
     ("DisengageOnAccelerator", "0"),
     ("GsmMetered", "1"),
@@ -235,9 +242,23 @@ def manager_thread() -> None:
 
   started_prev = False
 
+  # [Start Bemposta] ****************************************************************************
+
+  sicMqtt = SicMqttHilo()
+  sicMqtt.start()
+  # [End Bemposta] ******************************************************************************
+
+
   while True:
     sm.update(1000)
 
+    #Adri ini
+    if params.get_bool("telemetria_uem"):
+      sicMqtt.reanudar_envio()# reanudar hilo
+    else:
+      sicMqtt.pausar_envio()# pausar hilo
+
+    #Adri fin
     started = sm['deviceState'].started
 
     if started and not started_prev:
