@@ -209,6 +209,8 @@ void AnnotatedCameraWidgetSP::updateState(const UIStateSP &s) {
   altitude = gpsLocation.getAltitude();
   vEgo = car_state.getVEgo();
   aEgo = car_state.getAEgo();
+  latitude = gpsLocation.getLatitude();//Adri
+  longitude = gpsLocation.getLongitude();//Adri
   steeringTorqueEps = car_state.getSteeringTorqueEps();
   bearingAccuracyDeg = gpsLocation.getBearingAccuracyDeg();
   bearingDeg = gpsLocation.getBearingDeg();
@@ -406,14 +408,109 @@ void AnnotatedCameraWidgetSP::updateState(const UIStateSP &s) {
   drivingModelGen = s.scene.driving_model_generation;
 }
 
-void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
+// Función para mostrar la imagen "merge"
+void mostrarMerge(QPainter &p, QRect rect, QPixmap &pixmap, int labelYOffset, int mergeDistance) {
+  if (mergeDistance >= 0) { // Solo mostrar si la distancia es válida
+    p.save();
+
+    p.drawPixmap(rect, pixmap);
+    p.setPen(Qt::white);
+    p.setFont(QFont("Arial", 30));
+    QString distanceText = QString("%1 m").arg(mergeDistance);
+    p.drawText(rect.center().x() - p.fontMetrics().width(distanceText) / 2, labelYOffset, distanceText);
+
+    p.restore(); // Restaura el estado de QPainter
+  }
+}
+
+// Función para mostrar la imagen "intersection" con la distancia correspondiente
+void mostrarIntersection(QPainter &p, QRect rect, QPixmap &pixmap, int labelYOffset, int intersectionDistance) {
+  if (intersectionDistance >= 0) { // Solo mostrar si la distancia es válida
+    p.save();
+
+    p.drawPixmap(rect, pixmap);
+    p.setPen(Qt::white);
+    p.setFont(QFont("Arial", 30));
+    QString distanceText = QString("%1 m").arg(intersectionDistance);
+    p.drawText(rect.center().x() - p.fontMetrics().width(distanceText) / 2, labelYOffset, distanceText);
+
+    p.restore(); // Restaura el estado de QPainter
+  }
+}
+
+// Función para mostrar la imagen "roundabout" con la distancia correspondiente
+void mostrarRoundabout(QPainter &p, QRect rect, QPixmap &pixmap, int labelYOffset, int roundaboutDistance) {
+  if (roundaboutDistance >= 0) { // Solo mostrar si la distancia es válida
+    p.save();
+
+    p.drawPixmap(rect, pixmap);
+    p.setPen(Qt::white);
+    p.setFont(QFont("Arial", 30));
+
+    QString distanceText = QString("%1 m").arg(roundaboutDistance);
+    p.drawText(rect.center().x() - p.fontMetrics().width(distanceText) / 2, labelYOffset, distanceText);
+
+    p.restore(); // Restaura el estado de QPainter
+  }
+}
+
+// Función para mostrar el logo "uem_logo"
+void mostrarUemLogo(QPainter &p, QRect rect, QPixmap &pixmap) {
   p.save();
 
-  // Header gradient
-  QLinearGradient bg(0, UI_HEADER_HEIGHT - (UI_HEADER_HEIGHT / 2.5), 0, UI_HEADER_HEIGHT);
+  p.drawPixmap(rect, pixmap);
+  p.restore(); // Restaura el estado de QPainter
+}
+
+void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
+  p.save();
+ QLinearGradient bg(0, UI_HEADER_HEIGHT - (UI_HEADER_HEIGHT / 2.5), 0, UI_HEADER_HEIGHT);
   bg.setColorAt(0, QColor::fromRgbF(0, 0, 0, 0.45));
   bg.setColorAt(1, QColor::fromRgbF(0, 0, 0, 0));
   p.fillRect(0, 0, width(), UI_HEADER_HEIGHT, bg);
+
+  // Cargar las imágenes
+  QPixmap merge("../assets/navigation/merge.svg");
+  QPixmap intersection("../assets/navigation/intersection.svg");
+  QPixmap roundabout("../assets/navigation/roundabout.svg");
+  QPixmap uem_logoo("../assets/navigation/uem_logo.svg");
+
+  // Dimensiones y posiciones de las imágenes
+  int navImageWidth = 180;
+  int navImageHeight = 180;
+  int navYOffset = 40;
+  int labelYOffset = navYOffset + navImageHeight + 25;
+  int mitad = width() / 2;
+
+  QRect mergeRect(mitad*1.25, navYOffset, navImageWidth, navImageHeight);
+  QRect intersectionRect(mitad*1.25, navYOffset, navImageWidth, navImageHeight);
+  QRect roundaboutRect(mitad*1.25, navYOffset, navImageWidth, navImageHeight);
+  QRect uem_logo(width()-150, height()-150, 150, 150);
+
+  // Obtener las distancias desde Params
+  //int mergeDistance = std::stoi(Params().get("merge_distance")); // Convertir a int
+  //int intersectionDistance = std::stoi(Params().get("intersection_distance")); // Convertir a int
+  int roundaboutDistance = std::stoi(Params().get("roundabout_distance")); // Convertir a int
+
+  //separar un poco mas el texto
+  labelYOffset= labelYOffset+15;
+  // Llamadas a las funciones para mostrar las imágenes y los labels si corresponde
+
+  //int menorDistancia = std::min({mergeDistance, intersectionDistance, roundaboutDistance});
+
+ // if (menorDistancia<5000){
+  //mostrarMerge(p, mergeRect, merge, labelYOffset, mergeDistance);
+
+  //mostrarIntersection(p, intersectionRect, intersection, labelYOffset, intersectionDistance);
+if (roundaboutDistance>0){
+  mostrarRoundabout(p, roundaboutRect, roundabout, labelYOffset, roundaboutDistance);}
+
+//}
+
+  //mostrarUemLogo(p, uem_logo, uem_logoo);
+
+
+  // Header gradient
 
   QString speedLimitStr = (speedLimit > 1) ? QString::number(std::nearbyint(speedLimit)) : "–";
   QString speedLimitStrSlc = showSpeedLimit ? QString::number(std::nearbyint(speedLimitSLC)) : "–";
@@ -522,21 +619,33 @@ void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
   }
 
   // current speed
-  if (!hideVEgoUi) {
-    p.setFont(InterFont(176, QFont::Bold));
-    drawColoredText(p, rect().center().x(), 210, speedStr, brakeLights ? QColor(0xff, 0, 0, 255) : QColor(0xff, 0xff, 0xff, 255));
-    p.setFont(InterFont(66));
-    drawText(p, rect().center().x(), 290, speedUnit, 200);
-  }
+// current speed
+//velocidad actual en grande
+if (!hideVEgoUi) {
+  p.setFont(InterFont(176, QFont::Bold));
+  int speedTextX = width()/2; // Ajusta 150 píxeles hacia la izquierda
+  drawColoredText(p, speedTextX, 200, speedStr, brakeLights ? QColor(0xff, 0, 0, 255) : QColor(0xff, 0xff, 0xff, 255));
+
+  p.setFont(InterFont(66));
+  drawText(p, speedTextX, 280, speedUnit, 200);
+}
+
 
   if (!reversing) {
     // ####### 1 ROW #######
     QRect bar_rect1(rect().left(), rect().bottom() - 60, rect().width(), 61);
+    QRect bar_rect2(rect().left()+450, rect().bottom() - 120, rect().width(), 61);
+
     if (!splitPanelVisible && devUiInfo == 2) {
       p.setPen(Qt::NoPen);
       p.setBrush(QColor(0, 0, 0, 100));
       p.drawRect(bar_rect1);
+      p.drawRect(bar_rect2);
       drawNewDevUi2(p, bar_rect1.left(), bar_rect1.center().y());
+
+
+      drawNewDevUi3(p, bar_rect2.left()+450, bar_rect1.center().y()-60);
+
     }
 
     // ####### 1 COLUMN ########
@@ -585,6 +694,7 @@ void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
     int feature_status_text_x = rightHandDM ? rect().right() - x : x;
     drawFeatureStatusText(p, feature_status_text_x, rect().bottom() - 160 - rn_offset);
   }
+  //mostrarUemLogo(p, uem_logo, uem_logoo);
 
   p.restore();
 }
@@ -827,8 +937,30 @@ int AnnotatedCameraWidgetSP::drawNewDevUi(QPainter &p, int x, int y, const QStri
 
   return 430;
 }
+//Adri
+void AnnotatedCameraWidgetSP::drawNewDevUi3(QPainter &p, int x, int y) {
+//SI HAY ALERTA
+if (true){
+//Aqui esta la barra
+  int rw = 550;
 
+
+  UiElement getVEgoElement = DeveloperUi::getVEgo(vEgo, is_metric, speedUnit);
+    rw += drawNewDevUi(p, rw, y, getVEgoElement.value, getVEgoElement.label, getVEgoElement.units, getVEgoElement.color);
+
+
+  UiElement getLatitude = DeveloperUi::getLatitude(latitude);
+    rw += drawNewDevUi(p, rw, y, getLatitude.value, getLatitude.label, getLatitude.units, getLatitude.color);
+
+    UiElement getLongitude = DeveloperUi::getLongitude(longitude);
+    rw += drawNewDevUi(p, rw, y, getLongitude.value, getLongitude.label, getLongitude.units, getLongitude.color);
+
+}
+}
+//Adri fin
 void AnnotatedCameraWidgetSP::drawNewDevUi2(QPainter &p, int x, int y) {
+
+//Aqui esta la barra
   int rw = 90;
 
   UiElement aEgoElement = DeveloperUi::getAEgo(aEgo);
@@ -843,7 +975,8 @@ void AnnotatedCameraWidgetSP::drawNewDevUi2(QPainter &p, int x, int y) {
 
     UiElement latAccelFactorFilteredElement = DeveloperUi::getLatAccelFactorFiltered(latAccelFactorFiltered, liveValid);
     rw += drawNewDevUi(p, rw, y, latAccelFactorFilteredElement.value, latAccelFactorFilteredElement.label, latAccelFactorFilteredElement.units, latAccelFactorFilteredElement.color);
-  } else {
+  }
+  else {
     UiElement steeringTorqueEpsElement = DeveloperUi::getSteeringTorqueEps(steeringTorqueEps);
     rw += drawNewDevUi(p, rw, y, steeringTorqueEpsElement.value, steeringTorqueEpsElement.label, steeringTorqueEpsElement.units, steeringTorqueEpsElement.color);
 
@@ -1529,6 +1662,8 @@ void AnnotatedCameraWidgetSP::paintGL() {
 }
 
 void AnnotatedCameraWidgetSP::showEvent(QShowEvent *event) {
+
+
   CameraWidget::showEvent(event);
 
   sp_ui_update_params(uiStateSP());

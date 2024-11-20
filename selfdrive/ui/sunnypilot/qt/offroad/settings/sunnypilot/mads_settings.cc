@@ -28,8 +28,13 @@ Last updated: July 29, 2024
 
 #include <tuple>
 #include <vector>
+int Edit=0;
 
-MadsSettings::MadsSettings(QWidget* parent) : QWidget(parent) {
+MadsSettings::MadsSettings(QWidget* parent,int edit) : QWidget(parent) {
+
+Edit=edit;
+
+
   QVBoxLayout* main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(50, 20, 50, 20);
   main_layout->setSpacing(20);
@@ -38,6 +43,11 @@ MadsSettings::MadsSettings(QWidget* parent) : QWidget(parent) {
   PanelBackButton* back = new PanelBackButton();
   connect(back, &QPushButton::clicked, [=]() { emit backPress(); });
   main_layout->addWidget(back, 0, Qt::AlignLeft);
+
+
+
+  if (edit ==0){
+
 
   ListWidgetSP *list = new ListWidgetSP(this, false);
   // param, title, desc, icon
@@ -86,6 +96,66 @@ MadsSettings::MadsSettings(QWidget* parent) : QWidget(parent) {
   connect(uiStateSP(), &UIStateSP::offroadTransition, dlob_settings, &ButtonParamControlSP::setEnabled);
 
   main_layout->addWidget(new ScrollViewSP(list, this));
+
+}
+else{
+
+
+  ListWidgetSP *list = new ListWidgetSP(this, false);
+  // param, title, desc, icon
+  std::vector<std::tuple<QString, QString, QString, QString>> toggle_defs{
+    {
+      "op1",
+      tr("OP 1"), tr("OP 1"),
+      "../assets/offroad/icon_blank.png",
+    },
+    {
+      "op2",
+      tr("OP 2"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
+    },{
+      "op3",
+      tr("OP 3"), tr("OP 3"),
+      "../assets/offroad/icon_blank.png",
+    },
+    {
+      "op4",
+      tr("OP 4"),
+      tr(""),
+      "../assets/offroad/icon_blank.png",
+    }
+  };
+
+  // Disengage Lateral on Brake (DLOB)
+  std::vector<QString> dlob_settings_texts{tr("Remain Active"), tr("Pause Steering")};
+  dlob_settings = new ButtonParamControlSP(
+    "DisengageLateralOnBrake",
+    tr("Steering Mode After Braking"),
+    tr(""
+       ""),
+    "",
+    dlob_settings_texts,
+    500);
+  dlob_settings->showDescription();
+  //list->addItem(dlob_settings);
+
+  for (auto &[param, title, desc, icon] : toggle_defs) {
+    auto toggle = new ParamControlSP(param, title, desc, icon, this);
+
+    list->addItem(toggle);
+    toggles[param.toStdString()] = toggle;
+
+    // trigger offroadTransition when going onroad/offroad
+    connect(uiStateSP(), &UIStateSP::offroadTransition, toggle, &ParamControlSP::setEnabled);
+  }
+
+  // trigger offroadTransition when going onroad/offroad
+  connect(uiStateSP(), &UIStateSP::offroadTransition, dlob_settings, &ButtonParamControlSP::setEnabled);
+
+  main_layout->addWidget(new ScrollViewSP(list, this));
+
+}
 }
 
 void MadsSettings::showEvent(QShowEvent *event) {
@@ -101,7 +171,12 @@ void MadsSettings::updateToggles() {
   const bool enable_mads = params.getBool("EnableMads");
   const bool enabled = is_offroad && enable_mads;
 
-  toggles["AccMadsCombo"]->setEnabled(enable_mads);
-  toggles["MadsCruiseMain"]->setEnabled(enable_mads);
+
+
   dlob_settings->setEnabled(enabled);
+
+
+
+
+
 }

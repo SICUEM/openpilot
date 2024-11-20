@@ -28,63 +28,26 @@ Last updated: July 29, 2024
 
 #include <map>
 #include <string>
+#include <QObject>  // Asegúrate de incluir QObject para que la macro Q_OBJECT funcione
+#include "selfdrive/ui/sunnypilot/ui.h"
+#include "selfdrive/ui/sunnypilot/qt/widgets/controls.h"
+#include "selfdrive/ui/sunnypilot/qt/widgets/scrollview.h"
 
-#include "selfdrive/ui/qt/offroad/settings.h"
-
-class TogglesPanelSP : public TogglesPanel {
-  Q_OBJECT
+class InfoUem : public QWidget {
+  Q_OBJECT  // Necesario para usar señales y slots
 
 public:
-  explicit TogglesPanelSP(SettingsWindow *parent);
-  void showEvent(QShowEvent *event) override;
+  explicit InfoUem(QWidget* parent = nullptr);  // Constructor
+  void showEvent(QShowEvent* event) override;
 
-private slots:
-  void updateState(const UIStateSP &s);
+signals:
+  void backPress();  // Definición de la señal
+
+public slots:
+  void updateToggles();  // Slot para actualizar los toggles
 
 private:
-  ButtonParamControlSP *long_personality_setting;
-  ButtonParamControlSP *accel_personality_setting;
-
-  ParamWatcher *param_watcher;
-  void updateToggles() override;
-};
-
-//Adri ini
-class TogglesPanelUEM : public TogglesPanel {
-  Q_OBJECT
-
-public:
-  explicit TogglesPanelUEM(SettingsWindow *parent);
-  void showEvent(QShowEvent *event) override;
-
-private slots:
-  void updateState(const UIStateSP &s);
-
-private:
-  ParamWatcher *param_watcher;
-  ButtonParamControlSP *long_personality_setting;
-  ButtonParamControlSP *accel_personality_setting;
-
-  void updateToggles() override;
-};
-
-//Adri fin
-
-class SettingsWindowSP : public SettingsWindow {
-  Q_OBJECT
-
-public:
-  explicit SettingsWindowSP(QWidget* parent = nullptr);
-
-protected:
-  struct PanelInfo {
-    QString name;
-    QWidget *widget;
-    QString icon;
-
-    PanelInfo(const QString &name, QWidget *widget, const QString &icon) : name(name), widget(widget), icon(icon) {}
-  };
-
-
-
+  Params params;
+  std::map<std::string, ParamControlSP*> toggles;
+  ButtonParamControlSP* dlob_settings;
 };

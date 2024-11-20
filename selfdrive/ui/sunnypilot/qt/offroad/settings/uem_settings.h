@@ -29,10 +29,16 @@ Last updated: July 29, 2024
 #include <map>
 #include <string>
 
+#include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot_settings.h"
 #include "selfdrive/ui/sunnypilot/ui.h"
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/custom_offsets_settings.h"
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/lane_change_settings.h"
-#include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/mads_settings.h"
+#include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/teluem_settings.h"
+
+#include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/info_uem.h"
+#include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/sender_uem.h"
+
+
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/speed_limit_control_settings.h"
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/speed_limit_warning_settings.h"
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/speed_limit_policy_settings.h"
@@ -40,35 +46,12 @@ Last updated: July 29, 2024
 #include "selfdrive/ui/sunnypilot/qt/widgets/controls.h"
 #include "selfdrive/ui/sunnypilot/qt/widgets/scrollview.h"
 
-class TorqueFriction : public OptionControlSP {
+
+class UemPanel : public QFrame {
   Q_OBJECT
 
 public:
-  TorqueFriction();
-
-  void refresh();
-
-private:
-  Params params;
-};
-
-class TorqueMaxLatAccel : public OptionControlSP {
-  Q_OBJECT
-
-public:
-  TorqueMaxLatAccel();
-
-  void refresh();
-
-private:
-  Params params;
-};
-
-class SunnypilotPanel : public QFrame {
-  Q_OBJECT
-
-public:
-  explicit SunnypilotPanel(QWidget *parent = nullptr,int edit=0);
+  explicit UemPanel(QWidget *parent = nullptr, int edit = 0);
   void showEvent(QShowEvent *event) override;
   void hideEvent(QHideEvent* event) override;
 
@@ -78,24 +61,27 @@ public slots:
 private:
   QStackedLayout* main_layout = nullptr;
   QWidget* sunnypilotScreen = nullptr;
-  MadsSettings* mads_settings = nullptr;
-  SubPanelButton *slcSettings = nullptr;
+  TelUemSettings* mads_settings = nullptr;  // Cambiado a TelUemSettings
+  InfoUem* mads_settings2 = nullptr;// Cambiado a Infouem
+    SenderUem* mads_settings3 = nullptr;// Cambiado a Infouem
+
+  SubPanelButton* slcSettings = nullptr;
   SlcSettings* slc_settings = nullptr;
-  SubPanelButton *slwSettings = nullptr;
+  SubPanelButton* slwSettings = nullptr;
   SpeedLimitWarningSettings* slw_settings = nullptr;
-  SubPanelButton *slpSettings = nullptr;
+  SubPanelButton* slpSettings = nullptr;
   SpeedLimitPolicySettings* slp_settings = nullptr;
   LaneChangeSettings* lane_change_settings = nullptr;
   CustomOffsetsSettings* custom_offsets_settings = nullptr;
   Params params;
   std::map<std::string, ParamControlSP*> toggles;
-  ParamWatcher *param_watcher;
+  ParamWatcher* param_watcher;
 
-  TorqueFriction *friction;
-  TorqueMaxLatAccel *lat_accel_factor;
-  ButtonParamControlSP *dlp_settings;
+  TorqueFriction* friction;
+  TorqueMaxLatAccel* lat_accel_factor;
+  ButtonParamControlSP* dlp_settings;
 
-  ScrollViewSP *scrollView = nullptr;
+  ScrollViewSP* scrollView = nullptr;
 
   const QString nnff_description = QString("%1<br><br>"
                                            "%2")
@@ -104,7 +90,7 @@ private:
     .arg(tr("Reach out to the sunnypilot team in the following channel at the sunnypilot Discord server with feedback, "
             "or to provide log data for your car if your car is currently unsupported: ") + "<font color='white'><b>#tuning-nnlc</b></font>");
 
-  QString nnffDescriptionBuilder(const QString &custom_description) {
+  QString nnffDescriptionBuilder(const QString& custom_description) {
     QString description = "<b>" + custom_description + "</b><br><br>" + nnff_description;
     return description;
   }
@@ -113,3 +99,4 @@ private:
   const QString dlp_description = QString(
     tr("Default is Laneless. In Auto mode, sunnnypilot dynamically chooses between Laneline or Laneless model based on lane recognition confidence level on road and certain conditions."));
 };
+
