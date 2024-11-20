@@ -56,7 +56,6 @@ class SicMqttHilo:
     Thread(target=self.setup_mqtt_connection, daemon=True).start()
 
   def setup_mqtt_connection(self):
-    """Configura la conexión MQTT y maneja los errores sin bloquear el programa."""
     while not self.stop_event.is_set():
       try:
         self.mqttc.connect(self.broker_address, 1883, 60)
@@ -68,7 +67,7 @@ class SicMqttHilo:
       except Exception as e:
         print(f"Error al conectar con el broker MQTT: {e}")
         print("Reintentando conexión en 5 segundos...")
-        time.sleep(5)  # Reintentar después de 5 segundos
+        time.sleep(5)
 
   def signal_handler(self, sig, frame):
     """Manejador de la señal SIGINT para detener el programa de forma controlada."""
@@ -129,11 +128,20 @@ class SicMqttHilo:
 
   def cargar_canales(self):
     """Carga la configuración de los canales desde un archivo JSON."""
-    with open(self.jsonCanales, 'r') as f:
-      dataCanales = json.load(f)
-    self.verificar_toggle_canales(dataCanales)
-    self.lista_suscripciones = [item['canal'] for item in dataCanales['canales']]
-    self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
+    try:
+      with open(self.jsonCanales, 'r') as f:
+        dataCanales = json.load(f)
+      self.verificar_toggle_canales(dataCanales)
+      self.lista_suscripciones = [item['canal'] for item in dataCanales['canales']]
+      self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
+    except FileNotFoundError:
+      print(f"Error: El archivo {self.jsonCanales} no existe.")
+      self.lista_suscripciones = []
+      self.enabled_items = []
+    except json.JSONDecodeError as e:
+      print(f"Error al cargar el archivo JSON {self.jsonCanales}: {e}")
+      self.lista_suscripciones = []
+      self.enabled_items = []
 
   def cambiar_enable_canal(self, canal, estado):
     with open(self.jsonCanales, 'r') as f:
@@ -213,9 +221,14 @@ class SicMqttHilo:
     sm.update(0)
 
     # Verificar si el mensaje de gpsLocationExternal es válido
-    latitude = sm['gpsLocationExternal'].latitude
-    longitude = sm['gpsLocationExternal'].longitude
-    altitude = sm['gpsLocationExternal'].altitude
+    try:
+      self.sm.update(0)
+      latitude = sm['gpsLocationExternal'].latitude
+      longitude = sm['gpsLocationExternal'].longitude
+      altitude = sm['gpsLocationExternal'].altitude
+    except KeyError as e:
+      print(f"Error: Canal no disponible - {e}")
+      latitude, longitude, altitude = None, None, None
 
     return {
       "latitude": latitude,
