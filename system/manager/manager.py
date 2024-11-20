@@ -47,7 +47,6 @@ def manager_init() -> None:
     ("LanguageSetting", "main_en"),
     ("OpenpilotEnabledToggle", "1"),
     ("LongitudinalPersonality", str(custom.LongitudinalPersonalitySP.standard)),
-
     ("AccelPersonality", str(custom.AccelerationPersonality.stock)),
     ("AccMadsCombo", "1"),
     ("AutoLaneChangeTimer", "0"),
@@ -243,7 +242,7 @@ def manager_thread() -> None:
   # [Start Bemposta] ****************************************************************************
 
   sicMqtt = SicMqttHilo()
-  sicMqtt.start()
+  #sicMqtt.start()
   # [End Bemposta] ******************************************************************************
 
 
