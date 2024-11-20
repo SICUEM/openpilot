@@ -22,7 +22,7 @@ from openpilot.system.hardware.hw import Paths
 from openpilot.system.version import get_build_metadata, terms_version, terms_version_sp, training_version
 
 # [Start Bemposta] ****************************************************************************
-from openpilot.sicuem.sicmqtthilo import SicMqttHilo
+#from openpilot.sicuem.sicmqtthilo import SicMqttHilo
 # [End Bemposta] ******************************************************************************
 
 
@@ -241,7 +241,7 @@ def manager_thread() -> None:
 
   # [Start Bemposta] ****************************************************************************
 
-  sicMqtt = SicMqttHilo()
+  #sicMqtt = SicMqttHilo()
   #sicMqtt.start()
   # [End Bemposta] ******************************************************************************
 
@@ -249,13 +249,13 @@ def manager_thread() -> None:
   while True:
     sm.update(1000)
 
-    #Adri ini
+    '''#Adri ini
     if params.get_bool("telemetria_uem"):
       sicMqtt.reanudar_envio()# reanudar hilo
     else:
       sicMqtt.pausar_envio()# pausar hilo
 
-    #Adri fin
+    #Adri fin'''
     started = sm['deviceState'].started
 
     if started and not started_prev:
