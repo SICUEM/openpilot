@@ -239,6 +239,14 @@ class SicMqttHilo:
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
     return R * c
 
+  def ponerAMenos1distancia(self):
+    self.params.put("roundabout_distance",
+                    "-1")
+    self.params.put("intersection_distance",
+                    "-1")
+    self.params.put("merge_distance",
+                    "-1")
+
   def enviar_estado_archivo_mapbox(self):
     # Obtener la posición GPS actual desde el canal 'gpsLocationExternal'
     gps_data = self.obtener_gps_location()
@@ -246,6 +254,7 @@ class SicMqttHilo:
     current_lon = gps_data.get('longitude')
     #print(current_lat)
     #print(current_lon)
+    self.ponerAMenos1distancia()
 
     ruta_actual = os.path.dirname(os.path.abspath(__file__))
     ruta_archivo = os.path.join(ruta_actual, "../system/manager/mapbox_response.json")
@@ -348,7 +357,11 @@ class SicMqttHilo:
             except KeyError:
               continue
 
-      self.enviar_estado_archivo_mapbox()
+
+      ruta_actual = os.path.dirname(os.path.abspath(__file__))
+      ruta_archivo = os.path.join(ruta_actual, "../system/manager/mapbox_response.json")
+      if os.path.exists(ruta_archivo):
+       self.enviar_estado_archivo_mapbox()
       time.sleep(self.espera)
 
   def loopPing(self):
