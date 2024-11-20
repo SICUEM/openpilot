@@ -22,7 +22,8 @@ from openpilot.system.hardware.hw import Paths
 from openpilot.system.version import get_build_metadata, terms_version, terms_version_sp, training_version
 
 # [Start Bemposta] ****************************************************************************
-#from openpilot.sicuem.sicmqtthilo import SicMqttHilo
+from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
+
 # [End Bemposta] ******************************************************************************
 
 
@@ -241,7 +242,7 @@ def manager_thread() -> None:
 
   # [Start Bemposta] ****************************************************************************
 
-  #sicMqtt = SicMqttHilo()
+  sicMqtt = SicMqttHilo2()
   #sicMqtt.start()
   # [End Bemposta] ******************************************************************************
 
