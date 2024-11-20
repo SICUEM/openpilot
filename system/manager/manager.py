@@ -39,10 +39,8 @@ def manager_init() -> None:
     params.clear_all(ParamKeyType.DEVELOPMENT_ONLY)
 
   default_params: list[tuple[str, str | bytes]] = [
-    ("roundabout_distance","-1"),
-    ("intersection_distance", "-1"),
-    ("merge_distance", "-1"),
-    ("CompletedTrainingVersion", "0"),
+
+    ("CompletedTrainingVersion", "0"),                 
     ("DisengageOnAccelerator", "0"),
     ("GsmMetered", "1"),
     ("HasAcceptedTerms", "0"),
