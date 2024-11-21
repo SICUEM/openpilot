@@ -35,13 +35,7 @@ class SicMqttHilo2:
 
      with open(self.jsonConfig, 'r') as f:
       self.dataConfig = json.load(f)
-    speed_value = self.dataConfig['config']['speed']['value']
-    self.espera = 1.0 / float(speed_value)
-    send_value = int(self.dataConfig['config']['send']['value'])
-    if send_value == 0:
-      self.pause_event.clear()
-    self.broker_address = self.dataConfig['config']['IpServer']['value']
-
+   
 
   def start_mqtt_thread(self):
     """Inicia un hilo no bloqueante para manejar la conexión MQTT."""
