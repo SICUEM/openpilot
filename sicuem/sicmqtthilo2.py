@@ -17,41 +17,7 @@ class SicMqttHilo2:
 
     def __init__(self):
         print("holaa")
-        '''
-        # Inicialización de atributos y registro de la señal SIGINT (CTRL+C)
-        signal.signal(signal.SIGINT, self.signal_handler)
-
-        self.jsonCanales = "../../sicuem/canales.json"
-        self.jsonConfig = "../../sicuem/configuracion_uem.json"
-        self.espera = 0.5
-        self.indice_canal = 0
-        self.conectado = False
-        self.sm = None
-        self.pause_event = Event()
-        self.pause_event.set()
-        self.stop_event = Event()  # Evento para detener hilos de manera segura
-        params = Params()
-        self.params = params
-        self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
-        
-        try:
-            self.cargar_canales()
-        except Exception as e:
-            print(f"Error al cargar canales: {e}")
        
-        try:
-            with open(self.jsonConfig, 'r') as f:
-                self.dataConfig = json.load(f)
-        except FileNotFoundError:
-            print(f"Error: El archivo {self.jsonConfig} no existe.")
-            self.dataConfig = {}  # Proveer un valor predeterminado
-        except json.JSONDecodeError:
-            print(f"Error: El archivo {self.jsonConfig} contiene un JSON inválido.")
-            self.dataConfig = {}  # Proveer un valor predeterminado
-        except Exception as e:
-            print(f"Error inesperado al cargar el archivo {self.jsonConfig}: {e}")
-            self.dataConfig = {}  # Proveer un valor predeterminado
-        '''
       
 
     def start_mqtt_thread(self):
@@ -378,5 +344,5 @@ class SicMqttHilo2:
     return 0
 
 if __name__ == "__main__":
-    sic_mqtt_hilo = SicMqttHilo()
+    sic_mqtt_hilo = SicMqttHilo2()
     sic_mqtt_hilo.start()
