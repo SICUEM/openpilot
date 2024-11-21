@@ -16,6 +16,8 @@ import requests
 class SicMqttHilo2:
 
     def __init__(self):
+        print("holaa")
+        '''
         # Inicialización de atributos y registro de la señal SIGINT (CTRL+C)
         signal.signal(signal.SIGINT, self.signal_handler)
 
@@ -31,7 +33,7 @@ class SicMqttHilo2:
         params = Params()
         self.params = params
         self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
-        '''
+        
         try:
             self.cargar_canales()
         except Exception as e:
