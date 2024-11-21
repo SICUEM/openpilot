@@ -20,7 +20,7 @@ class SicMqttHilo2:
     signal.signal(signal.SIGINT, self.signal_handler)
 
     self.jsonCanales = "../../sicuem/canales.json"
-    self.jsonConfig = "../../sicuem/config.json"
+    self.jsonConfig = "../../sicuem/configuaracion_uem.json"
     self.espera = 0.5
     self.indice_canal = 0
     self.conectado = False
