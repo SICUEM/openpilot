@@ -31,12 +31,12 @@ class SicMqttHilo2:
         params = Params()
         self.params = params
         self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
-        
+        '''
         try:
             self.cargar_canales()
         except Exception as e:
             print(f"Error al cargar canales: {e}")
-        '''
+       
         try:
             with open(self.jsonConfig, 'r') as f:
                 self.dataConfig = json.load(f)
