@@ -33,8 +33,21 @@ class SicMqttHilo2:
     self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
     self.cargar_canales()
 
-     with open(self.jsonConfig, 'r') as f:
-      self.dataConfig = json.load(f)
+   
+
+    try:
+        with open(self.jsonConfig, 'r') as f:
+            self.dataConfig = json.load(f)
+    except FileNotFoundError:
+        print(f"Error: El archivo {self.jsonConfig} no existe.")
+        self.dataConfig = {}  # Proveer un valor predeterminado
+    except json.JSONDecodeError:
+        print(f"Error: El archivo {self.jsonConfig} contiene un JSON inválido.")
+        self.dataConfig = {}  # Proveer un valor predeterminado
+    except Exception as e:
+        print(f"Error inesperado al cargar el archivo {self.jsonConfig}: {e}")
+        self.dataConfig = {}  # Proveer un valor predeterminado
+
    
 
   def start_mqtt_thread(self):
