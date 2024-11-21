@@ -37,13 +37,7 @@ class SicMqttHilo:
 
     with open(self.jsonConfig, 'r') as f:
       self.dataConfig = json.load(f)
-    speed_value = self.dataConfig['config']['speed']['value']
-    self.espera = 1.0 / float(speed_value)
-    send_value = int(self.dataConfig['config']['send']['value'])
-    if send_value == 0:
-      self.pause_event.clear()
-    self.broker_address = self.dataConfig['config']['IpServer']['value']
-
+  
     # Configurar el cliente MQTT
     self.mqttc = mqtt.Client()
     self.mqttc.on_connect = self.on_connect
