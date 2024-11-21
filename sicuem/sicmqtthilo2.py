@@ -16,7 +16,22 @@ import cereal.messaging as messaging
 class SicMqttHilo2:
 
   def __init__(self):
-    print("holamundo")
+     # Inicialización de atributos y registro de la señal SIGINT (CTRL+C)
+    signal.signal(signal.SIGINT, self.signal_handler)
+
+    self.jsonCanales = "../../sicuem/canales.json"
+    self.jsonConfig = "../../sicuem/config.json"
+    self.espera = 0.5
+    self.indice_canal = 0
+    self.conectado = False
+    self.sm = None
+    self.pause_event = Event()
+    self.pause_event.set()
+    self.stop_event = Event()  # Evento para detener hilos de manera segura
+    params = Params()
+    self.params = params
+    self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
+    self.cargar_canales()
 
   def start_mqtt_thread(self):
     """Inicia un hilo no bloqueante para manejar la conexión MQTT."""
