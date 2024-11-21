@@ -36,7 +36,7 @@ class SicMqttHilo2:
             self.cargar_canales()
         except Exception as e:
             print(f"Error al cargar canales: {e}")
-
+        '''
         try:
             with open(self.jsonConfig, 'r') as f:
                 self.dataConfig = json.load(f)
@@ -49,7 +49,7 @@ class SicMqttHilo2:
         except Exception as e:
             print(f"Error inesperado al cargar el archivo {self.jsonConfig}: {e}")
             self.dataConfig = {}  # Proveer un valor predeterminado
-
+        '''
       
 
     def start_mqtt_thread(self):
