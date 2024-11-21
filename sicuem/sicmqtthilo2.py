@@ -50,34 +50,7 @@ class SicMqttHilo2:
             print(f"Error inesperado al cargar el archivo {self.jsonConfig}: {e}")
             self.dataConfig = {}  # Proveer un valor predeterminado
 
-        try:
-            speed_value = self.dataConfig['config']['speed']['value']
-            self.espera = 1.0 / float(speed_value)
-        except KeyError:
-            print("Error: No se encontró la clave 'speed' en la configuración. Usando valor por defecto.")
-            self.espera = 0.5
-        except Exception as e:
-            print(f"Error inesperado al obtener 'speed': {e}")
-            self.espera = 0.5
-
-        try:
-            send_value = int(self.dataConfig['config']['send']['value'])
-            if send_value == 0:
-                self.pause_event.clear()
-            self.broker_address = self.dataConfig['config']['IpServer']['value']
-        except KeyError:
-            print("Error: Clave 'send' o 'IpServer' no encontrada en la configuración.")
-            self.broker_address = "localhost"
-        except Exception as e:
-            print(f"Error inesperado en la configuración del broker: {e}")
-            self.broker_address = "localhost"
-
-        # Configurar el cliente MQTT
-        self.mqttc = mqtt.Client()
-        self.mqttc.on_connect = self.on_connect
-        self.mqttc.on_disconnect = self.on_disconnect
-        self.mqttc.on_message = self.on_message
-        self.start_mqtt_thread()
+      
 
     def start_mqtt_thread(self):
         """Inicia un hilo no bloqueante para manejar la conexión MQTT."""
