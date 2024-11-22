@@ -252,9 +252,10 @@ def manager_thread() -> None:
 
     #Adri ini
     if params.get_bool("telemetria_uem"):
-      sicMqtt.reanudar_envio()# reanudar hilo
+      print("h")
+      #sicMqtt.reanudar_envio()# reanudar hilo
     else:
-      sicMqtt.pausar_envio()# pausar hilo
+      #sicMqtt.pausar_envio()# pausar hilo
 
     #Adri fin
     started = sm['deviceState'].started
