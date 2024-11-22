@@ -13,9 +13,17 @@ import cereal.messaging as messaging
 import requests
 import paho.mqtt.client as mqtt
 
-class SicMqttHilo2:
 
+class SicMqttHilo2:
   def __init__(self):
+    self.initialize_variables()
+    self.cargar_canales()
+    self.initialize_mqtt_client()
+    self.load_configuration()
+    self.start_mqtt_thread()
+
+  def initialize_variables(self):
+    """Inicializa las variables principales de la clase."""
     self.jsonCanales = "../../sicuem/canales.json"
     self.jsonConfig = "../../sicuem/config.json"
     self.espera = 0.5
@@ -28,38 +36,47 @@ class SicMqttHilo2:
     params = Params()
     self.params = params
     self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
-    self.cargar_canales()
-    #HASTA AQUI BIEN
 
-
-
-    #self.broker_address=
-    # Configurar el cliente MQTT
+  def initialize_mqtt_client(self):
+    """Configura el cliente MQTT y sus callbacks."""
     self.mqttc = mqtt.Client()
     self.mqttc.on_connect = self.on_connect
     self.mqttc.on_disconnect = self.on_disconnect
     self.mqttc.on_message = self.on_message
-    self.start_mqtt_thread()
 
-    self.mqttc.publish("telemetry_mqtt/prueba", str(time.time()), qos=0)
-
+  def load_configuration(self):
+    """Carga y procesa el archivo de configuración JSON."""
     try:
-      # Intentar abrir y leer el archivo JSON
       with open(self.jsonConfig, 'r') as f:
         self.dataConfig = json.load(f)
 
-      # Acceder y procesar la configuración de velocidad
+      # Configurar la velocidad de espera
       speed_value = self.dataConfig['config']['speed']['value']
       self.espera = 1.0 / float(speed_value)  # Puede fallar si speed_value no es numérico o es 0
 
-      # Acceder y procesar el valor de envío
+      # Configurar el valor de envío
       send_value = int(self.dataConfig['config']['send']['value'])
       if send_value == 0:
         self.pause_event.clear()
 
-      # Acceder a la dirección del servidor
+      # Configurar la dirección del servidor
       self.broker_address = self.dataConfig['config']['IpServer']['value']
+    except FileNotFoundError:
+      print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
+    except json.JSONDecodeError:
+      print(f"Error: El archivo '{self.jsonConfig}' no contiene un JSON válido.")
+    except KeyError as e:
+      print(f"Error: Falta la clave {e} en la configuración del archivo JSON.")
+    except ValueError as e:
+      print(f"Error: Valor no válido en la configuración: {e}")
+    except ZeroDivisionError:
+      print("Error: La configuración de velocidad no puede ser cero.")
+    except Exception as e:
+      print(f"Error inesperado: {e}")
 
+
+
+    #-----------------------------------------------------------------------------------------------
     except FileNotFoundError:
       print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
     except json.JSONDecodeError:
