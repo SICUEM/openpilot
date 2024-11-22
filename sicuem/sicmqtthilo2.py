@@ -31,6 +31,16 @@ class SicMqttHilo2:
     self.cargar_canales()
     #HASTA AQUI BIEN
 
+    self.broker_address= 
+    # Configurar el cliente MQTT
+    self.mqttc = mqtt.Client()
+    self.mqttc.on_connect = self.on_connect
+    self.mqttc.on_disconnect = self.on_disconnect
+    self.mqttc.on_message = self.on_message
+    self.start_mqtt_thread()
+
+    self.mqttc.publish("telemetry_mqtt/prueba", str(time.time()), qos=0)
+
     try:
       # Intentar abrir y leer el archivo JSON
       with open(self.jsonConfig, 'r') as f:
@@ -46,7 +56,7 @@ class SicMqttHilo2:
         self.pause_event.clear()
 
       # Acceder a la dirección del servidor
-      self.broker_address = "195.235.211.197"#self.dataConfig['config']['IpServer']['value']
+      self.broker_address = self.dataConfig['config']['IpServer']['value']
 
     except FileNotFoundError:
       print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
@@ -61,14 +71,7 @@ class SicMqttHilo2:
     except Exception as e:
       print(f"Error inesperado: {e}")
 
-      # Configurar el cliente MQTT
-      self.mqttc = mqtt.Client()
-      self.mqttc.on_connect = self.on_connect
-      self.mqttc.on_disconnect = self.on_disconnect
-      self.mqttc.on_message = self.on_message
-      self.start_mqtt_thread()
 
-      self.mqttc.publish("telemetry_mqtt/prueba", str(time.time()), qos=0)
 
 
   def start_mqtt_thread(self):
