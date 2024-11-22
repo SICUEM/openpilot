@@ -255,6 +255,7 @@ def manager_thread() -> None:
       print("h")
       #sicMqtt.reanudar_envio()# reanudar hilo
     else:
+      print("e")
       #sicMqtt.pausar_envio()# pausar hilo
 
     #Adri fin
