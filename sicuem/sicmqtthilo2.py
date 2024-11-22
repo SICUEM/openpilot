@@ -23,80 +23,147 @@ class SicMqttHilo2:
     self.start_mqtt_thread()
 
   def initialize_variables(self):
-    """Inicializa las variables principales de la clase."""
-    self.jsonCanales = "../../sicuem/canales.json"
-    self.jsonConfig = "../../sicuem/config.json"
-    self.espera = 0.5
-    self.indice_canal = 0
-    self.conectado = False
-    self.sm = None
-    self.pause_event = Event()
-    self.pause_event.set()
-    self.stop_event = Event()  # Evento para detener hilos de manera segura
-    params = Params()
-    self.params = params
+    """
+    Inicializa las variables principales de la clase.
+
+    - Configura rutas de archivos JSON para canales y configuración.
+    - Establece valores predeterminados para variables importantes como `espera` y `indice_canal`.
+    - Inicializa eventos para pausar y detener hilos de forma segura.
+    - Carga parámetros del sistema, como el `DongleID`, desde una base de datos interna.
+
+    Comentarios clave:
+    - `pause_event`: Permite pausar operaciones de manera segura.
+    - `stop_event`: Señal para detener hilos en ejecución.
+    """
+    self.jsonCanales = "../../sicuem/canales.json"  # Ruta al archivo JSON de configuración de canales
+    self.jsonConfig = "../../sicuem/config.json"   # Ruta al archivo JSON de configuración general
+    self.espera = 0.5                              # Intervalo de espera predeterminado en segundos
+    self.indice_canal = 0                          # Índice inicial para los canales
+    self.conectado = False                         # Estado inicial de conexión MQTT
+    self.sm = None                                 # Objeto SubMaster para recibir datos (sin inicializar)
+    self.pause_event = Event()                     # Evento para pausar operaciones
+    self.pause_event.set()                         # Activa el evento inicialmente
+    self.stop_event = Event()                      # Evento para detener hilos
+    params = Params()                              # Carga de parámetros del sistema
+    self.params = params                           # Almacena la referencia a los parámetros
     self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
+    # El `DongleID` identifica de manera única el dispositivo conectado.
+
+
+
+  def cargar_canales(self):
+    """
+    Carga la configuración de los canales desde un archivo JSON.
+
+    - Abre y lee el archivo JSON especificado por `self.jsonCanales`.
+    - Filtra canales habilitados y los organiza en listas para procesar y suscribir.
+    - Llama a `verificar_toggle_canales` para aplicar ajustes basados en parámetros dinámicos.
+
+    Comentarios clave:
+    - La lista `self.lista_suscripciones` contiene los nombres de los canales.
+    - La lista `self.enabled_items` incluye solo los canales habilitados (`enable == 1`).
+    """
+    with open(self.jsonCanales, 'r') as f:
+        dataCanales = json.load(f)  # Carga los datos de canales desde el archivo JSON
+
+    # Actualiza configuraciones dinámicas basadas en parámetros.
+    self.verificar_toggle_canales(dataCanales)
+
+    # Lista de canales para suscripción (todos los canales disponibles).
+    self.lista_suscripciones = [item['canal'] for item in dataCanales['canales']]
+
+    # Filtra solo los canales habilitados (aquellos con `enable == 1`).
+    self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
+
+
 
   def initialize_mqtt_client(self):
-    """Configura el cliente MQTT y sus callbacks."""
-    self.mqttc = mqtt.Client()
-    self.mqttc.on_connect = self.on_connect
-    self.mqttc.on_disconnect = self.on_disconnect
-    self.mqttc.on_message = self.on_message
+    """
+    Configura el cliente MQTT y sus callbacks.
+
+    - Crea una instancia de cliente MQTT.
+    - Asocia funciones de callback para manejar eventos de conexión, desconexión y recepción de mensajes.
+
+    Comentarios clave:
+    - `on_connect`: Se llama automáticamente cuando el cliente se conecta al broker.
+    - `on_disconnect`: Maneja desconexiones, permitiendo reconexiones automáticas.
+    - `on_message`: Procesa mensajes recibidos en los tópicos suscritos.
+    """
+    self.mqttc = mqtt.Client()                      # Inicializa el cliente MQTT
+    self.mqttc.on_connect = self.on_connect         # Callback para manejar la conexión
+    self.mqttc.on_disconnect = self.on_disconnect   # Callback para manejar la desconexión
+    self.mqttc.on_message = self.on_message         # Callback para manejar mensajes recibidos
+
 
   def load_configuration(self):
-    """Carga y procesa el archivo de configuración JSON."""
+    """
+    Carga y procesa el archivo de configuración JSON.
+
+    - Abre y lee el archivo de configuración general (`self.jsonConfig`).
+    - Configura parámetros críticos como velocidad de envío, estado de pausa y dirección del broker MQTT.
+
+    Manejo de errores:
+    - Si el archivo no existe, está malformado o contiene claves no válidas, informa el error al usuario.
+    - Cubre casos como valores no numéricos o divisiones por cero.
+
+    Comentarios clave:
+    - `self.espera`: Calcula el intervalo entre operaciones basado en la configuración de velocidad.
+    - `self.pause_event`: Se limpia (desactiva) si el envío está deshabilitado (`send_value == 0`).
+    """
     try:
-      with open(self.jsonConfig, 'r') as f:
-        self.dataConfig = json.load(f)
+        with open(self.jsonConfig, 'r') as f:
+            self.dataConfig = json.load(f)  # Carga los datos desde el archivo JSON
 
-      # Configurar la velocidad de espera
-      speed_value = self.dataConfig['config']['speed']['value']
-      self.espera = 1.0 / float(speed_value)  # Puede fallar si speed_value no es numérico o es 0
+        # Configuración de velocidad (tiempo de espera entre operaciones)
+        speed_value = self.dataConfig['config']['speed']['value']
+        self.espera = 1.0 / float(speed_value)
 
-      # Configurar el valor de envío
-      send_value = int(self.dataConfig['config']['send']['value'])
-      if send_value == 0:
-        self.pause_event.clear()
+        # Configuración de envío (habilitar o deshabilitar operaciones)
+        send_value = int(self.dataConfig['config']['send']['value'])
+        if send_value == 0:
+            self.pause_event.clear()  # Pausa las operaciones si `send` es 0
 
-      # Configurar la dirección del servidor
-      self.broker_address = self.dataConfig['config']['IpServer']['value']
+        # Dirección del broker MQTT
+        self.broker_address = self.dataConfig['config']['IpServer']['value']
+
     except FileNotFoundError:
-      print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
+        print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
     except json.JSONDecodeError:
-      print(f"Error: El archivo '{self.jsonConfig}' no contiene un JSON válido.")
+        print(f"Error: El archivo '{self.jsonConfig}' no contiene un JSON válido.")
     except KeyError as e:
-      print(f"Error: Falta la clave {e} en la configuración del archivo JSON.")
+        print(f"Error: Falta la clave {e} en la configuración del archivo JSON.")
     except ValueError as e:
-      print(f"Error: Valor no válido en la configuración: {e}")
+        print(f"Error: Valor no válido en la configuración: {e}")
     except ZeroDivisionError:
-      print("Error: La configuración de velocidad no puede ser cero.")
+        print("Error: La configuración de velocidad no puede ser cero.")
     except Exception as e:
-      print(f"Error inesperado: {e}")
-
-
-
-    #-----------------------------------------------------------------------------------------------
-    except FileNotFoundError:
-      print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
-    except json.JSONDecodeError:
-      print(f"Error: El archivo '{self.jsonConfig}' no contiene un JSON válido.")
-    except KeyError as e:
-      print(f"Error: Falta la clave {e} en la configuración del archivo JSON.")
-    except ValueError as e:
-      print(f"Error: Valor no válido en la configuración: {e}")
-    except ZeroDivisionError:
-      print("Error: La configuración de velocidad no puede ser cero.")
-    except Exception as e:
-      print(f"Error inesperado: {e}")
-
-
+        print(f"Error inesperado: {e}")
 
 
   def start_mqtt_thread(self):
-    """Inicia un hilo no bloqueante para manejar la conexión MQTT."""
+    """
+    Inicia un hilo no bloqueante para manejar la conexión MQTT.
+
+    - Crea y lanza un hilo en segundo plano que ejecuta `setup_mqtt_connection`.
+    - El hilo es "daemon", lo que significa que se detiene automáticamente cuando termina el programa.
+
+    Comentarios clave:
+    - Se usa un hilo para evitar que la conexión MQTT bloquee el flujo principal del programa.
+    - `setup_mqtt_connection`: Se encarga de establecer la conexión con el broker y manejar reconexiones.
+    """
     Thread(target=self.setup_mqtt_connection, daemon=True).start()
 
+
+
+
+#----------------------------------------------------------------------------------------------- INIT STUFF END
+
+
+
+
+
+
+#------------------------------------------------------------------------------------------------ FUNCION START END
   def setup_mqtt_connection(self):
     """Configura la conexión MQTT y maneja los errores sin bloquear el programa."""
     while not self.stop_event.is_set():
@@ -169,13 +236,6 @@ class SicMqttHilo2:
       except Exception:
         pass
 
-  def cargar_canales(self):
-    """Carga la configuración de los canales desde un archivo JSON."""
-    with open(self.jsonCanales, 'r') as f:
-      dataCanales = json.load(f)
-    self.verificar_toggle_canales(dataCanales)
-    self.lista_suscripciones = [item['canal'] for item in dataCanales['canales']]
-    self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
 
   def cambiar_enable_canal(self, canal, estado):
     with open(self.jsonCanales, 'r') as f:
