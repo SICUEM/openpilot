@@ -40,7 +40,7 @@ class SicMqttHilo2:
     self.espera = 0.5                              # Intervalo de espera predeterminado en segundos
     self.indice_canal = 0                          # Índice inicial para los canales
     self.conectado = False                         # Estado inicial de conexión MQTT
-    self.sm = None                                 # Objeto SubMaster para recibir datos (sin inicializar)
+    self.inicializar_submaster()
     self.pause_event = Event()                     # Evento para pausar operaciones
     self.pause_event.set()                         # Activa el evento inicialmente
     self.stop_event = Event()                      # Evento para detener hilos
@@ -157,27 +157,31 @@ class SicMqttHilo2:
 
   def start(self) -> int:
     self.reanudar_envio() #TEMPORAL
-
-
-    #self.cargar_canales()
-
-    if self.lista_suscripciones:
-      try:
-        self.sm = messaging.SubMaster(
-          ['carState', 'controlsState', 'liveCalibration', 'carControl', 'gpsLocationExternal', 'gpsLocation',
-           'navInstruction', 'radarState', 'drivingModelData'])
-      except Exception:
-        self.sm = None
-
-
-
     time.sleep(2)
     hilo_telemetry = Thread(target=self.loop, daemon=True)
     hilo_telemetry.start()
     return 0
 
+  def inicializar_submaster(self):
+    """
+    Inicializa el objeto `SubMaster` cargando dinámicamente los nombres de los canales desde el archivo JSON.
+    - No importa si `enable` es 0 o 1, todos los canales encontrados se cargan en `SubMaster`.
+    """
+    with open(self.jsonCanales, 'r') as f:
+      data_canales = json.load(f)
 
-#------------------------------------------------------------------------------------------------ FUNCION START END
+    # Obtener todos los nombres de los canales desde el JSON
+    canales_disponibles = [item['canal'] for item in data_canales['canales']]
+
+    try:
+      # Inicializar el SubMaster con los canales encontrados
+      self.sm = messaging.SubMaster(canales_disponibles)
+      print(f"SubMaster inicializado con los siguientes canales: {canales_disponibles}")
+    except Exception as e:
+      print(f"Error al inicializar SubMaster: {e}")
+      self.sm = None
+
+  #------------------------------------------------------------------------------------------------ FUNCION START END
 
   def verificar_toggle_canales(self, data_canales):
     """
@@ -309,7 +313,7 @@ class SicMqttHilo2:
 
   def reanudar_envio(self):
     self.pause_event.set()
-    #self.dataConfig['config']['send']['value'] = 1
+    self.dataConfig['config']['send']['value'] = 1
 
   def conexion(self, url='http://www.google.com', intervalo=5):
     """Verifica la conexión a Internet periódicamente en un hilo separado."""
