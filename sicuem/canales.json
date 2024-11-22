@@ -29,7 +29,7 @@
         {
             "topic": "telemetry_mqtt/{0}/gpsLocationExternal",
             "canal": "gpsLocationExternal",
-            "enable": 1,
+            "enable": 0,
             "descripcion": "Ubicaci\u00f3n GPS externa",
             "keys_importantes": [
                 "latitude",

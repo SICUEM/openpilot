@@ -309,11 +309,11 @@ class SicMqttHilo2:
 
   def pausar_envio(self):
     self.pause_event.clear()
-    self.dataConfig['config']['send']['value'] = 0
+    #self.dataConfig['config']['send']['value'] = 0
 
   def reanudar_envio(self):
     self.pause_event.set()
-    self.dataConfig['config']['send']['value'] = 1
+    #self.dataConfig['config']['send']['value'] = 1
 
   def conexion(self, url='http://www.google.com', intervalo=5):
     """Verifica la conexión a Internet periódicamente en un hilo separado."""
@@ -447,32 +447,60 @@ class SicMqttHilo2:
       pass
 
   def loop(self):
-    self.conexion()
+    """
+    Bucle principal que:
+    - Verifica constantemente el estado de `telemetria_uem`.
+    - Si `telemetria_uem` está habilitado (`True`), ejecuta `loop_principal`.
+    - Si está deshabilitado (`False`), espera y sigue verificando.
+    """
+    self.conexion()  # Verifica la conexión a Internet en segundo plano
+
+    # Hilo para publicar pings periódicos
     hilo_ping = Thread(target=self.loopPing, daemon=True)
     hilo_ping.start()
-    while not self.stop_event.is_set():
-      self.pause_event.wait()
-      self.cargar_canales()
-      if len(self.enabled_items) > 0 and self.sm:
-        for canal_actual in self.enabled_items:
-          canal_nombre = canal_actual['canal']
-          if canal_nombre in self.sm.data:
-            try:
-              self.sm.update()
-              # Convierte los datos de SubMaster a un diccionario
-              datos_canal = self.sm[canal_nombre].to_dict()
-              # Envía solo los datos importantes
-              datos_importantes = self.enviar_datos_importantes(canal_nombre, datos_canal)
-              self.mqttc.publish(
-                str(canal_actual['topic']).format(self.DongleID),
-                json.dumps(datos_importantes),
-                qos=0
-              )
-            except KeyError:
-              continue
 
-      self.enviar_estado_archivo_mapbox()
-      time.sleep(self.espera)
+    while not self.stop_event.is_set():
+      # Verificar el estado de telemetria_uem
+      if self.params.get_bool("telemetria_uem"):
+        print("Telemetría habilitada, ejecutando operaciones.")
+        self.loop_principal()
+      else:
+        print("Telemetría deshabilitada, esperando...")
+        time.sleep(1)  # Pausa breve antes de volver a verificar
+
+  def loop_principal(self):
+    """
+    Ejecuta las operaciones principales de telemetría:
+    - Carga dinámicamente los canales habilitados.
+    - Envía datos importantes a través de MQTT.
+    - Publica periódicamente el estado del archivo mapbox.
+    """
+    self.pause_event.wait()  # Pausa las operaciones si está desactivada la telemetría
+    self.cargar_canales()  # Carga los canales habilitados dinámicamente
+
+    if len(self.enabled_items) > 0 and self.sm:
+      for canal_actual in self.enabled_items:
+        canal_nombre = canal_actual['canal']
+        if canal_nombre in self.sm.data:
+          try:
+            self.sm.update()
+            # Convierte los datos de SubMaster a un diccionario
+            datos_canal = self.sm[canal_nombre].to_dict()
+            # Envía solo los datos importantes
+            datos_importantes = self.enviar_datos_importantes(canal_nombre, datos_canal)
+            self.mqttc.publish(
+              str(canal_actual['topic']).format(self.DongleID),
+              json.dumps(datos_importantes),
+              qos=0
+            )
+          except KeyError:
+            continue
+
+    # Publicar estado del archivo mapbox
+    self.enviar_estado_archivo_mapbox()
+
+    # Espera configurada entre iteraciones
+    time.sleep(self.espera)
 
   def loopPing(self):
     """Bucle que publica mensajes de ping periódicamente sin bloquear."""
