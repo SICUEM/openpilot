@@ -29,8 +29,7 @@ class SicMqttHilo2:
     self.params = params
     self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
     self.cargar_canales()
-
-    import json
+    #HASTA AQUI BIEN
 
     try:
       # Intentar abrir y leer el archivo JSON
