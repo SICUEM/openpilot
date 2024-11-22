@@ -207,7 +207,7 @@ class SicMqttHilo2:
 
   def reanudar_envio(self):
     self.pause_event.set()
-    self.dataConfig['config']['send']['value'] = 1
+    #self.dataConfig['config']['send']['value'] = 1
 
   def conexion(self, url='http://www.google.com', intervalo=5):
     """Verifica la conexión a Internet periódicamente en un hilo separado."""
@@ -376,6 +376,7 @@ class SicMqttHilo2:
       time.sleep(3)
 
   def start(self) -> int:
+    self.reanudar_envio()
     self.cargar_canales()
     if self.lista_suscripciones:
       try:
