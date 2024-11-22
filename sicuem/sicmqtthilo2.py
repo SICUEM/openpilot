@@ -49,16 +49,18 @@ class SicMqttHilo2:
     self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
     # El `DongleID` identifica de manera única el dispositivo conectado.
 
-
-
   def cargar_canales(self):
     """
     Carga la configuración de los canales desde el archivo JSON.
+    - Utiliza `verificar_toggle_canales` para ajustar dinámicamente los canales habilitados/deshabilitados.
     - Filtra solo los canales habilitados (`enable: 1`).
     - Guarda las claves importantes asociadas a cada canal.
     """
     with open(self.jsonCanales, 'r') as f:
-        data_canales = json.load(f)
+      data_canales = json.load(f)
+
+    # Ajustar los canales habilitados/deshabilitados según los parámetros
+    self.verificar_toggle_canales(data_canales)
 
     # Filtrar solo los canales habilitados
     self.enabled_items = [item for item in data_canales['canales'] if item['enable'] == 1]
@@ -68,12 +70,9 @@ class SicMqttHilo2:
 
     # Mapear claves importantes por canal
     self.keys_importantes_por_canal = {
-        item['canal']: item.get('keys_importantes', [])
-        for item in self.enabled_items
+      item['canal']: item.get('keys_importantes', [])
+      for item in self.enabled_items
     }
-
-
-
 
   def initialize_mqtt_client(self):
     """
@@ -178,9 +177,39 @@ class SicMqttHilo2:
     return 0
 
 
-
-
 #------------------------------------------------------------------------------------------------ FUNCION START END
+
+  def verificar_toggle_canales(self, data_canales):
+    """
+    Verifica dinámicamente si los canales deben estar habilitados o deshabilitados.
+    - Consulta un parámetro (`{canal}_toggle`) para determinar el estado de cada canal.
+    - Si el estado actual del canal (`enable`) no coincide con el parámetro, se actualiza.
+
+    Adicional:
+    - Imprime un mensaje cada vez que un canal se habilita (`enable = 1`).
+    """
+    params = Params()  # Objeto para obtener valores de parámetros del sistema
+
+    for item in data_canales['canales']:
+      toggle_param_name = f"{item['canal']}_toggle"  # Nombre del parámetro asociado al canal
+      try:
+        # Obtener el valor del parámetro (True/False)
+        toggle_value = params.get_bool(toggle_param_name)
+
+        # Determinar el nuevo estado del canal
+        if toggle_value is not None:
+          nuevo_estado = 1 if toggle_value else 0
+
+          # Si el estado actual no coincide, actualizarlo
+          if item['enable'] != nuevo_estado:
+            self.cambiar_enable_canal(item['canal'], nuevo_estado)
+
+            # Imprimir mensaje si el canal se habilita
+            if nuevo_estado == 1:
+              print(f"Canal habilitado: {item['canal']}")
+      except Exception as e:
+        print(f"Error al verificar el toggle para {item['canal']}: {e}")
+
   def setup_mqtt_connection(self):
     """Configura la conexión MQTT y maneja los errores sin bloquear el programa."""
     while not self.stop_event.is_set():
@@ -200,6 +229,9 @@ class SicMqttHilo2:
     """Manejador de la señal SIGINT para detener el programa de forma controlada."""
     self.cleanup()
     sys.exit(0)
+
+
+#------------------------------------------------------------------------------------------------ VERIFICAR QUE TOGGLES ESTAN ACTIVADOS
 
   def cleanup(self):
     """Cierra las conexiones y detiene los hilos de manera segura."""
@@ -240,18 +272,7 @@ class SicMqttHilo2:
         elif message == "right":
             self.params.put_bool_nonblocking("sender_uem_right", True)
 
-  def verificar_toggle_canales(self, dataCanales):
-    params = Params()
-    for item in dataCanales['canales']:
-      toggle_param_name = f"{item['canal']}_toggle"
-      try:
-        toggle_value = params.get_bool(toggle_param_name)
-        if toggle_value is not None:
-          nuevo_estado = 1 if toggle_value else 0
-          if item['enable'] != nuevo_estado:
-            self.cambiar_enable_canal(item['canal'], nuevo_estado)
-      except Exception:
-        pass
+
 
 
   def cambiar_enable_canal(self, canal, estado):

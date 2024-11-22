@@ -3,58 +3,73 @@
         {
             "topic": "telemetry_mqtt/{0}/carControl",
             "canal": "carControl",
-            "enable": 1,
-            "descripcion": "Control del vehículo",
-            "keys_importantes": ["actuators", "hudControl"]
+            "enable": 0,
+            "descripcion": "Control del veh\u00edculo",
+            "keys_importantes": [
+                "actuators",
+                "hudControl"
+            ]
         },
         {
             "topic": "telemetry_mqtt/{0}/carState",
             "canal": "carState",
-            "enable": 1,
-            "descripcion": "Estado del vehículo",
-            "keys_importantes": ["aEgo", "cruiseState", "leftBlinker", "rightBlinker", "vCruise", "vCruiseCluster", "vEgo", "vEgoCluster"]
+            "enable": 0,
+            "descripcion": "Estado del veh\u00edculo",
+            "keys_importantes": [
+                "aEgo",
+                "cruiseState",
+                "leftBlinker",
+                "rightBlinker",
+                "vCruise",
+                "vCruiseCluster",
+                "vEgo",
+                "vEgoCluster"
+            ]
         },
         {
             "topic": "telemetry_mqtt/{0}/gpsLocationExternal",
             "canal": "gpsLocationExternal",
-            "enable": 1,
-            "descripcion": "Ubicación GPS externa",
-            "keys_importantes": ["latitude", "longitude", "altitude"]
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/gpsLocation",
-            "canal": "gpsLocation",
-            "enable": 1,
-            "descripcion": "Ubicación GPS",
-            "keys_importantes": []
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/liveCalibration",
-            "canal": "liveCalibration",
-            "enable": 1,
-            "descripcion": "Calibración en tiempo real",
-            "keys_importantes": []
+            "enable": 0,
+            "descripcion": "Ubicaci\u00f3n GPS externa",
+            "keys_importantes": [
+                "latitude",
+                "longitude",
+                "altitude"
+            ]
         },
         {
             "topic": "telemetry_mqtt/{0}/navInstruction",
             "canal": "navInstruction",
-            "enable": 1,
-            "descripcion": "Instrucciones de navegación",
-            "keys_importantes": ["distanceRemaining", "maneuverDistance", "speedLimit", "timeRemaining"]
+            "enable": 0,
+            "descripcion": "Instrucciones de navegaci\u00f3n",
+            "keys_importantes": [
+                "distanceRemaining",
+                "maneuverDistance",
+                "speedLimit",
+                "timeRemaining"
+            ]
         },
         {
             "topic": "telemetry_mqtt/{0}/radarState",
             "canal": "radarState",
-            "enable": 1,
+            "enable": 0,
             "descripcion": "Estado del radar",
-            "keys_importantes": ["aRel", "dRel", "vRel", "dRel", "vLead"]
+            "keys_importantes": [
+                "aRel",
+                "dRel",
+                "vRel",
+                "dRel",
+                "vLead"
+            ]
         },
         {
             "topic": "telemetry_mqtt/{0}/drivingModelData",
             "canal": "drivingModelData",
-            "enable": 1,
-            "descripcion": "Datos del modelo de conducción",
-            "keys_importantes": ["laneLineMeta"]
+            "enable": 0,
+            "descripcion": "Datos del modelo de conducci\u00f3n",
+            "keys_importantes": [
+                "laneLineMeta"
+            ]
         }
     ]
 }
