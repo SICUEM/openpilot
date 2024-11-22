@@ -248,15 +248,6 @@ class SicMqttHilo2:
     hilo_ping = Thread(target=self.loopPing, daemon=True)
     hilo_ping.start()
 
-    Thread(target=self.monitor_telemetria, daemon=True).start()
-
-
-
-  def monitor_telemetria(self):
-    """
-    Bucle no bloqueante para verificar el estado de `telemetria_uem`.
-    - Corre en un hilo separado para no bloquear el flujo principal.
-    """
     while not self.stop_event.is_set():
       # Verificar el estado de telemetria_uem
       if self.params.get_bool("telemetria_uem"):
@@ -264,7 +255,8 @@ class SicMqttHilo2:
         self.loop_principal()
       else:
         print("Telemetría deshabilitada, esperando...")
-        time.sleep(1)  # Pausa breve antes de volver a verificar
+
+      time.sleep(1)  # Pausa breve antes de volver a verificar
 
   def loop_principal(self):
     """
@@ -450,8 +442,6 @@ class SicMqttHilo2:
       "longitude": longitude,
       "altitude": altitude
     }
-
-
 
 
 
