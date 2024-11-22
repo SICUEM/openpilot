@@ -30,6 +30,38 @@ class SicMqttHilo2:
     self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
     self.cargar_canales()
 
+    import json
+
+    try:
+      # Intentar abrir y leer el archivo JSON
+      with open(self.jsonConfig, 'r') as f:
+        self.dataConfig = json.load(f)
+
+      # Acceder y procesar la configuración de velocidad
+      speed_value = self.dataConfig['config']['speed']['value']
+      self.espera = 1.0 / float(speed_value)  # Puede fallar si speed_value no es numérico o es 0
+
+      # Acceder y procesar el valor de envío
+      send_value = int(self.dataConfig['config']['send']['value'])
+      if send_value == 0:
+        self.pause_event.clear()
+
+      # Acceder a la dirección del servidor
+      self.broker_address = self.dataConfig['config']['IpServer']['value']
+
+    except FileNotFoundError:
+      print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
+    except json.JSONDecodeError:
+      print(f"Error: El archivo '{self.jsonConfig}' no contiene un JSON válido.")
+    except KeyError as e:
+      print(f"Error: Falta la clave {e} en la configuración del archivo JSON.")
+    except ValueError as e:
+      print(f"Error: Valor no válido en la configuración: {e}")
+    except ZeroDivisionError:
+      print("Error: La configuración de velocidad no puede ser cero.")
+    except Exception as e:
+      print(f"Error inesperado: {e}")
+
   def start_mqtt_thread(self):
     """Inicia un hilo no bloqueante para manejar la conexión MQTT."""
     Thread(target=self.setup_mqtt_connection, daemon=True).start()
