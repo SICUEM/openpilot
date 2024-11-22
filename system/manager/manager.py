@@ -243,7 +243,7 @@ def manager_thread() -> None:
   # [Start Bemposta] ****************************************************************************
 
   sicMqtt = SicMqttHilo2()
-  #sicMqtt.start()
+  sicMqtt.start()
   # [End Bemposta] ******************************************************************************
 
 
