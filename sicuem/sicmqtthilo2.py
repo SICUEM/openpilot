@@ -450,8 +450,8 @@ class SicMqttHilo2:
     gps_data = self.obtener_gps_location()
     current_lat = gps_data.get('latitude')
     current_lon = gps_data.get('longitude')
-    #print(current_lat)
-    #print(current_lon)
+    print(current_lat)
+    print(current_lon)
 
     ruta_actual = os.path.dirname(os.path.abspath(__file__))
     ruta_archivo = os.path.join(ruta_actual, "../system/manager/mapbox_response.json")
