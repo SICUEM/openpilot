@@ -68,6 +68,9 @@ class SicMqttHilo2:
       self.mqttc.on_message = self.on_message
       self.start_mqtt_thread()
 
+      self.mqttc.publish("telemetry_mqtt/prueba", str(time.time()), qos=0)
+
+
   def start_mqtt_thread(self):
     """Inicia un hilo no bloqueante para manejar la conexión MQTT."""
     Thread(target=self.setup_mqtt_connection, daemon=True).start()
