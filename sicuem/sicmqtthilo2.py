@@ -53,27 +53,25 @@ class SicMqttHilo2:
 
   def cargar_canales(self):
     """
-    Carga la configuración de los canales desde un archivo JSON.
-
-    - Abre y lee el archivo JSON especificado por `self.jsonCanales`.
-    - Filtra canales habilitados y los organiza en listas para procesar y suscribir.
-    - Llama a `verificar_toggle_canales` para aplicar ajustes basados en parámetros dinámicos.
-
-    Comentarios clave:
-    - La lista `self.lista_suscripciones` contiene los nombres de los canales.
-    - La lista `self.enabled_items` incluye solo los canales habilitados (`enable == 1`).
+    Carga la configuración de los canales desde el archivo JSON.
+    - Filtra solo los canales habilitados (`enable: 1`).
+    - Guarda las claves importantes asociadas a cada canal.
     """
     with open(self.jsonCanales, 'r') as f:
-        dataCanales = json.load(f)  # Carga los datos de canales desde el archivo JSON
+        data_canales = json.load(f)
 
-    # Actualiza configuraciones dinámicas basadas en parámetros.
-    self.verificar_toggle_canales(dataCanales)
+    # Filtrar solo los canales habilitados
+    self.enabled_items = [item for item in data_canales['canales'] if item['enable'] == 1]
 
-    # Lista de canales para suscripción (todos los canales disponibles).
-    self.lista_suscripciones = [item['canal'] for item in dataCanales['canales']]
+    # Obtener los nombres de los canales habilitados para la suscripción
+    self.lista_suscripciones = [item['canal'] for item in self.enabled_items]
 
-    # Filtra solo los canales habilitados (aquellos con `enable == 1`).
-    self.enabled_items = [item for item in dataCanales['canales'] if item['enable'] == 1]
+    # Mapear claves importantes por canal
+    self.keys_importantes_por_canal = {
+        item['canal']: item.get('keys_importantes', [])
+        for item in self.enabled_items
+    }
+
 
 
 
@@ -158,7 +156,26 @@ class SicMqttHilo2:
 
 #----------------------------------------------------------------------------------------------- INIT STUFF END
 
+  def start(self) -> int:
+    self.reanudar_envio() #TEMPORAL
 
+
+    #self.cargar_canales()
+
+    if self.lista_suscripciones:
+      try:
+        self.sm = messaging.SubMaster(
+          ['carState', 'controlsState', 'liveCalibration', 'carControl', 'gpsLocationExternal', 'gpsLocation',
+           'navInstruction', 'radarState', 'drivingModelData'])
+      except Exception:
+        self.sm = None
+
+
+
+    time.sleep(2)
+    hilo_telemetry = Thread(target=self.loop, daemon=True)
+    hilo_telemetry.start()
+    return 0
 
 
 
@@ -249,37 +266,16 @@ class SicMqttHilo2:
     self.cargar_canales()
 
   def enviar_datos_importantes(self, canal, datos):
-    """Filtra y envía solo los datos importantes para el canal dado."""
+    """
+    Filtra y envía solo los datos importantes para el canal dado.
+    - Los campos relevantes se obtienen dinámicamente de `self.keys_importantes_por_canal`.
+    """
     datos_importantes = {}
 
-    if canal == 'carControl':
-      keys_importantes = [
-         'actuators','hudControl'
-      ]
+    # Obtener las claves importantes para este canal
+    keys_importantes = self.keys_importantes_por_canal.get(canal, [])
 
-    elif canal == 'carState':
-      keys_importantes = [
-        'aEgo', 'cruiseState', 'leftBlinker', 'rightBlinker', 'vCruise','vCruiseCluster'
-        ,'vEgo','vEgoCluster'
-      ]
-    elif canal == 'gpsLocationExternal':
-      keys_importantes = [
-        'latitude', 'longitude', 'altitude'
-      ]
-    elif canal == 'navInstruction':
-      keys_importantes = [
-        'distanceRemaining', 'maneuverDistance', 'speedLimit', 'timeRemaining'
-      ]
-    elif canal == 'radarState':
-      keys_importantes = [
-        'aRel', 'dRel', 'vRel','dRel','vLead'
-      ]
-    elif canal == 'drivingModelData':
-      keys_importantes = [
-        'laneLineMeta'
-      ]
-    # Añade más condicionales según los datos relevantes de otros canales si es necesario
-
+    # Filtrar los datos relevantes
     for key in keys_importantes:
       if key in datos:
         datos_importantes[key] = datos[key]
@@ -460,17 +456,6 @@ class SicMqttHilo2:
       self.mqttc.publish("telemetry_config/ping", str(time.time()), qos=0)
       time.sleep(3)
 
-  def start(self) -> int:
-    self.reanudar_envio()
-    self.cargar_canales()
-    if self.lista_suscripciones:
-      try:
-        self.sm = messaging.SubMaster(['carState', 'controlsState', 'liveCalibration', 'carControl', 'gpsLocationExternal','gpsLocation','navInstruction','radarState','drivingModelData'])
-      except Exception:
-        self.sm = None
-    time.sleep(2)
-    hilo_telemetry = Thread(target=self.loop, daemon=True)
-    hilo_telemetry.start()
-    return 0
+
 
 

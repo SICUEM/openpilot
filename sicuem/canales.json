@@ -1,196 +1,60 @@
 {
     "canales": [
         {
-            "topic": "telemetry_mqtt/{0}/accelerometer",
-            "canal": "accelerometer",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/androidLog",
-            "canal": "androidLog",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/cameraOdometry",
-            "canal": "cameraOdometry",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
             "topic": "telemetry_mqtt/{0}/carControl",
             "canal": "carControl",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026   IMPORTNATE"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/carOutput",
-            "canal": "carOutput",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/carParams",
-            "canal": "carParams",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
+            "enable": 1,
+            "descripcion": "Control del vehículo",
+            "keys_importantes": ["actuators", "hudControl"]
         },
         {
             "topic": "telemetry_mqtt/{0}/carState",
             "canal": "carState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026 IMPORTANTE"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/controlsState",
-            "canal": "controlsState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/deviceState",
-            "canal": "deviceState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/driverCameraState",
-            "canal": "driverCameraState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/driverMonitoringState",
-            "canal": "driverMonitoringState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/driverStateV2",
-            "canal": "driverStateV2",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/gpsLocation",
-            "canal": "gpsLocation",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
+            "enable": 1,
+            "descripcion": "Estado del vehículo",
+            "keys_importantes": ["aEgo", "cruiseState", "leftBlinker", "rightBlinker", "vCruise", "vCruiseCluster", "vEgo", "vEgoCluster"]
         },
         {
             "topic": "telemetry_mqtt/{0}/gpsLocationExternal",
             "canal": "gpsLocationExternal",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026 IMPORTANTE"
+            "enable": 1,
+            "descripcion": "Ubicación GPS externa",
+            "keys_importantes": ["latitude", "longitude", "altitude"]
         },
         {
-            "topic": "telemetry_mqtt/{0}/gyroscope",
-            "canal": "gyroscope",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
+            "topic": "telemetry_mqtt/{0}/gpsLocation",
+            "canal": "gpsLocation",
+            "enable": 1,
+            "descripcion": "Ubicación GPS",
+            "keys_importantes": []
         },
         {
             "topic": "telemetry_mqtt/{0}/liveCalibration",
             "canal": "liveCalibration",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
+            "enable": 1,
+            "descripcion": "Calibración en tiempo real",
+            "keys_importantes": []
         },
         {
-            "topic": "telemetry_mqtt/{0}/liveLocationKalman",
-            "canal": "liveLocationKalman",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/liveParameters",
-            "canal": "liveParameters",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/liveTorqueParameters",
-            "canal": "liveTorqueParameters",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/logMessage",
-            "canal": "logMessage",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/longitudinalPlan",
-            "canal": "longitudinalPlan",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/longitudinalPlanSP",
-            "canal": "longitudinalPlanSP",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/managerState",
-            "canal": "managerState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/mapRenderState\u2019",
-            "canal": "mapRenderState\u2019",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/modelV2",
-            "canal": "modelV2",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/modelV2SP",
-            "canal": "modelV2SP",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/pandaStates",
-            "canal": "pandaStates",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/peripheralState",
-            "canal": "peripheralState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
+            "topic": "telemetry_mqtt/{0}/navInstruction",
+            "canal": "navInstruction",
+            "enable": 1,
+            "descripcion": "Instrucciones de navegación",
+            "keys_importantes": ["distanceRemaining", "maneuverDistance", "speedLimit", "timeRemaining"]
         },
         {
             "topic": "telemetry_mqtt/{0}/radarState",
             "canal": "radarState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
+            "enable": 1,
+            "descripcion": "Estado del radar",
+            "keys_importantes": ["aRel", "dRel", "vRel", "dRel", "vLead"]
         },
         {
-            "topic": "telemetry_mqtt/{0}/roadCameraState",
-            "canal": "roadCameraState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/testJoystick",
-            "canal": "testJoystick",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
-        },
-        {
-            "topic": "telemetry_mqtt/{0}/wideRoadCameraState",
-            "canal": "wideRoadCameraState",
-            "enable": 0,
-            "descripcion": "canal donde se pubnli\u2026"
+            "topic": "telemetry_mqtt/{0}/drivingModelData",
+            "canal": "drivingModelData",
+            "enable": 1,
+            "descripcion": "Datos del modelo de conducción",
+            "keys_importantes": ["laneLineMeta"]
         }
     ]
 }
