@@ -46,7 +46,7 @@ class SicMqttHilo2:
         self.pause_event.clear()
 
       # Acceder a la dirección del servidor
-      self.broker_address = self.dataConfig['config']['IpServer']['value']
+      self.broker_address = "195.235.211.197"#self.dataConfig['config']['IpServer']['value']
 
     except FileNotFoundError:
       print(f"Error: El archivo '{self.jsonConfig}' no se encontró.")
