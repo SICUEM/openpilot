@@ -61,6 +61,13 @@ class SicMqttHilo2:
     except Exception as e:
       print(f"Error inesperado: {e}")
 
+      # Configurar el cliente MQTT
+      self.mqttc = mqtt.Client()
+      self.mqttc.on_connect = self.on_connect
+      self.mqttc.on_disconnect = self.on_disconnect
+      self.mqttc.on_message = self.on_message
+      self.start_mqtt_thread()
+
   def start_mqtt_thread(self):
     """Inicia un hilo no bloqueante para manejar la conexión MQTT."""
     Thread(target=self.setup_mqtt_connection, daemon=True).start()
