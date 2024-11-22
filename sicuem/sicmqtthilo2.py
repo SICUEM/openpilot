@@ -31,6 +31,8 @@ class SicMqttHilo2:
     self.cargar_canales()
     #HASTA AQUI BIEN
 
+
+
     #self.broker_address=
     # Configurar el cliente MQTT
     self.mqttc = mqtt.Client()
