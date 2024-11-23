@@ -148,7 +148,7 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
 
   // Crear QLabel para la imagen
   QLabel *logo_label = new QLabel();
-  QPixmap logo_pixmap("../selfdrive/assets/navigation/uem_logo.svg");
+  QPixmap logo_pixmap("../../../../selfdrive/assets/navigation/uem_logo.svg");
   if (!logo_pixmap.isNull()) {
     logo_label->setPixmap(logo_pixmap.scaled(100, 100, Qt::KeepAspectRatio, Qt::SmoothTransformation)); // Ajustar tamaño si es necesario
   } else {
