@@ -62,11 +62,27 @@ void PairingQRWidget::updateQrCode(const QString &text) {
 
 void PairingQRWidget::paintEvent(QPaintEvent *e) {
   QPainter p(this);
+
+  // Establecer un fondo blanco
   p.fillRect(rect(), Qt::white);
 
-  QSize s = (size() - img.size()) / 2;
-  p.drawPixmap(s.width(), s.height(), img);
+  // Ruta al archivo de imagen
+  QString imagePath = "uem_logo.png"; // Asegúrate de que el archivo está en la misma carpeta que el ejecutable
+  QPixmap logoPixmap(imagePath); // Renombramos la variable local a logoPixmap para evitar conflicto
+
+  // Verificar si la imagen se cargó correctamente
+  if (!logoPixmap.isNull()) {
+    // Centrar la imagen en el widget
+    QSize s = (size() - logoPixmap.size()) / 2;
+    QRect targetRect(s.width(), s.height(), logoPixmap.width(), logoPixmap.height());
+    p.drawPixmap(targetRect, logoPixmap);
+
+    qDebug() << "Imagen dibujada correctamente en" << targetRect;
+  } else {
+    qDebug() << "Error: No se pudo cargar la imagen desde" << imagePath;
+  }
 }
+
 
 
 PairingPopup::PairingPopup(QWidget *parent) : DialogBase(parent) {
@@ -189,23 +205,7 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   )");
 }
 
-void PrimeAdWidget::paintEvent(QPaintEvent *event) {
-  QFrame::paintEvent(event);
 
-  // Dibujar el logo directamente con QPainter
-  QPainter painter(this);
-
-  // Ruta al archivo PNG (convertido previamente desde el SVG)
-  QString logo_path = "../../../../selfdrive/assets/navigation/uem_logo.png";
-  QPixmap logo(logo_path);
-  if (!logo.isNull()) {
-    // Ajustar tamaño y posición
-    QRect target_rect(width() - 120, 20, 100, 100); // Cambia según sea necesario
-    painter.drawPixmap(target_rect, logo);
-  } else {
-    qDebug() << "Error: No se pudo cargar el archivo PNG.";
-  }
-}
 
 
 

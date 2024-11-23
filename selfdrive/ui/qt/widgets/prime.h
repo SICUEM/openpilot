@@ -51,7 +51,7 @@ class PrimeAdWidget : public QFrame {
 public:
   explicit PrimeAdWidget(QWidget* parent = 0);
 protected:
-  void paintEvent(QPaintEvent *event) override; // Declaración de paintEvent
+  //void paintEvent(QPaintEvent *event) override; // Declaración de paintEvent
 };
 
 
