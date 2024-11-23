@@ -165,10 +165,15 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   upgrade->setStyleSheet("font-size: 75px; font-weight: bold; color: red;");
   sicuem_layout->addWidget(upgrade, 0, Qt::AlignLeft);
 
-  // Crear un widget personalizado para dibujar el logo
-  QWidget *logo_widget = new QWidget(this);
-  logo_widget->setFixedSize(100, 100); // Tamaño del logo
-  sicuem_layout->addWidget(logo_widget, 0, Qt::AlignRight);
+  // Crear QLabel para la imagen del logo
+  QLabel *icon = new QLabel;
+  QPixmap pixmap("../assets/offroad/icon_wifi_strength_full.sv"); // Ruta a la imagen
+  if (!pixmap.isNull()) {
+    icon->setPixmap(pixmap.scaledToWidth(100, Qt::SmoothTransformation)); // Ajustar el tamaño de la imagen
+  } else {
+    qDebug() << "Error: No se pudo cargar la imagen desde ../assets/images/sicuem_logo.png";
+  }
+  sicuem_layout->addWidget(icon, 0, Qt::AlignRight);
 
   // Añadir el layout horizontal al layout principal
   main_layout->addLayout(sicuem_layout, 0);
