@@ -8,6 +8,7 @@
 #include <QStackedWidget>
 #include <QTimer>
 #include <QVBoxLayout>
+#include <QPainter>
 
 #include <QrCode.hpp>
 
@@ -133,6 +134,8 @@ PrimeUserWidget::PrimeUserWidget(QWidget *parent) : QFrame(parent) {
 }
 
 
+#include <QPainter>
+
 PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   QVBoxLayout *main_layout = new QVBoxLayout(this);
   main_layout->setContentsMargins(80, 90, 80, 60);
@@ -146,15 +149,10 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   upgrade->setStyleSheet("font-size: 75px; font-weight: bold; color: red;");
   sicuem_layout->addWidget(upgrade, 0, Qt::AlignLeft);
 
-  // Crear QLabel para la imagen
-  QLabel *logo_label = new QLabel();
-  QPixmap logo_pixmap("../selfdrive/assets/navigation/uem_logo.svg");
-  if (!logo_pixmap.isNull()) {
-    logo_label->setPixmap(logo_pixmap.scaled(100, 100, Qt::KeepAspectRatio, Qt::SmoothTransformation)); // Ajustar tamaño si es necesario
-  } else {
-    qDebug() << "Error: No se pudo cargar la imagen desde ../selfdrive/assets/navigation/uem_logo.svg";
-  }
-  sicuem_layout->addWidget(logo_label, 0, Qt::AlignRight);
+  // Crear un widget personalizado para dibujar el logo
+  QWidget *logo_widget = new QWidget(this);
+  logo_widget->setFixedSize(100, 100); // Tamaño del logo
+  sicuem_layout->addWidget(logo_widget, 0, Qt::AlignRight);
 
   // Añadir el layout horizontal al layout principal
   main_layout->addLayout(sicuem_layout, 0);
@@ -189,6 +187,24 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
       background-color: #333333;
     }
   )");
+}
+
+void PrimeAdWidget::paintEvent(QPaintEvent *event) {
+  QFrame::paintEvent(event);
+
+  // Dibujar el logo directamente con QPainter
+  QPainter painter(this);
+
+  // Ruta al archivo PNG (convertido previamente desde el SVG)
+  QString logo_path = "../../../../selfdrive/assets/navigation/uem_logo.png";
+  QPixmap logo(logo_path);
+  if (!logo.isNull()) {
+    // Ajustar tamaño y posición
+    QRect target_rect(width() - 120, 20, 100, 100); // Cambia según sea necesario
+    painter.drawPixmap(target_rect, logo);
+  } else {
+    qDebug() << "Error: No se pudo cargar el archivo PNG.";
+  }
 }
 
 
