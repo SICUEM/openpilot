@@ -138,24 +138,43 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
   main_layout->setContentsMargins(80, 90, 80, 60);
   main_layout->setSpacing(0);
 
-  QLabel *upgrade = new QLabel(tr("Upgrade Now"));
-  upgrade->setStyleSheet("font-size: 75px; font-weight: bold;");
-  main_layout->addWidget(upgrade, 0, Qt::AlignTop);
+  // Crear un layout horizontal para SICUEM y la imagen
+  QHBoxLayout *sicuem_layout = new QHBoxLayout();
+
+  // Crear QLabel para el texto "SICUEM"
+  QLabel *upgrade = new QLabel(tr("SICUEM"));
+  upgrade->setStyleSheet("font-size: 75px; font-weight: bold; color: red;");
+  sicuem_layout->addWidget(upgrade, 0, Qt::AlignLeft);
+
+  // Crear QLabel para la imagen
+  QLabel *logo_label = new QLabel();
+  QPixmap logo_pixmap("../selfdrive/assets/navigation/uem_logo.svg");
+  if (!logo_pixmap.isNull()) {
+    logo_label->setPixmap(logo_pixmap.scaled(100, 100, Qt::KeepAspectRatio, Qt::SmoothTransformation)); // Ajustar tamaño si es necesario
+  } else {
+    qDebug() << "Error: No se pudo cargar la imagen desde ../selfdrive/assets/navigation/uem_logo.svg";
+  }
+  sicuem_layout->addWidget(logo_label, 0, Qt::AlignRight);
+
+  // Añadir el layout horizontal al layout principal
+  main_layout->addLayout(sicuem_layout, 0);
   main_layout->addSpacing(50);
 
-  QLabel *description = new QLabel(tr("Become a comma prime member at connect.comma.ai"));
+  // Descripción
+  QLabel *description = new QLabel(tr("Grupo de investigacion de la Universidad Europea"));
   description->setStyleSheet("font-size: 56px; font-weight: light; color: white;");
   description->setWordWrap(true);
   main_layout->addWidget(description, 0, Qt::AlignTop);
 
   main_layout->addStretch();
 
-  QLabel *features = new QLabel(tr("PRIME FEATURES:"));
+  // Características
+  QLabel *features = new QLabel(tr("Integrantes del grupo:"));
   features->setStyleSheet("font-size: 41px; font-weight: bold; color: #E5E5E5;");
   main_layout->addWidget(features, 0, Qt::AlignBottom);
   main_layout->addSpacing(30);
 
-  QVector<QString> bullets = {tr("Remote access"), tr("24/7 LTE connectivity"), tr("1 year of drive storage"), tr("Turn-by-turn navigation")};
+  QVector<QString> bullets = {tr("Adrian Cañadas"), tr("Javier F."), tr("Nourdine A."), tr("Sergio B.")};
   for (auto &b : bullets) {
     const QString check = "<b><font color='#465BEA'>✓</font></b> ";
     QLabel *l = new QLabel(check + b);
@@ -171,6 +190,7 @@ PrimeAdWidget::PrimeAdWidget(QWidget* parent) : QFrame(parent) {
     }
   )");
 }
+
 
 
 SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
