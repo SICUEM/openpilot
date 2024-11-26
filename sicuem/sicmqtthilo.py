@@ -10,7 +10,7 @@ from datetime import datetime
 from threading import Thread, Event
 from openpilot.common.params import Params
 import cereal.messaging as messaging
-
+import requests
 import paho.mqtt.client as mqtt
 
 class SicMqttHilo:
@@ -37,7 +37,7 @@ class SicMqttHilo:
 
     with open(self.jsonConfig, 'r') as f:
       self.dataConfig = json.load(f)
-  
+
     # Configurar el cliente MQTT
     self.mqttc = mqtt.Client()
     self.mqttc.on_connect = self.on_connect
