@@ -243,7 +243,7 @@ def manager_thread() -> None:
 
   # [Start Bemposta] ****************************************************************************
 
-  sicMqtt = SicMqttHilo()
+  sicMqtt = SicMqttHilo2()
   sicMqtt.start()
   # [End Bemposta] ******************************************************************************
 
@@ -251,12 +251,14 @@ def manager_thread() -> None:
   while True:
     sm.update(1000)
     # Adri ini
+    '''
     if params.get_bool("telemetria_uem"):
       sicMqtt.reanudar_envio()  # reanudar hilo
     else:
       sicMqtt.pausar_envio()  # pausar hilo
 
     # Adri fin
+    '''
     started = sm['deviceState'].started
 
     started = sm['deviceState'].started
