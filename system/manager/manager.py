@@ -23,7 +23,7 @@ from openpilot.system.version import get_build_metadata, terms_version, terms_ve
 
 # [Start Bemposta] ****************************************************************************
 from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
-from openpilot.sicuem.sicmqtthilo import SicMqttHilo
+#from openpilot.sicuem.sicmqtthilo import SicMqttHilo
 
 # [End Bemposta] ******************************************************************************
 
@@ -259,8 +259,6 @@ def manager_thread() -> None:
 
     # Adri fin
     '''
-    started = sm['deviceState'].started
-
     started = sm['deviceState'].started
 
     if started and not started_prev:

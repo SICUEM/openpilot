@@ -35,6 +35,7 @@ class SicMqttHilo2:
     - `pause_event`: Permite pausar operaciones de manera segura.
     - `stop_event`: Señal para detener hilos en ejecución.
     """
+    self.velocidadActualizacion=1
     self.jsonCanales = "../../sicuem/canales.json"  # Ruta al archivo JSON de configuración de canales
     self.jsonConfig = "../../sicuem/config.json"   # Ruta al archivo JSON de configuración general
     self.espera = 0.5                              # Intervalo de espera predeterminado en segundos
@@ -173,7 +174,7 @@ class SicMqttHilo2:
 
 
 
-    time.sleep(2)
+    time.sleep(self.velocidadActualizacion)
     hilo_telemetry = Thread(target=self.loop, daemon=True)
     hilo_telemetry.start()
     return 0
@@ -251,12 +252,12 @@ class SicMqttHilo2:
     while not self.stop_event.is_set():
       # Verificar el estado de telemetria_uem
       if self.params.get_bool("telemetria_uem"):
-        print("Telemetría habilitada, ejecutando operaciones.")
+        #print("Telemetría habilitada, ejecutando operaciones.")
         self.loop_principal()
       else:
         print("Telemetría deshabilitada, esperando...")
 
-      time.sleep(1)  # Pausa breve antes de volver a verificar
+      time.sleep(0.5)  # Pausa breve antes de volver a verificar
 
   def loop_principal(self):
     """
@@ -437,6 +438,10 @@ class SicMqttHilo2:
     longitude = sm['gpsLocationExternal'].longitude
     altitude = sm['gpsLocationExternal'].altitude
 
+    print("latitude", latitude)
+    print("longitude", longitude)
+
+
     return {
       "latitude": latitude,
       "longitude": longitude,
@@ -450,8 +455,8 @@ class SicMqttHilo2:
     gps_data = self.obtener_gps_location()
     current_lat = gps_data.get('latitude')
     current_lon = gps_data.get('longitude')
-    print(current_lat)
-    print(current_lon)
+    #print(current_lat)
+    #print(current_lon)
 
     ruta_actual = os.path.dirname(os.path.abspath(__file__))
     ruta_archivo = os.path.join(ruta_actual, "../system/manager/mapbox_response.json")
@@ -527,7 +532,10 @@ class SicMqttHilo2:
       except Exception as e:
         print(f"Error al leer el archivo: {e}")
     else:
-      pass
+      self.params.put("roundabout_distance", "-1")
+      self.params.put("intersection_distance", "-1")
+      self.params.put("merge_distance", "-1")
+      print("Parámetros actualizados: roundabout_distance, intersection_distance, merge_distance en -1.")
 
 
 
