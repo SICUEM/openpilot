@@ -487,23 +487,23 @@ void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
   QRect roundaboutRect(mitad*1.25, navYOffset, navImageWidth, navImageHeight);
   QRect uem_logo(width()-150, height()-150, 150, 150);
 
-  // Obtener las distancias desde Params
-  //int mergeDistance = std::stoi(Params().get("merge_distance")); // Convertir a int
-  //int intersectionDistance = std::stoi(Params().get("intersection_distance")); // Convertir a int
-  int roundaboutDistance = std::stoi(Params().get("roundabout_distance")); // Convertir a int
+ // Obtener las distancias desde Params y calcular la menor distancia
+int mergeDistance = std::stoi(Params().get("merge_distance"));
+int intersectionDistance = std::stoi(Params().get("intersection_distance"));
+int roundaboutDistance = std::stoi(Params().get("roundabout_distance"));
+//int menorDistancia = std::min({mergeDistance, intersectionDistance, roundaboutDistance});
 
-  //separar un poco mas el texto
-  labelYOffset= labelYOffset+15;
-  // Llamadas a las funciones para mostrar las imágenes y los labels si corresponde
+// Separar un poco más el texto
+labelYOffset += 15;
 
-  //int menorDistancia = std::min({mergeDistance, intersectionDistance, roundaboutDistance});
+if (roundaboutDistance > 0 )//&& std::abs(menorDistancia - roundaboutDistance) <= 5)
+    mostrarRoundabout(p, roundaboutRect, roundabout, labelYOffset, roundaboutDistance);
+else if (intersectionDistance > 0 )//&& std::abs(menorDistancia - intersectionDistance) <= 5)
+    mostrarIntersection(p, intersectionRect, intersection, labelYOffset, intersectionDistance);
+else if (mergeDistance > 0 )//&& std::abs(menorDistancia - mergeDistance) <= 5)
+    mostrarMerge(p, mergeRect, merge, labelYOffset, mergeDistance);
 
- // if (menorDistancia<5000){
-  //mostrarMerge(p, mergeRect, merge, labelYOffset, mergeDistance);
 
-  //mostrarIntersection(p, intersectionRect, intersection, labelYOffset, intersectionDistance);
-if (roundaboutDistance>0){
-  mostrarRoundabout(p, roundaboutRect, roundabout, labelYOffset, roundaboutDistance);}
 
 //}
 

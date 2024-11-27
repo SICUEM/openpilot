@@ -506,17 +506,42 @@ class SicMqttHilo2:
                     closest_maneuvers[maneuver_type]["longitude"] = maneuver_lon
                     #print(calculated_distance)
 
+          roundabout_distance = closest_maneuvers["roundabout"]["distance"]
+          intersection_distance = closest_maneuvers["intersection"]["distance"]
+          merge_distance = closest_maneuvers["merge"]["distance"]
 
-          # Establecer las distancias en Params, enviando -1 si no se encuentra ninguna maniobra
-          self.params.put("roundabout_distance",
-                          str(closest_maneuvers["roundabout"]["distance"]) if closest_maneuvers["roundabout"][
-                                                                                "distance"] != float('inf') else "-1")
-          self.params.put("intersection_distance",
-                          str(closest_maneuvers["intersection"]["distance"]) if closest_maneuvers["intersection"][
-                                                                                  "distance"] != float('inf') else "-1")
-          self.params.put("merge_distance",
-                          str(closest_maneuvers["merge"]["distance"]) if closest_maneuvers["merge"][
-                                                                           "distance"] != float('inf') else "-1")
+          # Procesar distancias, reemplazando valores no válidos con -1
+          distances = {
+            "roundabout": roundabout_distance if roundabout_distance != float('inf') else -1,
+            "intersection": intersection_distance if intersection_distance != float('inf') else -1,
+            "merge": merge_distance if merge_distance != float('inf') else -1,
+          }
+
+          # Cambiar nombre de la maniobra si está a menos de 2 metros
+          for maneuver, distance in distances.items():
+            if 0 <= distance < 2:  # La distancia es válida y menor a 2 metros
+              self.params.put(f"{maneuver}_distance", "-1")  # Desactivamos la maniobra actual
+              distances[f"{maneuver}_hecha"] = distances.pop(maneuver)  # Cambiamos el nombre de la maniobra
+              print(f"Maniobra completada: {maneuver}")
+
+          # Filtrar distancias válidas (mayores o iguales a 0)
+          valid_distances = {key: value for key, value in distances.items() if value >= 0 and "_hecha" not in key}
+
+          if valid_distances:
+            # Encontrar la maniobra con la menor distancia válida
+            min_maneuver = min(valid_distances, key=valid_distances.get)
+
+            # Actualizar params solo para la maniobra más cercana
+            for maneuver in distances:
+              if maneuver == min_maneuver:
+                self.params.put(f"{maneuver}_distance", str(valid_distances[min_maneuver]))
+              else:
+                self.params.put(f"{maneuver}_distance", "-1")
+          else:
+            # Si no hay distancias válidas, establecer todas en -1
+            for maneuver in distances:
+              if "_hecha" not in maneuver:  # No modificar las maniobras ya completadas
+                self.params.put(f"{maneuver}_distance", "-1")
 
           # Preparar el contenido para MQTT
           contenido = (
