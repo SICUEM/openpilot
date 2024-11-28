@@ -19,7 +19,7 @@ from openpilot.common.swaglog import cloudlog
 REROUTE_DISTANCE = 25
 MANEUVER_TRANSITION_THRESHOLD = 10
 REROUTE_COUNTER_MIN = 3
-MAPBOX_RESPONSE_FILE = "mapbox_response.json"  # Adrian Cañadas Gallardo - Nuevo archivo para guardar la respuesta de la API
+#MAPBOX_RESPONSE_FILE = "mapbox_response.json"  # Adrian Cañadas Gallardo - Nuevo archivo para guardar la respuesta de la API
 
 
 class RouteEngine:
@@ -122,14 +122,14 @@ class RouteEngine:
       self.reroute_counter = 0
     else:
       self.recompute_countdown = max(0, self.recompute_countdown - 1)
-
+  '''
   def eliminar_mapbox_response_file(self):
     if os.path.exists(MAPBOX_RESPONSE_FILE):
       os.remove(MAPBOX_RESPONSE_FILE)
       print(f"{MAPBOX_RESPONSE_FILE} ha sido eliminado.")
     else:
       print(f"{MAPBOX_RESPONSE_FILE} no existe.")
-
+  '''
 
   def calculate_route(self, destination):
     cloudlog.warning(f"Calculating route {self.last_position} -> {destination}")
@@ -180,11 +180,11 @@ class RouteEngine:
 
 
       # Guardar la respuesta de la API en un archivo JSON - Adrian Cañadas Gallardo
-      with open(MAPBOX_RESPONSE_FILE, 'w') as json_file:
-        json.dump(r, json_file, indent=2)  # Guardar el JSON con formato legible - Adrian Cañadas Gallardo
-        print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
+      #with open(MAPBOX_RESPONSE_FILE, 'w') as json_file:
+        #json.dump(r, json_file, indent=2)  # Guardar el JSON con formato legible - Adrian Cañadas Gallardo
+        #print(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
 
-        cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
+        #cloudlog.info(f"Mapbox response saved to {MAPBOX_RESPONSE_FILE}")  # Adrian Cañadas Gallardo
 
       if len(r['routes']):
         self.route = r['routes'][0]['legs'][0]['steps']
