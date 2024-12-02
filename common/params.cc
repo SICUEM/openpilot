@@ -144,13 +144,17 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"IsMetric", PERSISTENT | BACKUP},
     {"ActivateEvent",PERSISTENT},//Adrian Cañadas Gallardo
     {"telemetria_uem",PERSISTENT},//Adrian Cañadas Gallardo
-    {"carState_toggle",PERSISTENT},//Adrian Cañadas Gallardo
-    {"gpsLocationExternal_toggle",PERSISTENT},//Adrian Cañadas Gallardo
-    {"carControl_toggle",PERSISTENT},//Adrian Cañadas Gallardo
-    {"drivingModelData_toggle",PERSISTENT},//Adrian Cañadas Gallardo
-    {"radarState_toggle",PERSISTENT},//Adrian Cañadas Gallardo
-    {"navInstruction_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+
+    //{"carState_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    //{"gpsLocationExternal_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    //{"carControl_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    //{"drivingModelData_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    //{"radarState_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    //{"navInstruction_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+
     {"mapbox_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+
+
     {"sender_uem_up", PERSISTENT},   // Adrian Cañadas Gallardo
     {"sender_uem_down", PERSISTENT}, // Adrian Cañadas Gallardo
     {"sender_uem_left", PERSISTENT}, // Adrian Cañadas Gallardo

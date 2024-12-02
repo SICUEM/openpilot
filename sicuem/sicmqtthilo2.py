@@ -17,7 +17,7 @@ import paho.mqtt.client as mqtt
 class SicMqttHilo2:
   def __init__(self):
     self.initialize_variables()
-    self.cargar_canales()
+    #self.cargar_canales()
     self.initialize_mqtt_client()
     self.load_configuration()
     self.start_mqtt_thread()
@@ -63,7 +63,7 @@ class SicMqttHilo2:
       data_canales = json.load(f)
 
     # Ajustar los canales habilitados/deshabilitados según los parámetros
-    self.verificar_toggle_canales(data_canales)
+    #self.verificar_toggle_canales(data_canales)
 
     # Filtrar solo los canales habilitados
     self.enabled_items = [item for item in data_canales['canales'] if item['enable'] == 1]
@@ -167,8 +167,7 @@ class SicMqttHilo2:
     if self.lista_suscripciones:
       try:
         self.sm = messaging.SubMaster(
-          ['carState', 'controlsState', 'liveCalibration', 'carControl', 'gpsLocationExternal', 'gpsLocation',
-           'navInstruction', 'radarState', 'drivingModelData'])
+          ['carState'])
       except Exception:
         self.sm = None
 
@@ -266,27 +265,6 @@ class SicMqttHilo2:
     - Envía datos importantes a través de MQTT.
     - Publica periódicamente el estado del archivo mapbox.
     """
-    self.pause_event.wait()  # Pausa las operaciones si está desactivada la telemetría
-    self.cargar_canales()  # Carga los canales habilitados dinámicamente
-
-    if len(self.enabled_items) > 0 and self.sm:
-      for canal_actual in self.enabled_items:
-        canal_nombre = canal_actual['canal']
-        if canal_nombre in self.sm.data:
-          try:
-            self.sm.update()
-            # Convierte los datos de SubMaster a un diccionario
-            datos_canal = self.sm[canal_nombre].to_dict()
-            # Envía solo los datos importantes
-            datos_importantes = self.enviar_datos_importantes(canal_nombre, datos_canal)
-            self.mqttc.publish(
-              str(canal_actual['topic']).format(self.DongleID),
-              json.dumps(datos_importantes),
-              qos=0
-            )
-          except KeyError:
-            continue
-
     # Publicar estado del archivo mapbox
     self.enviar_estado_archivo_mapbox()
 
