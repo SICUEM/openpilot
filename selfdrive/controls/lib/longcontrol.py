@@ -5,6 +5,11 @@ from openpilot.selfdrive.controls.lib.drive_helpers import CONTROL_N
 from openpilot.selfdrive.controls.lib.pid import PIDController
 from openpilot.selfdrive.modeld.constants import ModelConstants
 
+import threading
+import time
+from openpilot.common.params import Params
+
+
 CONTROL_N_T_IDX = ModelConstants.T_IDXS[:CONTROL_N]
 
 LongCtrlState = car.CarControl.Actuators.LongControlState
@@ -55,6 +60,18 @@ class LongControl:
                              k_f=CP.longitudinalTuning.kf, rate=1 / DT_CTRL)
     self.last_output_accel = 0.0
 
+    self.params = Params()
+    threading.Thread(target=self.toggle_long_control, daemon=True).start()
+
+  def toggle_long_control(self):
+    while True:
+      self.params.put_bool("DisableLongControl", True)
+      print("⛔ Longitudinal control DESACTIVADO")
+      time.sleep(10)
+      self.params.put_bool("DisableLongControl", False)
+      print("✅ Longitudinal control ACTIVADO")
+      time.sleep(10)
+
   def reset(self):
     self.pid.reset()
 
@@ -62,6 +79,11 @@ class LongControl:
     """Update longitudinal control. This updates the state machine and runs a PID loop"""
     self.pid.neg_limit = accel_limits[0]
     self.pid.pos_limit = accel_limits[1]
+
+    # 🔁 Lógica para cortar el control longitudinal cada 10 seg
+    if self.params.get_bool("DisableLongControl"):
+      print("🟥 Corte de aceleración activo: saliendo con 0.0")
+      return 0.0  # Sin aceleración
 
     self.long_control_state = long_control_state_trans(self.CP, active, self.long_control_state, CS.vEgo,
                                                        should_stop, CS.brakePressed,
