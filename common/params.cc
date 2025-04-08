@@ -89,6 +89,11 @@ private:
 
 std::unordered_map<std::string, uint32_t> keys = {
     {"AccessToken", CLEAR_ON_MANAGER_START | DONT_LOG},
+    {"Velocidad_C1", PERSISTENT},  // Velocidad Jv
+    {"Velocidad_C2", PERSISTENT},  // Velocidad Nd
+    {"Velocidad_C3", PERSISTENT},  // Velocidad v3
+    {"Velocidad_C4", PERSISTENT},  // Velocidad sim
+
     {"AlwaysOnDM", PERSISTENT},
     {"ApiCache_Device", PERSISTENT},
     {"ApiCache_NavDestinations", PERSISTENT},
@@ -142,6 +147,36 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"IsEngaged", PERSISTENT},
     {"IsLdwEnabled", PERSISTENT | BACKUP},
     {"IsMetric", PERSISTENT | BACKUP},
+    {"cambiar_a_izq",PERSISTENT},//Adrian Cañadas Gallardo
+    {"cambiar_a_der",PERSISTENT},//Adrian Cañadas Gallardo
+    {"ForceLaneChangeLeft", PERSISTENT}, // Cambio de carril forzado a la izquierda
+    {"ForceLeftBlinker", PERSISTENT}, // Simula intermitente izquierdo activado (Adrián)
+    {"DisableLongControl", PERSISTENT},  // Control longitudinal alternado por demo
+
+
+
+    {"ActivateEvent",PERSISTENT},//Adrian Cañadas Gallardo
+    {"telemetria_uem",PERSISTENT},//Adrian Cañadas Gallardo
+    {"carState_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"intervalos_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"lider_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"gpsLocationExternal_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"carControl_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"drivingModelData_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"radarState_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"navInstruction_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"mapbox_toggle",PERSISTENT},//Adrian Cañadas Gallardo
+    {"sender_uem_up", PERSISTENT},   // Adrian Cañadas Gallardo
+    {"sender_uem_down", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"sender_uem_left", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"sender_uem_right", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"roundabout_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"intersection_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"merge_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"turn_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"off_road_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"on_road_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+
     {"IsOffroad", CLEAR_ON_MANAGER_START},
     {"IsOnroad", PERSISTENT},
     {"IsRhdDetected", PERSISTENT},
