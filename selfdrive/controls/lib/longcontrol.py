@@ -82,8 +82,8 @@ class LongControl:
 
     # 🔁 Lógica para cortar el control longitudinal cada 10 seg
     if self.params.get_bool("DisableLongControl"):
-      print("🟥 Corte de aceleración activo: saliendo con 0.0")
-      return 0.0  # Sin aceleración
+      print(" FRENADO manual por DisableLongControl")
+      return -1.0  # Valor más negativo = más frenada
 
     self.long_control_state = long_control_state_trans(self.CP, active, self.long_control_state, CS.vEgo,
                                                        should_stop, CS.brakePressed,
