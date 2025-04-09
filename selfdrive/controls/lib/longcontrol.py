@@ -100,6 +100,11 @@ class LongControl:
       output_accel = 0.
 
     elif self.long_control_state == LongCtrlState.stopping:
+      # 🚦 Forzar reanudación si ya pasó el freno forzado
+      if not self.params.get_bool("DisableLongControl"):
+        print(" Reanudación forzada tras detenerse")
+        self.long_control_state = LongCtrlState.pid  # o LongCtrlState.starting
+
       output_accel = self.last_output_accel
       if output_accel > self.CP.stopAccel:
         output_accel = min(output_accel, 0.0)
