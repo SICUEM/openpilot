@@ -10,7 +10,7 @@ def trigger_lane_change_left():
   def reset_flag():
     # Espera 1 segundo y luego resetea
     import time
-    time.sleep(1)
+    time.sleep(10)
     params.put_bool("ForceLaneChangeLeft", False)
     print("✅ Señal de cambio de carril reiniciada.")
 
