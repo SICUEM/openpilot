@@ -81,7 +81,7 @@ class LongControl:
     self.pid.pos_limit = accel_limits[1]
 
     # 🔁 Lógica para cortar el control longitudinal cada 10 seg
-    if self.params.get_bool("DisableLongControl"):
+    if self.params.get_bool("DisableLongControl") and CS.leftBlinker and CS.rightBlinker:
       print(" FRENADO manual por DisableLongControl")
       return -1.0  # Valor más negativo = más frenada
 
