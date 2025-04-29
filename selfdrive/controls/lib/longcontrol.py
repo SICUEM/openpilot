@@ -52,8 +52,9 @@ def long_control_state_trans(CP, active, long_control_state, v_ego,
   return long_control_state
 
 class LongControl:
-  def __init__(self, CP):
+  def __init__(self, CP, CS):
     self.CP = CP
+    self.CS = CS
     self.long_control_state = LongCtrlState.off
     self.pid = PIDController((CP.longitudinalTuning.kpBP, CP.longitudinalTuning.kpV),
                              (CP.longitudinalTuning.kiBP, CP.longitudinalTuning.kiV),
@@ -63,14 +64,20 @@ class LongControl:
     self.params = Params()
     threading.Thread(target=self.toggle_long_control, daemon=True).start()
 
+
   def toggle_long_control(self):
     while True:
-      self.params.put_bool("DisableLongControl", True)
-      print("⛔ Longitudinal control DESACTIVADO")
-      time.sleep(10)
-      self.params.put_bool("DisableLongControl", False)
-      print("✅ Longitudinal control ACTIVADO")
-      time.sleep(10)
+      if self.CS.leftBlinker and self.CS.rightBlinker:
+        self.params.put_bool("DisableLongControl", True)
+        print("⛔ Longitudinal control DESACTIVADO (por hazard)")
+        time.sleep(10)
+        self.params.put_bool("DisableLongControl", False)
+        print("✅ Longitudinal control ACTIVADO (por hazard)")
+        time.sleep(10)
+      else:
+        # 💤 Si no están activados, dormimos menos y revisamos rápido
+        time.sleep(0.1)
+
 
   def reset(self):
     self.pid.reset()
@@ -81,7 +88,7 @@ class LongControl:
     self.pid.pos_limit = accel_limits[1]
 
     # 🔁 Lógica para cortar el control longitudinal cada 10 seg
-    if self.params.get_bool("DisableLongControl") and CS.leftBlinker and CS.rightBlinker:
+    if self.params.get_bool("DisableLongControl"):
       print(" FRENADO manual por DisableLongControl")
       return -1.0  # Valor más negativo = más frenada
 

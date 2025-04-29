@@ -207,6 +207,10 @@ class Controls:
     # controlsd is driven by carState, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
 
+    #adrian
+    self.timer_start = time.monotonic()
+    self.accel_phase = True  # True = acelerar, False = frenar/parar
+
   def set_initial_state(self):
     if REPLAY:
       controls_state = self.params.get("ReplayControlsState")
@@ -641,7 +645,25 @@ class Controls:
     if not self.joystick_mode:
       # accel PID loop
       pid_accel_limits = self.CI.get_pid_accel_limits(self.CP, CS.vEgo, self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
-      actuators.accel = self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits)
+      #Adrian###########################################
+      # Alternar fase cada 10 segundos
+      elapsed = time.monotonic() - self.timer_start
+      if elapsed > 10.0:
+        self.accel_phase = not self.accel_phase
+        self.timer_start = time.monotonic()
+
+      # Forzar aceleración o frenado
+      if CC.longActive:
+        if self.accel_phase:
+          actuators.accel = 1.0  # acelera con fuerza máxima
+        else:
+          if CS.vEgo > 0.1:
+            actuators.accel = -1.0  # frena con fuerza máxima
+          else:
+            actuators.accel = 0.0  # parado
+      #Adrian###########################################
+
+      #actuators.accel = self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits)
 
       # Steering PID loop and lateral MPC
       if self.model_use_lateral_planner:
