@@ -152,6 +152,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"ForceLaneChangeLeft", PERSISTENT}, // Cambio de carril forzado a la izquierda
     {"ForceLeftBlinker", PERSISTENT}, // Simula intermitente izquierdo activado (Adrián)
     {"DisableLongControl", PERSISTENT},  // Control longitudinal alternado por demo
+    {"HazardLightsOn", PERSISTENT}, // Indica si las luces de emergencia están activadas
+
 
 
 

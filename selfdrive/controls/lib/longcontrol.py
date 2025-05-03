@@ -64,20 +64,22 @@ class LongControl:
     self.params = Params()
     threading.Thread(target=self.toggle_long_control, daemon=True).start()
 
-
   def toggle_long_control(self):
     while True:
-      if self.CS.leftBlinker and self.CS.rightBlinker:
-        self.params.put_bool("DisableLongControl", True)
-        print("⛔ Longitudinal control DESACTIVADO (por hazard)")
-        time.sleep(10)
-        self.params.put_bool("DisableLongControl", False)
-        print("✅ Longitudinal control ACTIVADO (por hazard)")
-        time.sleep(10)
+      if self.params.get_bool("HazardLightsOn"):
+        while self.params.get_bool("HazardLightsOn"):
+          self.params.put_bool("DisableLongControl", True)
+          print("⛔ Longitudinal control DESACTIVADO (por hazard)")
+          time.sleep(10)
+          self.params.put_bool("DisableLongControl", False)
+          print("✅ Longitudinal control ACTIVADO (por hazard)")
+          time.sleep(10)
       else:
-        # 💤 Si no están activados, dormimos menos y revisamos rápido
-        time.sleep(0.1)
-
+        # Asegura que esté habilitado si no hay warnings
+        if self.params.get_bool("DisableLongControl"):
+          self.params.put_bool("DisableLongControl", False)
+          print("✅ Longitudinal control normal")
+        time.sleep(1)
 
   def reset(self):
     self.pid.reset()
