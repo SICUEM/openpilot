@@ -69,16 +69,16 @@ class LongControl:
       if self.params.get_bool("HazardLightsOn"):
         while self.params.get_bool("HazardLightsOn"):
           self.params.put_bool("DisableLongControl", True)
-          print("⛔ Longitudinal control DESACTIVADO (por hazard)")
+          print("------------------------ Longitudinal control DESACTIVADO (por LUCES DEL WARNING  < > )")
           time.sleep(10)
           self.params.put_bool("DisableLongControl", False)
-          print("✅ Longitudinal control ACTIVADO (por hazard)")
+          print("++++++++++++++++++++++++ Longitudinal control ACTIVADO (por LUCES DEL WARNING  < >)")
           time.sleep(10)
       else:
         # Asegura que esté habilitado si no hay warnings
         if self.params.get_bool("DisableLongControl"):
           self.params.put_bool("DisableLongControl", False)
-          print("✅ Longitudinal control normal")
+          print("Longitudinal control normal (LUCES DEL WARNING  DESACTIVADAS < >")
         time.sleep(1)
 
   def reset(self):
