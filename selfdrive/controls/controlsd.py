@@ -207,6 +207,32 @@ class Controls:
     # controlsd is driven by carState, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
 
+    #MANUAL
+    self.force_lane_change_timer = threading.Thread(target=self._auto_lane_change_thread, daemon=True)
+    self.force_lane_change_timer.start()
+
+    #AUTO
+    threading.Thread(target=self._auto_lane_change_thread_auto, daemon=True).start()
+
+
+  #AUTO
+  def _auto_lane_change_thread_auto(self):
+    while True:
+      Params().put_bool("ForceAutoLaneChange", True)
+      time.sleep(1)
+      Params().put_bool("ForceAutoLaneChange", False)
+      time.sleep(20)
+ #MANUAL
+  def _auto_lane_change_thread(self):
+    while True:
+      time.sleep(20)
+
+      # Forzar preLaneChange hacia la izquierda
+      plan = self.sm['lateralPlanDEPRECATED']
+      plan.laneChangeState = LaneChangeState.preLaneChange
+      plan.laneChangeDirection = LaneChangeDirection.left
+      plan.desire = Desire.laneChangeLeft
+
   def set_initial_state(self):
     if REPLAY:
       controls_state = self.params.get("ReplayControlsState")

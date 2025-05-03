@@ -60,6 +60,7 @@ void Sidebar::mouseReleaseEvent(QMouseEvent *event) {
     update();
   }
   if (onroad && home_btn.contains(event->pos())) {
+  /*
     // Enviar mensaje userFlag
     MessageBuilder msg;
     msg.initEvent().initUserFlag();
@@ -76,6 +77,7 @@ void Sidebar::mouseReleaseEvent(QMouseEvent *event) {
     qDebug() << "Ejecutando script en: " << scriptPath;
 
     QProcess::startDetached("python3", QStringList() << scriptPath << "left");
+    */
   } else if (settings_btn.contains(event->pos())) {
     emit openSettings();
   }

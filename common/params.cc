@@ -146,7 +146,12 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"IsMetric", PERSISTENT | BACKUP},
     {"ForceLaneChangeLeft", PERSISTENT}, // Cambio de carril forzado a la izquierda
 
+    //MANUAL
+    {"ForceLaneChangeLeft", PERSISTENT},
+    {"ForceLaneChangeRight", PERSISTENT},
 
+    //AUTO
+    {"ForceAutoLaneChange", PERSISTENT},
 
 
     {"IsOffroad", CLEAR_ON_MANAGER_START},
