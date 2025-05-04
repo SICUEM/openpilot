@@ -4,6 +4,8 @@ from cereal import car
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import mean
 from openpilot.common.filter_simple import FirstOrderFilter
+from openpilot.common.params import Params
+
 from opendbc.can.can_define import CANDefine
 from opendbc.can.parser import CANParser
 from openpilot.selfdrive.car import DT_CTRL
@@ -175,6 +177,7 @@ class CarState(CarStateBase):
     ret.gearShifter = self.parse_gear_shifter(self.shifter_values.get(can_gear, None))
     ret.leftBlinker = ret.leftBlinkerOn = cp.vl["BLINKERS_STATE"]["TURN_SIGNALS"] == 1
     ret.rightBlinker = ret.rightBlinkerOn = cp.vl["BLINKERS_STATE"]["TURN_SIGNALS"] == 2
+    Params().put_bool("HazardLightsOn", ret.leftBlinker and ret.rightBlinker)
 
     if self.CP.carFingerprint != CAR.TOYOTA_MIRAI:
       ret.engineRpm = cp.vl["ENGINE_RPM"]["RPM"]
