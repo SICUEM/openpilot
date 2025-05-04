@@ -52,9 +52,8 @@ def long_control_state_trans(CP, active, long_control_state, v_ego,
   return long_control_state
 
 class LongControl:
-  def __init__(self, CP, CS):
+  def __init__(self, CP):
     self.CP = CP
-    self.CS = CS
     self.long_control_state = LongCtrlState.off
     self.pid = PIDController((CP.longitudinalTuning.kpBP, CP.longitudinalTuning.kpV),
                              (CP.longitudinalTuning.kiBP, CP.longitudinalTuning.kiV),
