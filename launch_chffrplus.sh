@@ -87,7 +87,7 @@ function launch {
     ./build.py
   fi
 
-  #./mapd_installer.py;
+  ./mapd_installer.py;
    # [Start Bemposta] ****************************************************************************
   # echo "***************** iniciamos instalacion *****************************************************"
   #echo "iniciamos instalacion" &>> /data/openpilot/sicuem/sic_install.txt
@@ -95,7 +95,7 @@ function launch {
   #/data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt &
   #echo "continuamos arranque" &>> /data/openpilot/sicuem/sic_install.txt
   # [End Bemposta] ******************************************************************************
-  #./manager.py
+  ./manager.py
 
   # if broken, keep on screen error
   while true; do sleep 1; done
