@@ -32,8 +32,6 @@ from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata
 
 from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE
-from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
-
 
 SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
@@ -67,8 +65,6 @@ PERSONALITY_MAPPING = {0: 0, 1: 1, 2: 2, 3: 2}
 
 class Controls:
   def __init__(self, CI=None):
-    sicMqtt = SicMqttHilo2()
-    sicMqtt.start()
     self.params = Params()
 
     if CI is None:
@@ -211,7 +207,31 @@ class Controls:
     # controlsd is driven by carState, expected at 100Hz
     self.rk = Ratekeeper(100, print_delay_threshold=None)
 
+    #MANUAL
+    self.force_lane_change_timer = threading.Thread(target=self._auto_lane_change_thread, daemon=True)
+    self.force_lane_change_timer.start()
 
+    #AUTO
+    threading.Thread(target=self._auto_lane_change_thread_auto, daemon=True).start()
+
+
+  #AUTO
+  def _auto_lane_change_thread_auto(self):
+    while True:
+      Params().put_bool("ForceAutoLaneChange", True)
+      time.sleep(1)
+      Params().put_bool("ForceAutoLaneChange", False)
+      time.sleep(20)
+ #MANUAL
+  def _auto_lane_change_thread(self):
+    while True:
+      time.sleep(20)
+
+      # Forzar preLaneChange hacia la izquierda
+      plan = self.sm['lateralPlanDEPRECATED']
+      plan.laneChangeState = LaneChangeState.preLaneChange
+      plan.laneChangeDirection = LaneChangeDirection.left
+      plan.desire = Desire.laneChangeLeft
 
   def set_initial_state(self):
     if REPLAY:
@@ -309,19 +329,7 @@ class Controls:
     if lane_change_svs.laneChangeState == LaneChangeState.preLaneChange and lane_change_edge_block:
       self.events.add(EventName.laneChangeRoadEdge)
     elif lane_change_svs.laneChangeState == LaneChangeState.preLaneChange:
-      direction = lane_change_svs.laneChangeDirection  # ← valor por defecto del modelo
-      try:
-
-        force_lc = self.params.get("ForceLaneChangeLeft")
-        if force_lc is not None and force_lc == b"1":
-          direction = LaneChangeDirection.left
-          CS.leftBlinker = True
-          self.last_blinker_frame = self.sm.frame
-          self.params.delete("ForceLaneChangeLeft")
-
-      except Exception as e:
-        cloudlog.error(f"Error leyendo ForceLaneChangeLeft: {e}")
-
+      direction = lane_change_svs.laneChangeDirection
       if (CS.leftBlindspot and direction == LaneChangeDirection.left) or \
          (CS.rightBlindspot and direction == LaneChangeDirection.right):
         self.events.add(EventName.laneChangeBlocked)
@@ -332,7 +340,7 @@ class Controls:
           self.events.add(EventName.preLaneChangeRight)
     elif lane_change_svs.laneChangeState in (LaneChangeState.laneChangeStarting,
                                              LaneChangeState.laneChangeFinishing):
-      self.events.add(EventName.laneChange) #AQUI CAMBIA DE CARRIL HACE LA ACCION DE CAMBIAR (EVENTO)
+      self.events.add(EventName.laneChange)
 
     for i, pandaState in enumerate(self.sm['pandaStates']):
       # All pandas must match the list of safetyConfigs, and if outside this list, must be silent or noOutput
@@ -458,11 +466,6 @@ class Controls:
 
       if self.sm['modelV2'].frameDropPerc > 20:
         self.events.add(EventName.modeldLagging)
-
-
-    #adri lane_change
-    # adri lane_change
-
 
   def data_sample(self):
     """Receive data from sockets"""
@@ -646,21 +649,10 @@ class Controls:
     actuators = CC.actuators
     actuators.longControlState = self.LoC.long_control_state
 
-    '''
-    #CONTROL lateral
-    if not self.joystick_mode:
-      # Añadir aquí el código para forzar el giro a la derecha
-      self.desired_curvature = +0.01  # Ajusta este valor para el giro deseado hacia la derecha (+) o izq (-)
-    '''
-    # Enable blinkers while lane changing
     # Enable blinkers while lane changing
     if blinker_svs.laneChangeState != LaneChangeState.off:
       CC.leftBlinker = blinker_svs.laneChangeDirection == LaneChangeDirection.left
       CC.rightBlinker = blinker_svs.laneChangeDirection == LaneChangeDirection.right
-
-    # ← FUERZA EL ICONO DEL INTERMITENTE SI EL BLINKER FUE FORZADO
-    if CS.leftBlinker:
-      CC.leftBlinker = True
 
     if CS.leftBlinker or CS.rightBlinker:
       self.last_blinker_frame = self.sm.frame
@@ -678,35 +670,15 @@ class Controls:
       actuators.accel = self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits)
 
       # Steering PID loop and lateral MPC
-      # Si se usa el planificador lateral (lateral planner), se calcula la curvatura deseada ajustada
-      # considerando el retardo del sistema. Esto se basa en la velocidad del vehículo (vEgo) y la
-      # curvatura planeada del camino (`lat_plan.curvatures`).
-      #CAMBIO DE CARRIL
       if self.model_use_lateral_planner:
         self.desired_curvature = get_lag_adjusted_curvature(self.CP, CS.vEgo, lat_plan.psis, lat_plan.curvatures)
       else:
-        # Si no se usa el planificador lateral, se limita la curvatura deseada para evitar valores extremos
-        # en función de la velocidad del vehículo (`vEgo`) y la curvatura prevista por el modelo (`model_v2.action.desiredCurvature`).
         self.desired_curvature = clip_curvature(CS.vEgo, self.desired_curvature, model_v2.action.desiredCurvature)
-
-      # Se asigna la curvatura deseada al actuador, indicando el grado de giro que debe seguir el vehículo.
       actuators.curvature = self.desired_curvature
-
-      # Se actualizan los actuadores laterales (volante):
-      # - `steer`: Señal de dirección que se enviará al auto.
-      # - `steeringAngleDeg`: Ángulo de dirección que se aplicará en grados.
-      # - `lac_log`: Registro de datos del control lateral.
-      actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(
-        CC.latActive,  # Indica si el control lateral está activo.
-        CS,  # Estado actual del vehículo.
-        self.VM,  # Modelo del vehículo para cálculos de dinámica.
-        lp,  # Parámetros en vivo de calibración.
-        self.steer_limited,  # Indica si la dirección está limitada por el sistema.
-        self.desired_curvature,  # Curvatura deseada basada en el plan de trayectoria.
-        self.sm['liveLocationKalman'],  # Datos en vivo de ubicación y orientación del vehículo.
-        model_data=model_v2  # Datos del modelo de conducción.
-      )
-
+      actuators.steer, actuators.steeringAngleDeg, lac_log = self.LaC.update(CC.latActive, CS, self.VM, lp,
+                                                                             self.steer_limited, self.desired_curvature,
+                                                                             self.sm['liveLocationKalman'],
+                                                                             model_data=model_v2)
       if self.model_use_lateral_planner:
         actuators.curvature = self.desired_curvature
     else:
@@ -891,11 +863,7 @@ class Controls:
 
     controlsState.longitudinalPlanMonoTime = self.sm.logMonoTime['longitudinalPlan']
     controlsState.lateralPlanMonoTime = self.sm.logMonoTime[lp_mono_time_svs]
-    #original
     controlsState.enabled = not (CS.brakePressed and (not self.CS_prev.brakePressed or not CS.standstill)) and (self.enabled or CS.cruiseState.enabled) and CS.gearShifter not in [GearShifter.park, GearShifter.reverse]
-    #adri
-    #controlsState.enabled = not (CS.brakePressed and (not self.CS_prev.brakePressed or not CS.standstill)) and (self.enabled or CS.cruiseState.enabled)
-
     controlsState.active = not (CS.brakePressed and (not self.CS_prev.brakePressed or not CS.standstill)) and (self.active or CS.cruiseState.enabled)
     controlsState.curvature = curvature
     controlsState.desiredCurvature = self.desired_curvature
