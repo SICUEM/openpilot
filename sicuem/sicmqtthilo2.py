@@ -14,7 +14,7 @@ import requests
 
 import importlib.util
 
-def is_paho_installed() -> bool:
+def is_paho_loaded() -> bool:
   if importlib.util.find_spec("paho") is not None:
     import paho.mqtt.client as mqtt
     with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
@@ -29,12 +29,11 @@ def is_paho_installed() -> bool:
       f.write("La librería 'paho-mqtt' no está instalada. Instálala con:\n -> Necesita: pip install paho-mqtt\n")
     return False
 
-is_paho_installed()
-
 class SicMqttHilo2:
   def __init__(self):
     self.initialize_variables()
     self.cargar_canales()
+    self.mqttc = None
     self.initialize_mqtt_client()
     self.load_configuration()
     self.start_mqtt_thread()
@@ -101,7 +100,7 @@ class SicMqttHilo2:
     }
 
   def initialize_mqtt_client(self):
-    if not is_paho_installed():
+    if not is_paho_loaded():
       return
     """Configura el cliente MQTT y sus callbacks con reconexión automática."""
     self.mqttc = mqtt.Client()
@@ -241,6 +240,8 @@ class SicMqttHilo2:
 
   def setup_mqtt_connection(self):
     """Configura la conexión MQTT con manejo de reconexión."""
+    while not is_paho_loaded():
+      time.sleep(1)
     while not self.stop_event.is_set():
       try:
         self.mqttc.connect(self.broker_address, 1883, 60)
