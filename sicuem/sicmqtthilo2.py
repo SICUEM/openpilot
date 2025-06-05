@@ -18,7 +18,7 @@ def is_module_installed(module_name):
   return importlib.util.find_spec(module_name) is not None 
 
 # Verificamos si 'paho.mqtt.client' está instalado
-if is_module_installed("paho.mqtt.client"):
+if is_module_installed("paho"):
   ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
   import paho.mqtt.client as mqtt
   with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
