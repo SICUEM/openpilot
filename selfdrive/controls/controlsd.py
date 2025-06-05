@@ -32,7 +32,7 @@ from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata
 
 from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE
-from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
+# ->> from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
 
 SOFT_DISABLE_TIME = 3  # seconds
 LDW_MIN_SPEED = 31 * CV.MPH_TO_MS
@@ -67,8 +67,8 @@ PERSONALITY_MAPPING = {0: 0, 1: 1, 2: 2, 3: 2}
 
 class Controls:
   def __init__(self, CI=None):
-    sicMqtt = SicMqttHilo2()
-    sicMqtt.start()
+    # ->> sicMqtt = SicMqttHilo2()
+    # ->> sicMqtt.start()
     self.params = Params()
 
     if CI is None:
