@@ -41,6 +41,7 @@ function install_paramiko() {
 # Verifica la conexión a Internet
 check_internet
 sleep 3
+pip install --upgrade pip
 
 # Verifica si la biblioteca paho-mqtt está instalada
 install_paho
