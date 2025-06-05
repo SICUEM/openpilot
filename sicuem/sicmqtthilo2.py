@@ -1,11 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
-import paho.mqtt.client as mqtt
-
 class SicMqttHilo2:
   def __init__(self):
-    self.mqttc = mqtt.Client()
     i = 0
 
   def initialize_variables(self):
@@ -24,6 +21,8 @@ class SicMqttHilo2:
     i = 0
     
   def start(self) -> int:
+    import paho.mqtt.client as mqtt
+    self.mqttc = mqtt.Client()
     i = 0
     return i
 
