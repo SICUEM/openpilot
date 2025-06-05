@@ -14,21 +14,22 @@ import requests
 
 import importlib.util
 
-def is_module_installed(module_name):
-  return importlib.util.find_spec(module_name) is not None 
+def is_paho_installed() -> bool:
+  if importlib.util.find_spec("paho") is not None:
+    import paho.mqtt.client as mqtt
+    with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
+      ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      f.write(f"{ahora}\n")
+      f.write("paho.mqtt.client está instalado y se ha importado correctamente.\n")
+    return True
+  else:
+    with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
+      ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+      f.write(f"{ahora}\n")
+      f.write("La librería 'paho-mqtt' no está instalada. Instálala con:\n -> Necesita: pip install paho-mqtt")
+    return False
 
-# Verificamos si 'paho.mqtt.client' está instalado
-if is_module_installed("paho"):
-  import paho.mqtt.client as mqtt
-  with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
-    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    f.write(f"{ahora}\n")
-    f.write("paho.mqtt.client está instalado y se ha importado correctamente.\n")
-else:
-  with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
-    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    f.write(f"{ahora}\n")
-    f.write("La librería 'paho-mqtt' no está instalada. Instálala con:\n -> Necesita: pip install paho-mqtt")
+is_paho_installed()
 
 class SicMqttHilo2:
   def __init__(self):
@@ -100,6 +101,8 @@ class SicMqttHilo2:
     }
 
   def initialize_mqtt_client(self):
+    if not is_paho_installed():
+      return
     """Configura el cliente MQTT y sus callbacks con reconexión automática."""
     self.mqttc = mqtt.Client()
     self.mqttc.on_connect = self.on_connect
