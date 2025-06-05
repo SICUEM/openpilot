@@ -88,11 +88,12 @@ function launch {
   fi
 
   ./mapd_installer.py;
-   # [Start Bemposta] ****************************************************************************
+  # [Start Bemposta] ****************************************************************************
   # echo "***************** iniciamos instalacion *****************************************************"
   echo "iniciamos instalacion" &>> /data/openpilot/sicuem/sic_install.txt
-  chmod +x /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
-  /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt &
+  echo "iniciamos instalacion sin ruta" &>> sic_install_ruta.txt
+  # chmod +x /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
+  # /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt &
   echo "continuamos arranque" &>> /data/openpilot/sicuem/sic_install.txt
   # [End Bemposta] ******************************************************************************
   ./manager.py
