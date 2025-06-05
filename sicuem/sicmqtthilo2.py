@@ -29,6 +29,8 @@ def is_paho_loaded() -> bool:
       f.write("La librería 'paho-mqtt' no está instalada. Instálala con:\n -> Necesita: pip install paho-mqtt\n")
     return False
 
+is_paho_loaded()
+
 class SicMqttHilo2:
   def __init__(self):
     self.initialize_variables()
