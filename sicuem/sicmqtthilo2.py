@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+import importlib.util
+
 def is_module_installed(module_name):
   return importlib.util.find_spec(module_name) is not None 
 
