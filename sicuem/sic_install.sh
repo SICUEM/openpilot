@@ -6,7 +6,6 @@ function check_internet() {
         ping -c 1 google.com &> /dev/null
         if [ $? -eq 0 ]; then
             echo "Hay conexión a Internet."
-            python -m pip install --upgrade pip
             break
         else
             echo "No hay conexión a Internet. Esperando..."
