@@ -40,9 +40,10 @@ function install_paramiko() {
 
 # Verifica la conexión a Internet
 check_internet
+sleep 3
 
 # Verifica si la biblioteca paho-mqtt está instalada
 install_paho
-# Verifica si la biblioteca paramiko está instalada
 
+# Verifica si la biblioteca paramiko está instalada
 install_paramiko
