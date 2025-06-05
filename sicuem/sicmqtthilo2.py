@@ -1,14 +1,23 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
+def is_module_installed(module_name):
+  return importlib.util.find_spec(module_name) is not None 
+
+# Verificamos si 'paho.mqtt.client' está instalado
+if is_module_installed("paho.mqtt.client"):
+  import paho.mqtt.client as mqtt
+  with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
+    f.write("paho.mqtt.client está instalado y se ha importado correctamente.\n")
+else:
+  with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
+    f.write("La librería 'paho-mqtt' no está instalada. Instálala con:\n -> Necesita: pip install paho-mqtt")
+
 class SicMqttHilo2:
   def __init__(self):
     with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
       f.write("SicMqttHilo2 __init__.\n")
     i = 0
-    
-  def is_module_installed(module_name):
-    return importlib.util.find_spec(module_name) is not None 
   
   def initialize_variables(self):
     i = 0
@@ -26,14 +35,6 @@ class SicMqttHilo2:
     i = 0
     
   def start(self) -> int:
-    # Verificamos si 'paho.mqtt.client' está instalado
-    if is_module_installed("paho.mqtt.client"):
-      import paho.mqtt.client as mqtt
-      with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
-        f.write("paho.mqtt.client está instalado y se ha importado correctamente.\n")
-    else:
-      with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
-        f.write("La librería 'paho-mqtt' no está instalada. Instálala con:\n -> Necesita: pip install paho-mqtt")
     self.mqttc = mqtt.Client()
     i = 0
     return i
