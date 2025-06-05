@@ -19,13 +19,14 @@ def is_module_installed(module_name):
 
 # Verificamos si 'paho.mqtt.client' está instalado
 if is_module_installed("paho"):
-  ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
   import paho.mqtt.client as mqtt
   with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     f.write(f"{ahora}\n")
     f.write("paho.mqtt.client está instalado y se ha importado correctamente.\n")
 else:
   with open("/data/openpilot/sicuem/sicmqtthilo2.txt", 'a') as f:
+    ahora = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     f.write(f"{ahora}\n")
     f.write("La librería 'paho-mqtt' no está instalada. Instálala con:\n -> Necesita: pip install paho-mqtt")
 
