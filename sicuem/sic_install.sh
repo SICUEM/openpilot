@@ -22,7 +22,7 @@ function install_paho() {
     else
         echo "La biblioteca paho-mqtt no está instalada. Instalando..."
         #/usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paho-mqtt
-        pip install paho-mqtt
+        python -m pip install paho-mqtt
     fi
 }
 
@@ -33,7 +33,7 @@ function install_paramiko() {
     else
         echo "La biblioteca paramiko no está instalada. Instalando..."
         #/usr/local/pyenv/versions/3.11.4/bin/python3 -m pip install paramiko
-        pip install paramiko
+        python -m pip install paramiko
     fi
 }
 
