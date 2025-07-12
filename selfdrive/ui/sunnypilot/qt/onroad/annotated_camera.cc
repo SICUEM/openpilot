@@ -576,7 +576,6 @@ void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
 
 
 p.save();
-p.save();
 
 bool mostrar_intervalos = params.getBool("intervalos_toggle");
 bool mostrar_carril = params.getBool("c_carril");
@@ -763,6 +762,8 @@ if (adelantar_bsm || adelantar_nobsm) {
 
 
 }
+
+
 
 p.restore();
 

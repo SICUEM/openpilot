@@ -1,49 +1,47 @@
-# adelantamiento.py
-# Adrián Cañadas Gallardo
-# Lógica para lanzar el adelantamiento automático desde desire_helper
-
 from cereal import log
 from openpilot.common.params import Params
 
 LaneChangeDirection = log.LaneChangeDirection
 LaneChangeState = log.LaneChangeState
 
-from openpilot.common.params import Params
+params = Params("/tmp")  # solo para desarrollo fuera del dispositivo Comma
 
-params = Params("/tmp")  # usa ruta temporal solo para desarrollo fuera del dispositivo Comma
+def get_param_float(name: str, default: float) -> float:
+  try:
+    val = params.get(name, encoding='utf-8')
+    return float(val) if val is not None else default
+  except Exception:
+    return default
 
 def should_start_overtake(carstate, radarstate):
   """
   Decide si se debe iniciar el adelantamiento automático.
-  Requisitos:
-  - Activado el toggle 'sic_adelantar'
-  - Vehículo delante detectado (lead válido)
-  - Diferencia de velocidad > 20 km/h (~5.5 m/s)
-  - Menos de 50 metros de distancia
-  - Carril izquierdo libre (sin ángulo muerto)
+  - Diferencia de velocidad (v_ref - v_ego) > umbral (por defecto 15 km/h)
+  - Distancia al lead < umbral (por defecto 50 m)
+  - Si está activado BSM, también requiere que no haya ángulo muerto izquierdo
   """
   if not params.get_bool("sic_adelantar"):
     return False
 
-  # 🚘 Verifica lead válido
+  # 🚘 Lead válido
   lead = radarstate.leads[0] if len(radarstate.leads) > 0 else None
   if lead is None or not lead.status:
     return False
 
-  ego_v = carstate.vEgo       # nuestra velocidad actual [m/s]
-  lead_v = lead.vLead         # velocidad del coche delante [m/s]
-  d_rel = lead.dRel           # distancia al coche delante [m]
+  # 🧠 Datos relevantes
+  v_ego = carstate.vEgo
+  v_ref = carstate.cruiseSpeed
+  d_rel = lead.dRel
 
-  # ✅ Condiciones para adelantar
-  vel_diff_ok = (ego_v - lead_v) > 5.5     # Más de 20 km/h de diferencia
-  distancia_ok = d_rel < 50                # Menos de 50 metros
-  libre_izquierda = not carstate.leftBlindspot  # Sin vehículo al lado
+  # 🛠 Parámetros ajustables
+  vel_diff_threshold = get_param_float("adelantamiento_vel_diff", 15.0) / 3.6  # km/h → m/s
+  distancia_threshold = get_param_float("adelantamiento_distancia", 50.0)
 
-  return vel_diff_ok and distancia_ok and libre_izquierda
+  diff_vel_ok = (v_ref - v_ego) > vel_diff_threshold
+  distancia_ok = d_rel < distancia_threshold
+  sin_bsm = not carstate.leftBlindspot if params.get_bool("sic_adelantar_bsm") else True
+
+  return diff_vel_ok and distancia_ok and sin_bsm
 
 def get_overtake_command():
-  """
-  Devuelve la dirección y el estado que se deben aplicar
-  en DesireHelper para iniciar el cambio de carril.
-  """
   return LaneChangeDirection.left, LaneChangeState.laneChangeStarting

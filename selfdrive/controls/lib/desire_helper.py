@@ -113,6 +113,12 @@ class DesireHelper:
       #cloudlog.info("➡️ Cambio de carril forzado a la derecha")
 
   def auto_overtake_with_bsm(self, carstate, radar_state):
+    params = Params()
+    params.put_bool("overtakingActive", self.overtake_active)
+    params.put_bool("waitingToReturn",
+                    self.overtake_active and self.overtake_timer > 5.0 and not carstate.rightBlindspot)
+    params.put_bool("returningRight", self.overtake_timer > 10.0 and not carstate.rightBlindspot)
+
     try:
       if not self.overtake_active and should_start_overtake(carstate, radar_state):
         self.lane_change_direction, self.lane_change_state = get_overtake_command()
@@ -142,6 +148,12 @@ class DesireHelper:
       cloudlog.error(f"❌ Error en lógica de adelantamiento (con BSM): {e}")
 
   def auto_overtake_without_bsm(self, carstate, radar_state):
+    params = Params()
+    params.put_bool("overtakingActive", self.overtake_active)
+    params.put_bool("waitingToReturn",
+                    self.overtake_active and self.overtake_timer > 5.0 and not carstate.rightBlindspot)
+    params.put_bool("returningRight", self.overtake_timer > 10.0 and not carstate.rightBlindspot)
+
     try:
       lead = getattr(radar_state, 'leadOne', None)
       if lead is not None and lead.status:
