@@ -209,11 +209,12 @@ class DesireHelper:
     # 🚘 Adelantamiento automático por diferencia de velocidad y distancia (hecho por Adrián)
 
     # 🧠 Adelantamiento automático
-    if radar_state is not None:
-      if self.param_s.get_bool("sic_adelantar_bsm"):
-        self.auto_overtake_with_bsm(carstate, radar_state)
-      elif self.param_s.get_bool("sic_adelantar_nobsm"):
-        self.auto_overtake_without_bsm(carstate, radar_state)
+    #if radar_state is not None:
+
+    if self.param_s.get_bool("sic_adelantar_bsm"):
+      self.auto_overtake_with_bsm(carstate, radar_state)
+    elif self.param_s.get_bool("sic_adelantar_nobsm"):
+      self.auto_overtake_without_bsm(carstate, radar_state)
 
 
     # TODO: SP: !659: User-defined minimum lane change speed
