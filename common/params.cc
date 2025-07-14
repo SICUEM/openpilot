@@ -88,6 +88,7 @@ private:
 };
 
 std::unordered_map<std::string, uint32_t> keys = {
+
     {"AccessToken", CLEAR_ON_MANAGER_START | DONT_LOG},
     {"Velocidad_C1", PERSISTENT},  // Velocidad Jv
     {"Velocidad_C2", PERSISTENT},  // Velocidad Nd
@@ -161,6 +162,9 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"c_carril",PERSISTENT},//Adrian Cañadas Gallardo
     {"sic_adelantar_bsm", PERSISTENT | CLEAR_ON_MANAGER_START},
     {"sic_adelantar_nobsm", PERSISTENT | CLEAR_ON_MANAGER_START},
+    {"overtakingActive", PERSISTENT},          // Estado de adelantamiento activo (Adrián)
+    {"waitingToReturn", PERSISTENT},           // Esperando volver a carril derecho (Adrián)
+    {"returningRight", PERSISTENT},            // Ya iniciando retorno a carril derecho (Adrián)
 
 
 
