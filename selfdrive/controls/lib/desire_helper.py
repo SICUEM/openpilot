@@ -112,24 +112,28 @@ class DesireHelper:
       self.lane_change_wait_timer = 0
       #cloudlog.info("➡️ Cambio de carril forzado a la derecha")
 
-  def auto_overtake_with_bsm(self, carstate, radar_state):
-    params = Params()
-    params.put_bool("overtakingActive", self.overtake_active)
-    params.put_bool("waitingToReturn",
-                    self.overtake_active and self.overtake_timer > 5.0 and not carstate.rightBlindspot)
-    params.put_bool("returningRight", self.overtake_timer > 10.0 and not carstate.rightBlindspot)
-
+  def auto_overtake_with_bsm(self, carstate, d_rel, v_rel, lead_status):
     try:
-      if not self.overtake_active and should_start_overtake(carstate, radar_state):
-        self.lane_change_direction, self.lane_change_state = get_overtake_command()
-        self.lane_change_ll_prob = 1.0
-        self.lane_change_wait_timer = 0
-        self.overtake_active = True
-        self.overtake_timer = 0.0
-        self.overtake_v_cruise_last = carstate.cruiseSpeed
-        self.overtake_speed_delta = 5.55  # +20 km/h
-        Params().put("OverrideCruiseSpeed", str(self.overtake_v_cruise_last + self.overtake_speed_delta))
-        cloudlog.info("🟢 Adelantamiento automático (con BSM) activado (+20 km/h)")
+      params = Params()
+      params.put_bool("overtakingActive", self.overtake_active)
+      params.put_bool("waitingToReturn", self.overtake_active and self.overtake_timer > 5.0 and not carstate.rightBlindspot)
+      params.put_bool("returningRight", self.overtake_timer > 10.0 and not carstate.rightBlindspot)
+
+      if not self.overtake_active and lead_status:
+        distancia_ok = d_rel < 50.0
+        velocidad_ok = (carstate.cruiseSpeed - carstate.vEgo) > 10.0  # 36 km/h
+
+        if distancia_ok and velocidad_ok:
+          self.lane_change_direction = LaneChangeDirection.left
+          self.lane_change_state = LaneChangeState.laneChangeStarting
+          self.lane_change_ll_prob = 1.0
+          self.lane_change_wait_timer = 0
+          self.overtake_active = True
+          self.overtake_timer = 0.0
+          self.overtake_v_cruise_last = carstate.cruiseSpeed
+          self.overtake_speed_delta = 10.0  # m/s ≈ +36 km/h
+          params.put("OverrideCruiseSpeed", str(self.overtake_v_cruise_last + self.overtake_speed_delta))
+          cloudlog.info("🟢 Adelantamiento automático (con BSM) activado (+36 km/h)")
 
       elif self.overtake_active:
         self.overtake_timer += DT_MDL
@@ -138,34 +142,57 @@ class DesireHelper:
             self.lane_change_direction = LaneChangeDirection.right
             self.lane_change_state = LaneChangeState.laneChangeStarting
             cloudlog.info("🔄 Retorno automático al carril derecho tras 10s y sin BSM")
-
           self.overtake_active = False
           if self.overtake_v_cruise_last is not None:
-            Params().put("OverrideCruiseSpeed", str(self.overtake_v_cruise_last))
+            params.put("OverrideCruiseSpeed", str(self.overtake_v_cruise_last))
             cloudlog.info("✅ Restablecida velocidad original tras adelantamiento")
 
     except Exception as e:
       cloudlog.error(f"❌ Error en lógica de adelantamiento (con BSM): {e}")
 
-  def auto_overtake_without_bsm(self, carstate, radar_state):
+  # 🚗 Adelantamiento automático sin BSM
+  # Esta función fuerza un cambio de carril a la izquierda si:
+  # - Hay un coche delante detectado (lead_status == True)
+  # - Ese coche está a menos de 50 metros
+  # - Va al menos 15 km/h más lento que nuestro vehículo (v_rel < -4.16 m/s)
+  def auto_overtake_without_bsm(self, carstate, d_rel, v_rel, lead_status):
     try:
-      lead = getattr(radar_state, 'leadOne', None)
-      if lead is not None and lead.status:
-        distancia_ok = lead.dRel < 50.0
-        velocidad_ok = (carstate.cruiseSpeed - carstate.vEgo) > 4.16  # 15 km/h en m/s
+      if lead_status:
+        distancia_ok = d_rel < 50.0
+        velocidad_ok = v_rel < -4.16  # coche delante va 15 km/h más lento
 
         if distancia_ok and velocidad_ok:
           self.lane_change_direction = LaneChangeDirection.left
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
-          cloudlog.info("🟢 Adelantamiento simple: cambiando a la izquierda")
+          cloudlog.info(f"🟢 Adelantamiento simple activado: d_rel={d_rel:.1f} m, v_rel={v_rel:.2f} m/s")
+        else:
+          reason = []
+          if not distancia_ok:
+            reason.append(f"distancia={d_rel:.1f} m")
+          if not velocidad_ok:
+            reason.append(f"v_rel={v_rel:.2f} m/s (no lo suficientemente lento)")
+          cloudlog.info(f"⚠️ No se adelanta: {' | '.join(reason)}")
     except Exception as e:
       cloudlog.error(f"❌ Error en adelantamiento simple: {e}")
 
   def update(self, carstate, lateral_active, lane_change_prob, model_data=None, lat_plan_sp=None, desire_override=None, radar_state=None):
 
-    override_blinker = self.param_s.get_bool("c_carril")
+    try:
+      import json
+      with open("/home/drago/Escritorio/OPENPILOTSIC/openpilot/sicuem/lead_info.json", "r") as f:
+        data = json.load(f)
+        d_rel = float(data.get("lead_d_rel", 0.0))
+        v_rel = float(data.get("lead_v_rel", 0.0))
+        lead_status = data.get("lead_status", False)
+
+      print(
+        f"📡+++++++++++++++++++++++++++++++++++++++++++++ Lead desde JSON: distancia = {d_rel} m | velocidad = {v_rel} m/s | status: {lead_status}")
+    except Exception as e:
+      d_rel, v_rel = None, None
+      print(f"❌xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx No se pudo leer lead_info.json: {e}")
+
     if desire_override is not None:
       self.desire = desire_override
       return
@@ -190,8 +217,7 @@ class DesireHelper:
     if self.param_s.get_bool("sic_adelantar_bsm"):
       self.auto_overtake_with_bsm(carstate, radar_state)
     elif self.param_s.get_bool("sic_adelantar_nobsm"):
-      self.auto_overtake_without_bsm(carstate, radar_state)
-
+      self.auto_overtake_without_bsm(carstate, d_rel, v_rel, lead_status)
 
     # TODO: SP: !659: User-defined minimum lane change speed
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN

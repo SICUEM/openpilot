@@ -39,6 +39,10 @@ Last updated: July 29, 2024
 #include <QPainterPath>
 #include <string>
 #include <cstdlib>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QFile>
+
 #include "common/swaglog.h"
 #include "selfdrive/ui/qt/onroad/buttons.h"
 #include "selfdrive/ui/qt/util.h"
@@ -332,6 +336,24 @@ void AnnotatedCameraWidgetSP::updateState(const UIStateSP &s) {
   lead_d_rel = radar_state.getLeadOne().getDRel();
   lead_v_rel = radar_state.getLeadOne().getVRel();
   lead_status = radar_state.getLeadOne().getStatus();
+
+
+QJsonObject lead_info;
+lead_info["lead_status"] = lead_status;
+lead_info["lead_d_rel"] = lead_d_rel;
+lead_info["lead_v_rel"] = lead_v_rel;
+
+QFile lead_file("/home/drago/Escritorio/OPENPILOTSIC/openpilot/sicuem/lead_info.json");
+if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
+  QJsonDocument doc(lead_info);
+  lead_file.write(doc.toJson(QJsonDocument::Compact));
+  lead_file.close();
+}
+
+
+
+
+
   lateralState = QString::fromStdString(cs_sp.getLateralState());
   angleSteers = car_state.getSteeringAngleDeg();
   steerAngleDesired = cs.getLateralControlState().getPidState().getSteeringAngleDesiredDeg();
@@ -720,6 +742,8 @@ if (adelantar_bsm || adelantar_nobsm) {
 
     // Distancia
     QString dist_label = "Distancia: ";
+
+
     QString dist_val = QString::number(lead_d_rel, 'f', 1) + " m";
     p.setFont(InterFont(28, QFont::Bold));
     p.setPen(Qt::white);
