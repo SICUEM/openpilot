@@ -158,24 +158,26 @@ class DesireHelper:
   def auto_overtake_without_bsm(self, carstate, d_rel, v_rel, lead_status):
     try:
       if lead_status:
+        velocidad_ok = (carstate.cruiseSpeed - carstate.vEgo) > 15.0  
         distancia_ok = d_rel < 50.0
-        velocidad_ok = v_rel < -4.16  # coche delante va 15 km/h más lento
 
-        if distancia_ok and velocidad_ok:
+        if velocidad_ok and distancia_ok:
           self.lane_change_direction = LaneChangeDirection.left
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
-          cloudlog.info(f"🟢 Adelantamiento simple activado: d_rel={d_rel:.1f} m, v_rel={v_rel:.2f} m/s")
+          cloudlog.info(f"🟢 Adelantamiento simple activado por diferencia de velocidad y distancia: "
+                        f"setspeed - vEgo = {carstate.cruiseSpeed - carstate.vEgo:.1f} m/s | "
+                        f"distancia = {d_rel:.1f} m")
         else:
           reason = []
-          if not distancia_ok:
-            reason.append(f"distancia={d_rel:.1f} m")
           if not velocidad_ok:
-            reason.append(f"v_rel={v_rel:.2f} m/s (no lo suficientemente lento)")
-          cloudlog.info(f"⚠️ No se adelanta: {' | '.join(reason)}")
+            reason.append(f"setspeed - vEgo = {carstate.cruiseSpeed - carstate.vEgo:.1f} m/s (insuficiente)")
+          if not distancia_ok:
+            reason.append(f"distancia = {d_rel:.1f} m")
+          cloudlog.info(f"⚠️ No se adelanta (sin BSM): {' | '.join(reason)}")
     except Exception as e:
-      cloudlog.error(f"❌ Error en adelantamiento simple: {e}")
+      cloudlog.error(f"❌ Error en adelantamiento simple (sin BSM): {e}")
 
   def update(self, carstate, lateral_active, lane_change_prob, model_data=None, lat_plan_sp=None, desire_override=None, radar_state=None):
 
