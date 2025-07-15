@@ -190,7 +190,7 @@ class DesireHelper:
       print(
         f"📡+++++++++++++++++++++++++++++++++++++++++++++ Lead desde JSON: distancia = {d_rel} m | velocidad = {v_rel} m/s | status: {lead_status}")
     except Exception as e:
-      d_rel, v_rel = None, None
+      d_rel, v_rel, lead_status = 0.0, 0.0, False  # valores por defecto seguros
       print(f"❌xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx No se pudo leer lead_info.json: {e}")
 
     if desire_override is not None:
