@@ -165,13 +165,13 @@ class DesireHelper:
       print(f"💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h")
       print("DATOS PARA DELANTAR-*****************************************************************************************")
 
-
+    '''
       # 🔧 FORZAR VALORES PARA TEST
       lead_status = True
       d_rel = 30.0
       set_speed = carstate.vEgo + 5.0  # 5 m/s ≈ 18 km/h más rápido
       v_rel = -5.0
-
+    '''
 
 
       if lead_status:
@@ -206,16 +206,9 @@ class DesireHelper:
         d_rel = float(data.get("lead_d_rel", 0.0))
         v_rel = float(data.get("lead_v_rel", 0.0))
         lead_status = data.get("lead_status", False)
-      '''
-      print(
-        f"📡+++++++++++++++++++++++++++++++++++++++++++++ Lead desde JSON: distancia = {d_rel} m | velocidad = {v_rel} m/s | status: {lead_status}")
-
-      '''
 
     except Exception as e:
       d_rel, v_rel, lead_status = 0.0, 0.0, False
-      #print(f"❌xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx No se pudo leer lead_info.json: {e}")
-
     try:
       # Leer setSpeed desde lead_info1.json
       with open("/home/drago/Escritorio/OPENPILOTSIC/openpilot/sicuem/lead_info1.json", "r") as f2:
@@ -225,9 +218,6 @@ class DesireHelper:
     except Exception as e:
       set_speed = 0.0
       #print(f"❌ No se pudo leer lead_info1.json: {e}")
-
-
-   # print("****************************** Datosss:", set_speed, carstate.vEgo)
 
     if desire_override is not None:
       self.desire = desire_override
