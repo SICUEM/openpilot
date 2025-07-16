@@ -158,7 +158,7 @@ class DesireHelper:
   def auto_overtake_without_bsm(self, carstate, d_rel, v_rel, lead_status):
     try:
       if lead_status:
-        velocidad_ok = (carstate.cruiseSpeed - carstate.vEgo) > 4.166  # 15 km/h en m/s
+        velocidad_ok = (carstate.cruiseState.speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
         distancia_ok = d_rel < 50.0
 
         if velocidad_ok and distancia_ok:
@@ -194,6 +194,8 @@ class DesireHelper:
     except Exception as e:
       d_rel, v_rel, lead_status = 0.0, 0.0, False  # valores por defecto seguros
       print(f"❌xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx No se pudo leer lead_info.json: {e}")
+
+    print("****************************** Datosss:", carstate.cruiseState.speed, carstate.vEgo)
 
     if desire_override is not None:
       self.desire = desire_override
