@@ -660,17 +660,18 @@ class SicMqttHilo2:
 
   def publicarInfo(self, canal, datos_importantes):
     print(f"🟨 Intentando publicar en canal: {canal}")
-    print(f"🟨 Datos a publicar: {datos_importantes}")
+    print(f"📤 ***************************---------!!!!!!!Datos enviados desde canal '{canal}':")
+    imprimir_setspeed_y_vego(canal, datos_importantes)
 
     permitido = (
-      'carState' in canal and self.params.get_bool("carState_toggle") or
-      'controlsState' in canal and self.params.get_bool("controlsState_toggle") or
-      'liveCalibration' in canal and self.params.get_bool("liveCalibration_toggle") or
-      'carControl' in canal and self.params.get_bool("carControl_toggle") or
-      'gpsLocationExternal' in canal and self.params.get_bool("gpsLocationExternal_toggle") or
-      'navInstruction' in canal and self.params.get_bool("navInstruction_toggle") or
-      'radarState' in canal and self.params.get_bool("radarState_toggle") or
-      'drivingModelData' in canal and self.params.get_bool("drivingModelData_toggle")
+      ('carState' in canal and self.params.get_bool("carState_toggle")) or
+      ('controlsState' in canal and self.params.get_bool("controlsState_toggle")) or
+      ('liveCalibration' in canal and self.params.get_bool("liveCalibration_toggle")) or
+      ('carControl' in canal and self.params.get_bool("carControl_toggle")) or
+      ('gpsLocationExternal' in canal and self.params.get_bool("gpsLocationExternal_toggle")) or
+      ('navInstruction' in canal and self.params.get_bool("navInstruction_toggle")) or
+      ('radarState' in canal and self.params.get_bool("radarState_toggle")) or
+      ('drivingModelData' in canal and self.params.get_bool("drivingModelData_toggle"))
     )
 
     print(f"🟦 ¿Está permitido publicar en '{canal}'? {permitido}")
@@ -691,4 +692,36 @@ class SicMqttHilo2:
       print(f"🚫 Publicación denegada por configuración para canal: {canal}")
 
 
+def imprimir_setspeed_y_vego(canal, datos):
+  try:
+    set_speed = None
 
+    if 'carControl' in canal:
+      set_speed = datos.get("hudControl", {}).get("setSpeed", None)
+
+    print("🧾 Velocidades clave:")
+    print(f"   🔸 setSpeed (HUD): {set_speed:.2f} m/s  ≈ {set_speed * 3.6:.1f} km/h" if set_speed is not None else "   ❌ setSpeed no encontrado")
+
+    # Ruta al nuevo archivo JSON
+    ruta_base = os.path.dirname(os.path.abspath(__file__))
+    ruta_json = os.path.join(ruta_base, "lead_info1.json")
+
+    # Leer JSON existente si existe y no está vacío
+    datos_json = {}
+    if os.path.exists(ruta_json) and os.path.getsize(ruta_json) > 0:
+      with open(ruta_json, "r") as f:
+        try:
+          datos_json = json.load(f)
+        except json.JSONDecodeError:
+          print("❌ lead_info1.json está corrupto o vacío. Se sobreescribirá.")
+          datos_json = {}
+
+    # Guardar solo el setSpeed si está presente
+    if set_speed is not None:
+      datos_json["setSpeed"] = set_speed
+      with open(ruta_json, "w") as f:
+        json.dump(datos_json, f, indent=2)
+        print("✅ setSpeed guardado correctamente en lead_info1.json")
+
+  except Exception as e:
+    print(f"❌ Error al imprimir o guardar setSpeed: {e}")

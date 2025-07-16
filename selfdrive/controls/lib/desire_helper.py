@@ -155,10 +155,14 @@ class DesireHelper:
   # - Hay un coche delante detectado (lead_status == True)
   # - Ese coche está a menos de 50 metros
   # - Va al menos 15 km/h más lento que nuestro vehículo (v_rel < -4.16 m/s)
-  def auto_overtake_without_bsm(self, carstate, d_rel, v_rel, lead_status):
+  def auto_overtake_without_bsm(self, carstate, d_rel, set_speed, lead_status):
     try:
+      print("DATOS PARA DELANTAR-------------------------------------------------------------------------------------------")
+      print("set speed", set_speed)
+      print("lead status", lead_status)
+      print("vego", carstate.vEgo)
       if lead_status:
-        velocidad_ok = (carstate.cruiseState.speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
+        velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
         distancia_ok = d_rel < 50.0
 
         if velocidad_ok and distancia_ok:
@@ -179,10 +183,11 @@ class DesireHelper:
     except Exception as e:
       cloudlog.error(f"❌ Error en adelantamiento simple (sin BSM): {e}")
 
-  def update(self, carstate, lateral_active, lane_change_prob, model_data=None, lat_plan_sp=None, desire_override=None, radar_state=None):
-
+  def update(self, carstate, lateral_active, lane_change_prob, model_data=None, lat_plan_sp=None, desire_override=None,
+             radar_state=None):
     try:
       import json
+      # Leer datos del líder desde lead_info.json
       with open("/home/drago/Escritorio/OPENPILOTSIC/openpilot/sicuem/lead_info.json", "r") as f:
         data = json.load(f)
         d_rel = float(data.get("lead_d_rel", 0.0))
@@ -192,10 +197,21 @@ class DesireHelper:
       print(
         f"📡+++++++++++++++++++++++++++++++++++++++++++++ Lead desde JSON: distancia = {d_rel} m | velocidad = {v_rel} m/s | status: {lead_status}")
     except Exception as e:
-      d_rel, v_rel, lead_status = 0.0, 0.0, False  # valores por defecto seguros
+      d_rel, v_rel, lead_status = 0.0, 0.0, False
       print(f"❌xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx No se pudo leer lead_info.json: {e}")
 
-    print("****************************** Datosss:", carstate.cruiseState.speed, carstate.vEgo)
+    try:
+      # Leer setSpeed desde lead_info1.json
+      with open("/home/drago/Escritorio/OPENPILOTSIC/openpilot/sicuem/lead_info1.json", "r") as f2:
+        data2 = json.load(f2)
+        set_speed = float(data2.get("setSpeed", 0.0))
+       # print(f"📌 setSpeed leído desde JSON: {set_speed:.2f} m/s ≈ {set_speed * 3.6:.1f} km/h")
+    except Exception as e:
+      set_speed = 0.0
+      print(f"❌ No se pudo leer lead_info1.json: {e}")
+
+
+   # print("****************************** Datosss:", set_speed, carstate.vEgo)
 
     if desire_override is not None:
       self.desire = desire_override
@@ -221,7 +237,7 @@ class DesireHelper:
     if self.param_s.get_bool("sic_adelantar_bsm"):
       self.auto_overtake_with_bsm(carstate, radar_state)
     elif self.param_s.get_bool("sic_adelantar_nobsm"):
-      self.auto_overtake_without_bsm(carstate, d_rel, v_rel, lead_status)
+      self.auto_overtake_without_bsm(carstate, d_rel, set_speed, lead_status)
 
     # TODO: SP: !659: User-defined minimum lane change speed
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
