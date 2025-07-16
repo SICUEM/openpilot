@@ -155,12 +155,25 @@ class DesireHelper:
   # - Hay un coche delante detectado (lead_status == True)
   # - Ese coche está a menos de 50 metros
   # - Va al menos 15 km/h más lento que nuestro vehículo (v_rel < -4.16 m/s)
-  def auto_overtake_without_bsm(self, carstate, d_rel, set_speed, lead_status):
+  def auto_overtake_without_bsm(self, carstate, v_rel,d_rel, set_speed, lead_status):
     try:
       print("DATOS PARA DELANTAR-------------------------------------------------------------------------------------------")
-      print("set speed", set_speed)
-      print("lead status", lead_status)
-      print("vego", carstate.vEgo)
+      print(f"🚗 Velocidad objetivo (setSpeed): {set_speed * 3.6:.1f} km/h")
+      print(f"📍 Distancia al coche delante (d_rel): {d_rel:.1f} m")
+      print(f"👀 Vehículo delante (lead): {'✅ Sí' if lead_status else '❌ No'}")
+      print(f"📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h")
+      print(f"💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h")
+      print("DATOS PARA DELANTAR-*****************************************************************************************")
+
+
+      # 🔧 FORZAR VALORES PARA TEST
+      lead_status = True
+      d_rel = 30.0
+      set_speed = carstate.vEgo + 5.0  # 5 m/s ≈ 18 km/h más rápido
+      v_rel = -5.0
+
+
+
       if lead_status:
         velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
         distancia_ok = d_rel < 50.0
@@ -171,12 +184,12 @@ class DesireHelper:
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
           cloudlog.info(f"🟢 Adelantamiento simple activado por diferencia de velocidad y distancia: "
-                        f"setspeed - vEgo = {carstate.cruiseSpeed - carstate.vEgo:.1f} m/s | "
+                        f"setspeed - vEgo = {set_speed - carstate.vEgo:.1f} m/s | "
                         f"distancia = {d_rel:.1f} m")
         else:
           reason = []
           if not velocidad_ok:
-            reason.append(f"setspeed - vEgo = {carstate.cruiseSpeed - carstate.vEgo:.1f} m/s (insuficiente)")
+            reason.append(f"setspeed - vEgo = {set_speed - carstate.vEgo:.1f} m/s (insuficiente)")
           if not distancia_ok:
             reason.append(f"distancia = {d_rel:.1f} m")
           cloudlog.info(f"⚠️ No se adelanta (sin BSM): {' | '.join(reason)}")
@@ -193,12 +206,15 @@ class DesireHelper:
         d_rel = float(data.get("lead_d_rel", 0.0))
         v_rel = float(data.get("lead_v_rel", 0.0))
         lead_status = data.get("lead_status", False)
-
+      '''
       print(
         f"📡+++++++++++++++++++++++++++++++++++++++++++++ Lead desde JSON: distancia = {d_rel} m | velocidad = {v_rel} m/s | status: {lead_status}")
+
+      '''
+
     except Exception as e:
       d_rel, v_rel, lead_status = 0.0, 0.0, False
-      print(f"❌xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx No se pudo leer lead_info.json: {e}")
+      #print(f"❌xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx No se pudo leer lead_info.json: {e}")
 
     try:
       # Leer setSpeed desde lead_info1.json
@@ -208,7 +224,7 @@ class DesireHelper:
        # print(f"📌 setSpeed leído desde JSON: {set_speed:.2f} m/s ≈ {set_speed * 3.6:.1f} km/h")
     except Exception as e:
       set_speed = 0.0
-      print(f"❌ No se pudo leer lead_info1.json: {e}")
+      #print(f"❌ No se pudo leer lead_info1.json: {e}")
 
 
    # print("****************************** Datosss:", set_speed, carstate.vEgo)
@@ -237,7 +253,7 @@ class DesireHelper:
     if self.param_s.get_bool("sic_adelantar_bsm"):
       self.auto_overtake_with_bsm(carstate, radar_state)
     elif self.param_s.get_bool("sic_adelantar_nobsm"):
-      self.auto_overtake_without_bsm(carstate, d_rel, set_speed, lead_status)
+      self.auto_overtake_without_bsm(carstate,v_rel, d_rel, set_speed, lead_status)
 
     # TODO: SP: !659: User-defined minimum lane change speed
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN

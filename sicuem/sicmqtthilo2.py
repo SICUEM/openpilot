@@ -318,7 +318,7 @@ class SicMqttHilo2:
             datos_canal = self.sm[canal_nombre].to_dict()
             # Envía solo los datos importantes
             datos_importantes = self.enviar_datos_importantes(canal_nombre, datos_canal)
-            print(f"📤 Enviando datos importantes para {canal_nombre}: {datos_importantes}")
+            #print(f"📤 Enviando datos importantes para {canal_nombre}: {datos_importantes}")
 
             # print("Enviando canal:",canal_actual['topic'])
             # canal_actual['topic']
@@ -372,13 +372,13 @@ class SicMqttHilo2:
   def on_message(self, client, userdata, msg):
     """Callback que maneja los mensajes MQTT."""
 
-    print(f"📡 Mensaje recibido en el topic: {msg.topic}")  # 🟢 Verifica que se recibe el mensaje
-    print(f"📩 Payload recibido: {msg.payload.decode()}")  # 🟢 Verifica el contenido del mensaje
+    #print(f"📡 Mensaje recibido en el topic: {msg.topic}")  # 🟢 Verifica que se recibe el mensaje
+    #print(f"📩 Payload recibido: {msg.payload.decode()}")  # 🟢 Verifica el contenido del mensaje
 
     if msg.topic == "telemetry_publish/vego":
       try:
         data = json.loads(msg.payload.decode())  # Intenta cargar el JSON
-        print(f"✅ Datos decodificados correctamente: {data}")  # 🟢 Verifica que se decodifica bien
+        #print(f"✅ Datos decodificados correctamente: {data}")  # 🟢 Verifica que se decodifica bien
 
         # Extraer valores y asegurarse de que son string antes de guardarlos
         jv = str(data.get("Jv", "0"))
@@ -392,7 +392,7 @@ class SicMqttHilo2:
         self.params.put("Velocidad_C3", v3)
         self.params.put("Velocidad_C4", sim)
 
-        print(f"📌 Velocidades guardadas: C1: {jv}, C2: {nd}, C3: {v3}" + f", C4: {sim}")
+        #print(f"📌 Velocidades guardadas: C1: {jv}, C2: {nd}, C3: {v3}" + f", C4: {sim}")
 
       except json.JSONDecodeError as e:
         print(f"⚠️ Error al decodificar JSON: {e}")
@@ -659,9 +659,9 @@ class SicMqttHilo2:
     return R * c
 
   def publicarInfo(self, canal, datos_importantes):
-    print(f"🟨 Intentando publicar en canal: {canal}")
-    print(f"📤 ***************************---------!!!!!!!Datos enviados desde canal '{canal}':")
-    imprimir_setspeed_y_vego(canal, datos_importantes)
+    #print(f"🟨 Intentando publicar en canal: {canal}")
+    #print(f"📤 ***************************---------!!!!!!!Datos enviados desde canal '{canal}':")
+    #imprimir_setspeed_y_vego(canal, datos_importantes)
 
     permitido = (
       ('carState' in canal and self.params.get_bool("carState_toggle")) or
@@ -674,18 +674,18 @@ class SicMqttHilo2:
       ('drivingModelData' in canal and self.params.get_bool("drivingModelData_toggle"))
     )
 
-    print(f"🟦 ¿Está permitido publicar en '{canal}'? {permitido}")
+    #print(f"🟦 ¿Está permitido publicar en '{canal}'? {permitido}")
 
     if permitido:
       try:
         topic_final = str(canal).format(self.DongleID)
-        print(f"📡 Publicando en topic final: {topic_final}")
+        #print(f"📡 Publicando en topic final: {topic_final}")
         resultado = self.mqttc.publish(
           topic_final,
           json.dumps(datos_importantes),
           qos=0
         )
-        print(f"✅ Publicación MQTT result: {resultado}")
+        #print(f"✅ Publicación MQTT result: {resultado}")
       except Exception as e:
         print(f"❌ Error al publicar en MQTT: {e}")
     else:
@@ -721,7 +721,7 @@ def imprimir_setspeed_y_vego(canal, datos):
       datos_json["setSpeed"] = set_speed
       with open(ruta_json, "w") as f:
         json.dump(datos_json, f, indent=2)
-        print("✅ setSpeed guardado correctamente en lead_info1.json")
+        #print("✅ setSpeed guardado correctamente en lead_info1.json")
 
   except Exception as e:
     print(f"❌ Error al imprimir o guardar setSpeed: {e}")
