@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
@@ -11,10 +10,8 @@ import os
 
 class MQTTEnvioGeneral:
   def __init__(self):
-    self.modo_test = False  # Cambia a False si quieres datos reales
-
     self.velocidadActualizacion = 1
-    self.base_path = os.path.dirname(os.path.abspath(__file__))  # ← ruta absoluta del script
+    self.base_path = os.path.dirname(os.path.abspath(__file__))
     self.jsonConfig = os.path.join(self.base_path, "config_mqtt.json")
     self.jsonCanales = os.path.join(self.base_path, "canales.json")
     self.espera = 0.5
@@ -23,7 +20,6 @@ class MQTTEnvioGeneral:
     self.stop_event = threading.Event()
     self.params = Params()
     self.DongleID = self.params.get("DongleId").decode("utf-8") if self.params.get("DongleId") else "DongleID"
-    print(f"🆔 DongleID: {self.DongleID}")
     self.conectado = False
     self.load_config()
     self.cargar_canales()
@@ -87,75 +83,27 @@ class MQTTEnvioGeneral:
         nombre = canal["canal"]
         topic = canal["topic"].format(self.DongleID)
 
-        if self.modo_test:
-          # Modo de prueba con datos fijos
-          datos = {
-            "dongle_id": self.DongleID,
-            "nombre": "Hyundai Tucson",
-            "vEgo": 14.2,
-            "gas": 0.37
-          }
-          print(f"📤 [TEST] Enviando a {topic}: {datos}")
-          self.mqttc.publish(topic, json.dumps(datos), qos=0)
-          continue
-
-        # Modo real
-        if nombre in self.sm.data:
-          if self.sm.updated[nombre]:
-            datos = self.sm[nombre].to_dict()
-            datos_filtrados = self.enviar_datos_importantes(nombre, datos)
-            if datos_filtrados:
-              print(f"📤 Enviando a {topic}: {datos_filtrados}")
-              self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
-            else:
-              print(f"⚠️ No hay datos válidos para {nombre}, no se publica nada.")
-          else:
-            print(f"⏳ Canal {nombre} no actualizado todavía.")
-        else:
-          print(f"❌ Canal {nombre} no disponible en SubMaster.")
+        if nombre in self.sm.data and self.sm.updated[nombre]:
+          datos = self.sm[nombre].to_dict()
+          datos_filtrados = self.enviar_datos_importantes(nombre, datos)
+          if datos_filtrados:
+            print(f"📤 Enviando a {topic}: {datos_filtrados}")
+            self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
 
       time.sleep(self.velocidadActualizacion)
 
   def enviar_datos_importantes(self, canal, datos):
     claves = self.keys_importantes_por_canal.get(canal, [])
-    resultado = {}
-
-    for k in claves:
-      if k in datos:
-        resultado[k] = datos[k]
-      else:
-        print(f"⚠️ Clave {k} no está en los datos de {canal}")
-
-    # Añadir siempre dongle_id y nombre
+    resultado = {k: datos[k] for k in claves if k in datos}
     resultado["dongle_id"] = self.DongleID
-    #resultado["nombre"] = "Hyundai Tucson"  # o puedes leerlo de Params o config si lo prefieres
-
     return resultado
-
-  def enviar_datos_prueba(self):
-    # Puedes reutilizar el topic y broker ya conectados
-    topic = f"telemetry_mqtt/{self.DongleID}/carControl"
-    datos = {
-      "dongle_id": self.DongleID,
-      "nombre": "Hyundai Tucson",
-      "vEgo": 14.2,
-      "gas": 0.37
-    }
-    print(f"📤 Enviando datos de prueba a {topic}: {datos}")
-    self.mqttc.publish(topic, json.dumps(datos))
-
 
 if __name__ == "__main__":
   sender = MQTTEnvioGeneral()
   sender.start()
 
-  # Esperar conexión MQTT antes de publicar
   while not sender.conectado:
-    print("⏳ Esperando conexión MQTT...")
     time.sleep(0.5)
-
-  if sender.modo_test:
-    sender.enviar_datos_prueba()
 
   while True:
     time.sleep(10)
