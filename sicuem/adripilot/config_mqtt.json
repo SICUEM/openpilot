@@ -1,5 +1,4 @@
 {
   "broker": "79.146.241.243",
-  "broker_port": 1883,
-  "nombre_coche": "Hyundai Tucson"
+  "broker_port": 1883
 }

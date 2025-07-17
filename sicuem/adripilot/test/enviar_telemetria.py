@@ -14,7 +14,7 @@ client.connect(BROKER, PORT, 60)
 # Datos de prueba
 data = {
     "dongle_id": "abc123",
-    "nombre": "Hyundai Tucson",
+    "nombre": "XXXXXXXX",
     "vEgo": 14.2,
     "gas": 0.37
 }

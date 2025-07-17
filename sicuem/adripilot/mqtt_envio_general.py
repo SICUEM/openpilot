@@ -128,7 +128,7 @@ class MQTTEnvioGeneral:
 
     # Añadir siempre dongle_id y nombre
     resultado["dongle_id"] = self.DongleID
-    resultado["nombre"] = "Hyundai Tucson"  # o puedes leerlo de Params o config si lo prefieres
+    #resultado["nombre"] = "Hyundai Tucson"  # o puedes leerlo de Params o config si lo prefieres
 
     return resultado
 
