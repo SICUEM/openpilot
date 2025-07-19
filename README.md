@@ -1,3 +1,5 @@
+Readme hecho por [Adrian Cañadas](https://github.com/Dragoadri) 
+
 # ![Logo de la Universidad Europea](https://upload.wikimedia.org/wikipedia/commons/3/3a/UE_Madrid_Logo_Positive_RGB.png)
 # SIC-PRUEBAS - Sunnypilot
 
