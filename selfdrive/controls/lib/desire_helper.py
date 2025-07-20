@@ -7,7 +7,7 @@ from openpilot.selfdrive.controls.lib.drive_helpers import get_road_edge
 from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata, ModelCapabilities
 from sicuem.adelantamiento import should_start_overtake, get_overtake_command
 from sicuem.adripilot.log_mqtt import enviar_log
-
+import cereal.messaging as messaging  # Asegúrate de que ya está importado
 
 LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
@@ -58,7 +58,7 @@ class DesireHelper:
     self.keep_pulse_timer = 0.0
     self.prev_one_blinker = False
     self.desire = log.Desire.none
-
+    self.sm = messaging.SubMaster(['carControl', 'radarState'])
     self.param_s = Params()
     self.lane_change_wait_timer = 0
     self.prev_lane_change = False
@@ -168,7 +168,7 @@ class DesireHelper:
         f"• 📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h\n"
         f"• 💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h"
       )
-      #enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
+      enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
 
 
 
@@ -205,26 +205,32 @@ class DesireHelper:
 
   def update(self, carstate, lateral_active, lane_change_prob, model_data=None, lat_plan_sp=None, desire_override=None,
              radar_state=None):
-    try:
-      import json
-      # Leer datos del líder desde lead_info.json
-      with open("/home/drago/Escritorio/OPENPILOTSIC/openpilot/sicuem/lead_info.json", "r") as f:
-        data = json.load(f)
-        d_rel = float(data.get("lead_d_rel", 0.0))
-        v_rel = float(data.get("lead_v_rel", 0.0))
-        lead_status = data.get("lead_status", False)
+    self.sm.update()
 
+    try:
+      lead = self.sm['radarState'].leadOne
+      d_rel = float(lead.dRel)
+      v_rel = float(lead.vRel)
+      lead_status = lead.status
     except Exception as e:
       d_rel, v_rel, lead_status = 0.0, 0.0, False
+
+    # Obtener datos de carControl-----------------------------------------------------------------------------------------------
     try:
-      # Leer setSpeed desde lead_info1.json
-      with open("/home/drago/Escritorio/OPENPILOTSIC/openpilot/sicuem/lead_info1.json", "r") as f2:
-        data2 = json.load(f2)
-        set_speed = float(data2.get("setSpeed", 0.0))
-       # print(f"📌 setSpeed leído desde JSON: {set_speed:.2f} m/s ≈ {set_speed * 3.6:.1f} km/h")
+      if self.sm.updated['carControl']:
+        car_control = self.sm['carControl']
+        set_speed = car_control.hudControl.setSpeed
+      else:
+        set_speed = 0.1
     except Exception as e:
-      set_speed = 0.0
-      #print(f"❌ No se pudo leer lead_info1.json: {e}")
+      set_speed = 0.1
+
+    # 📤 Imprimir todos los datos juntos
+    print("📊 DATOS ADELANTAMIENTO:")
+    print(f"• 🚘 Lead detectado: {'✅ Sí' if lead_status else '❌ No'}")
+    print(f"• 📍 Distancia (d_rel): {d_rel:.1f} m")
+    print(f"• 💨 Diferencia velocidad (v_rel): {v_rel:.1f} m/s")
+    print(f"• 🚗 setSpeed: {set_speed:.2f} m/s ({set_speed * 3.6:.1f} km/h)")
 
     if desire_override is not None:
       self.desire = desire_override
