@@ -168,7 +168,7 @@ class DesireHelper:
         f"• 📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h\n"
         f"• 💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h"
       )
-      enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
+      #enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
 
 
 
