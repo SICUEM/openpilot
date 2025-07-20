@@ -6,6 +6,8 @@ from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.controls.lib.drive_helpers import get_road_edge
 from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata, ModelCapabilities
 from sicuem.adelantamiento import should_start_overtake, get_overtake_command
+from sicuem.adripilot.log_mqtt import enviar_log
+
 
 LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
@@ -157,13 +159,18 @@ class DesireHelper:
   # - Va al menos 15 km/h más lento que nuestro vehículo (v_rel < -4.16 m/s)
   def auto_overtake_without_bsm(self, carstate, v_rel,d_rel, set_speed, lead_status):
     try:
-      print("DATOS PARA DELANTAR-------------------------------------------------------------------------------------------")
-      print(f"🚗 Velocidad objetivo (setSpeed): {set_speed * 3.6:.1f} km/h")
-      print(f"📍 Distancia al coche delante (d_rel): {d_rel:.1f} m")
-      print(f"👀 Vehículo delante (lead): {'✅ Sí' if lead_status else '❌ No'}")
-      print(f"📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h")
-      print(f"💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h")
-      print("DATOS PARA DELANTAR-*****************************************************************************************")
+
+      mensaje_log = (
+        "📊 DATOS PARA ADELANTAR:\n"
+        f"• 🚗 Velocidad objetivo (setSpeed): {set_speed * 3.6:.1f} km/h\n"
+        f"• 📍 Distancia al coche delante (d_rel): {d_rel:.1f} m\n"
+        f"• 👀 Vehículo delante (lead): {'✅ Sí' if lead_status else '❌ No'}\n"
+        f"• 📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h\n"
+        f"• 💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h"
+      )
+      enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
+
+
 
       '''
       # 🔧 FORZAR VALORES PARA TEST
@@ -230,20 +237,20 @@ class DesireHelper:
     v_ego = carstate.vEgo
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
 
+    if self.param_s.get_bool("sic_adelantar_bsm"):
+      enviar_log("✅ Ha entrado en condicional: sic_adelantar_bsm", nivel="DEBUG", origen="adelantamiento")
+      self.auto_overtake_with_bsm(carstate, radar_state)
+
+    elif self.param_s.get_bool("sic_adelantar_nobsm"):
+      enviar_log("✅ Ha entrado en condicional: sic_adelantar_nobsm", nivel="DEBUG", origen="adelantamiento")
+      self.auto_overtake_without_bsm(carstate, v_rel, d_rel, set_speed, lead_status)
+
+    else:
+      enviar_log("⚠️ No se ha activado ningún modo de adelantamiento", nivel="DEBUG", origen="adelantamiento")
 
     #Cambio de carril (hecho por Adrián)
     self.check_and_force_lane_change_param(carstate)
 
-
-    # 🚘 Adelantamiento automático por diferencia de velocidad y distancia (hecho por Adrián)
-
-    # 🧠 Adelantamiento automático
-    #if radar_state is not None:
-
-    if self.param_s.get_bool("sic_adelantar_bsm"):
-      self.auto_overtake_with_bsm(carstate, radar_state)
-    elif self.param_s.get_bool("sic_adelantar_nobsm"):
-      self.auto_overtake_without_bsm(carstate,v_rel, d_rel, set_speed, lead_status)
 
     # TODO: SP: !659: User-defined minimum lane change speed
     below_lane_change_speed = v_ego < LANE_CHANGE_SPEED_MIN
