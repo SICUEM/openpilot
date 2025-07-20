@@ -168,7 +168,7 @@ class DesireHelper:
         f"• 📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h\n"
         f"• 💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h"
       )
-      enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
+      #enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
 
 
 
@@ -238,11 +238,11 @@ class DesireHelper:
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
 
     if self.param_s.get_bool("sic_adelantar_bsm"):
-      enviar_log("✅ Ha entrado en condicional: sic_adelantar_bsm", nivel="DEBUG", origen="adelantamiento")
+      #enviar_log("✅ Ha entrado en condicional: sic_adelantar_bsm", nivel="DEBUG", origen="adelantamiento")
       self.auto_overtake_with_bsm(carstate, radar_state)
 
     elif self.param_s.get_bool("sic_adelantar_nobsm"):
-      enviar_log("✅ Ha entrado en condicional: sic_adelantar_nobsm", nivel="DEBUG", origen="adelantamiento")
+      #enviar_log("✅ Ha entrado en condicional: sic_adelantar_nobsm", nivel="DEBUG", origen="adelantamiento")
       self.auto_overtake_without_bsm(carstate, v_rel, d_rel, set_speed, lead_status)
 
     else:
