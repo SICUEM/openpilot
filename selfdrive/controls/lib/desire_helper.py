@@ -246,7 +246,8 @@ class DesireHelper:
       self.auto_overtake_without_bsm(carstate, v_rel, d_rel, set_speed, lead_status)
 
     else:
-      enviar_log("⚠️ No se ha activado ningún modo de adelantamiento", nivel="DEBUG", origen="adelantamiento")
+      pass
+      #enviar_log("⚠️ No se ha activado ningún modo de adelantamiento", nivel="DEBUG", origen="adelantamiento")
 
     #Cambio de carril (hecho por Adrián)
     self.check_and_force_lane_change_param(carstate)
