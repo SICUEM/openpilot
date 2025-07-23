@@ -9,6 +9,10 @@ from sicuem.adelantamiento import should_start_overtake, get_overtake_command
 from sicuem.adripilot.log_mqtt import enviar_log
 import cereal.messaging as messaging  # Asegúrate de que ya está importado
 
+import time
+from cereal import log
+
+
 LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
 
@@ -114,6 +118,8 @@ class DesireHelper:
       self.lane_change_wait_timer = 0
       #cloudlog.info("➡️ Cambio de carril forzado a la derecha")
 
+
+
   def auto_overtake_with_bsm(self, carstate, d_rel, v_rel, lead_status):
     try:
       params = Params()
@@ -152,14 +158,22 @@ class DesireHelper:
     except Exception as e:
       cloudlog.error(f"❌ Error en lógica de adelantamiento (con BSM): {e}")
 
-  # 🚗 Adelantamiento automático sin BSM
-  # Esta función fuerza un cambio de carril a la izquierda si:
-  # - Hay un coche delante detectado (lead_status == True)
-  # - Ese coche está a menos de 50 metros
-  # - Va al menos 15 km/h más lento que nuestro vehículo (v_rel < -4.16 m/s)
-  def auto_overtake_without_bsm(self, carstate, v_rel,d_rel, set_speed, lead_status):
-    try:
+  # ---------------------------------------------------------------------------------
+  # Función: auto_overtake_without_bsm
+  # Descripción:
+  #   - Detecta si vamos al menos 15 km/h más lentos que la velocidad de referencia
+  #     (set_speed - vEgo > 15 km/h) y el vehículo delantero está a menos de 50 m.
+  #   - Si se cumplen estas condiciones, inicia un cambio de carril a la izquierda
+  #     (adelantamiento) y aumenta la velocidad objetivo en +10 km/h.
+  #   - Permanece en el carril izquierdo durante 15 segundos.
+  #   - Tras ese tiempo, si no hay impedimentos, inicia el cambio de carril a la derecha
+  #     para regresar al carril original.
+  #   - Usa variables internas para controlar el estado del adelantamiento y evitar
+  #     activaciones múltiples simultáneas.
+  # ---------------------------------------------------------------------------------
 
+  def auto_overtake_without_bsm(self, carstate, v_rel, d_rel, set_speed, lead_status):
+    try:
       mensaje_log = (
         "📊 DATOS PARA ADELANTAR:\n"
         f"• 🚗 Velocidad objetivo (setSpeed): {set_speed * 3.6:.1f} km/h\n"
@@ -168,38 +182,45 @@ class DesireHelper:
         f"• 📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h\n"
         f"• 💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h"
       )
-      #enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
+      # enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
 
+      # Variables internas persistentes
+      if not hasattr(self, "overtake_active"):
+        self.overtake_active = False
+        self.overtake_start_time = 0
 
-
-      '''
-      # 🔧 FORZAR VALORES PARA TEST
-      lead_status = True
-      d_rel = 30.0
-      set_speed = carstate.vEgo + 5.0  # 5 m/s ≈ 18 km/h más rápido
-      v_rel = -5.0
-      '''
-
-
-      if lead_status:
-        velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
+      # --- LÓGICA PRINCIPAL ---
+      if lead_status and not self.overtake_active:
+        velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h
         distancia_ok = d_rel < 50.0
 
         if velocidad_ok and distancia_ok:
+          # Iniciar adelantamiento → cambio a la izquierda
           self.lane_change_direction = LaneChangeDirection.left
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
-          cloudlog.info(f"🟢 Adelantamiento simple activado por diferencia de velocidad y distancia: "
-                        f"setspeed - vEgo = {set_speed - carstate.vEgo:.1f} m/s | "
-                        f"distancia = {d_rel:.1f} m")
-        else:
-          reason = []
-          if not velocidad_ok:
-            reason.append(f"setspeed - vEgo = {set_speed - carstate.vEgo:.1f} m/s (insuficiente)")
-          if not distancia_ok:
-            reason.append(f"distancia = {d_rel:.1f} m")
-          cloudlog.info(f"⚠️ No se adelanta (sin BSM): {' | '.join(reason)}")
+          self.overtake_active = True
+          self.overtake_start_time = time.time()
+          self.original_set_speed = set_speed  # Guardar referencia
+          cloudlog.info("🟢 Adelantamiento iniciado: cambio a carril izquierdo")
+
+      # --- UNA VEZ EN EL CARRIL IZQUIERDO ---
+      elif self.overtake_active:
+        elapsed = time.time() - self.overtake_start_time
+
+        # Aumentar la velocidad objetivo en 10 km/h
+        set_speed = self.original_set_speed + (10 / 3.6)  # +10 km/h
+
+        if elapsed >= 15:  # ahora 15 segundos
+          # Pasados 15s → volver a carril derecho
+          self.lane_change_direction = LaneChangeDirection.right
+          self.lane_change_state = LaneChangeState.laneChangeStarting
+          self.lane_change_ll_prob = 1.0
+          self.lane_change_wait_timer = 0
+          self.overtake_active = False
+          cloudlog.info("🔵 Adelantamiento completado: retorno al carril derecho")
+
     except Exception as e:
       cloudlog.error(f"❌ Error en adelantamiento simple (sin BSM): {e}")
 
@@ -226,11 +247,13 @@ class DesireHelper:
       set_speed = 0.1
 
     # 📤 Imprimir todos los datos juntos
+    '''
     print("📊 DATOS ADELANTAMIENTO:")
     print(f"• 🚘 Lead detectado: {'✅ Sí' if lead_status else '❌ No'}")
     print(f"• 📍 Distancia (d_rel): {d_rel:.1f} m")
     print(f"• 💨 Diferencia velocidad (v_rel): {v_rel:.1f} m/s")
     print(f"• 🚗 setSpeed: {set_speed:.2f} m/s ({set_speed * 3.6:.1f} km/h)")
+    '''
 
     if desire_override is not None:
       self.desire = desire_override
