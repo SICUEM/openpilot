@@ -8,6 +8,9 @@ from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata
 from sicuem.adelantamiento import should_start_overtake, get_overtake_command
 from sicuem.adripilot.log_mqtt import enviar_log
 import cereal.messaging as messaging  # Asegúrate de que ya está importado
+from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper
+from cereal import car, log, custom
+
 
 import time
 from cereal import log
@@ -81,6 +84,23 @@ class DesireHelper:
     self.overtake_timer = 0.0
     self.overtake_speed_delta = 0.0
     self.overtake_v_cruise_last = None
+    self.params = Params()
+    self.original_set_speed=0
+
+    self.CP = messaging.log_from_bytes(self.params.get("CarParams", block=True), car.CarParams)
+
+      # Uses car interface helper functions, altering state won't be considered by card for actuation
+    self.speed_increased = False
+
+    self.v_cruise_helper = VCruiseHelper(self.CP)
+
+    controls_state_bytes = self.params.get("ReplayControlsState")
+    if controls_state_bytes:
+      controls_state = log.ControlsState.from_bytes(controls_state_bytes)
+      self.v_cruise_helper.v_cruise_kph = controls_state.vCruise
+    else:
+      # Si no existe, ponemos un valor seguro por defecto (ej. 30 km/h)
+      self.v_cruise_helper.v_cruise_kph = 30
 
 
 
@@ -174,27 +194,25 @@ class DesireHelper:
 
   def auto_overtake_without_bsm(self, carstate, v_rel, d_rel, set_speed, lead_status):
     try:
-      mensaje_log = (
-        "📊 DATOS PARA ADELANTAR:\n"
-        f"• 🚗 Velocidad objetivo (setSpeed): {set_speed * 3.6:.1f} km/h\n"
-        f"• 📍 Distancia al coche delante (d_rel): {d_rel:.1f} m\n"
-        f"• 👀 Vehículo delante (lead): {'✅ Sí' if lead_status else '❌ No'}\n"
-        f"• 📏 Velocidad actual (vEgo): {carstate.vEgo * 3.6:.1f} km/h\n"
-        f"• 💨 Diferencia de velocidad (v_rel): {v_rel * 3.6:.1f} km/h"
-      )
-      # enviar_log(mensaje_log, nivel="DEBUG", origen="adelantamiento")
-
-      # Variables internas persistentes
+      # Inicializamos variables internas si no existen
       if not hasattr(self, "overtake_active"):
         self.overtake_active = False
         self.overtake_start_time = 0
+        self.speed_increased = False  # <-- flag para subir velocidad solo una vez
 
-      # --- LÓGICA PRINCIPAL ---
+      # --- INICIAR ADELANTAMIENTO ---
       if lead_status and not self.overtake_active:
         velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h
         distancia_ok = d_rel < 50.0
 
-        if velocidad_ok and distancia_ok:
+        #if velocidad_ok and distancia_ok:
+        if True:
+
+          # Guardar la velocidad inicial SOLO si no hay otro adelantamiento activo
+          if not self.overtake_active:
+            self.original_set_speed = set_speed
+            self.params.put("vel_adel", str(self.original_set_speed * 3.6))  # Guardar en km/h
+
           # Iniciar adelantamiento → cambio a la izquierda
           self.lane_change_direction = LaneChangeDirection.left
           self.lane_change_state = LaneChangeState.laneChangeStarting
@@ -202,24 +220,39 @@ class DesireHelper:
           self.lane_change_wait_timer = 0
           self.overtake_active = True
           self.overtake_start_time = time.time()
-          self.original_set_speed = set_speed  # Guardar referencia
-          cloudlog.info("🟢 Adelantamiento iniciado: cambio a carril izquierdo")
+          self.speed_increased = False  # Reiniciar el flag
+          cloudlog.info(
+            f"🟢 Adelantamiento iniciado: cambio a carril izquierdo. Velocidad base: {self.original_set_speed * 3.6:.1f} km/h"
+          )
 
-      # --- UNA VEZ EN EL CARRIL IZQUIERDO ---
+      # --- MIENTRAS ADELANTA ---
       elif self.overtake_active:
         elapsed = time.time() - self.overtake_start_time
 
-        # Aumentar la velocidad objetivo en 10 km/h
-        set_speed = self.original_set_speed + (10 / 3.6)  # +10 km/h
+        # Subir velocidad +10 km/h solo una vez
+        # Subir velocidad +15 km/h solo una vez
+        if not self.speed_increased:
+          new_speed = (self.original_set_speed * 3.6) + 15
+          self.params.put("vel_adel", str(new_speed))
+          self.v_cruise_helper.v_cruise_kph = new_speed  # <--- Ajustar control de crucero real
+          self.speed_increased = True
+          cloudlog.info(f"⬆️ Velocidad incrementada +15 km/h: {new_speed:.1f} km/h")
 
-        if elapsed >= 15:  # ahora 15 segundos
-          # Pasados 15s → volver a carril derecho
+        # Si han pasado 15s → volver al carril derecho
+        if elapsed >= 15:
           self.lane_change_direction = LaneChangeDirection.right
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
           self.overtake_active = False
-          cloudlog.info("🔵 Adelantamiento completado: retorno al carril derecho")
+
+          # Restaurar velocidad original
+          self.params.put("vel_adel", str(self.original_set_speed * 3.6))
+          self.v_cruise_helper.v_cruise_kph = self.original_set_speed * 3.6  # <--- Restaurar
+          cloudlog.info(
+            f"🔵 Adelantamiento completado: retorno al carril derecho. Velocidad restaurada a {self.original_set_speed * 3.6:.1f} km/h"
+          )
+
 
     except Exception as e:
       cloudlog.error(f"❌ Error en adelantamiento simple (sin BSM): {e}")
@@ -237,6 +270,10 @@ class DesireHelper:
       d_rel, v_rel, lead_status = 0.0, 0.0, False
 
     # Obtener datos de carControl-----------------------------------------------------------------------------------------------
+
+    # cambia el set speed
+    #self.params.put("vel_adel", str(40))
+
     try:
       if self.sm.updated['carControl']:
         car_control = self.sm['carControl']
@@ -245,6 +282,22 @@ class DesireHelper:
         set_speed = 0.1
     except Exception as e:
       set_speed = 0.1
+
+    try:
+      if self.sm.updated['carControl']:
+        car_control = self.sm['carControl']
+        set_speed = car_control.hudControl.setSpeed
+      else:
+        set_speed = 0.1
+    except Exception as e:
+      set_speed = 0.1
+
+    # 👇 Si estamos en adelantamiento, usa el valor de vel_adel en lugar del HUD
+    if self.overtake_active or self.speed_increased:
+      try:
+        set_speed = float(self.params.get("vel_adel", encoding="utf8")) / 3.6  # lo pasamos a m/s
+      except:
+        pass
 
     # 📤 Imprimir todos los datos juntos
     '''

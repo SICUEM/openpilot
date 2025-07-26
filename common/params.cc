@@ -94,6 +94,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"Velocidad_C2", PERSISTENT},  // Velocidad Nd
     {"Velocidad_C3", PERSISTENT},  // Velocidad v3
     {"Velocidad_C4", PERSISTENT},  // Velocidad sim
+    {"vel_adel", CLEAR_ON_MANAGER_START},  // Velocidad global editable por todo el sistema
 
     {"AlwaysOnDM", PERSISTENT},
     {"ApiCache_Device", PERSISTENT},

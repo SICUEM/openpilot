@@ -845,10 +845,22 @@ class Controls:
     speeds = self.sm['longitudinalPlan'].speeds
     if len(speeds):
       CC.cruiseControl.resume = self.enabled_long and CS.cruiseState.standstill and speeds[-1] > 0.1
-    CC.vCruise = float(self.v_cruise_helper.v_cruise_kph)
 
+    vel_adel_str = self.params.get("vel_adel")
+    try:
+      vel_adel = float(vel_adel_str) if vel_adel_str else 20.0
+    except ValueError:
+      vel_adel = 20.0  # fallback si el valor no es numérico
+
+    # Si estamos en adelantamiento, sobreescribe el valor real del crucero
+    if self.params.get_bool("sic_adelantar_nobsm"):
+      self.v_cruise_helper.v_cruise_kph = vel_adel
+
+    # Forzar tanto el control como el HUD a usar la velocidad actualizada
+    CC.vCruise = self.v_cruise_helper.v_cruise_kph
     hudControl = CC.hudControl
-    hudControl.setSpeed = float(self.v_cruise_helper.v_cruise_cluster_kph * CV.KPH_TO_MS)
+    hudControl.setSpeed = float(self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
+
     hudControl.speedVisible = self.enabled_long
     hudControl.lanesVisible = self.enabled
     hudControl.leadVisible = self.sm['longitudinalPlan'].hasLead
