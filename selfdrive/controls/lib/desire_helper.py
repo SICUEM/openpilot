@@ -206,8 +206,8 @@ class DesireHelper:
         velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h
         distancia_ok = d_rel < 50.0
 
-        #if velocidad_ok and distancia_ok:
-        if True:
+        if velocidad_ok and distancia_ok:
+        #if True:
 
           # Guardar la velocidad inicial SOLO si no hay otro adelantamiento activo
           if not self.overtake_active:
