@@ -851,7 +851,7 @@ class Controls:
       vel_adel = float(vel_adel_str)
     except (ValueError, TypeError):
       cloudlog.error(f"Valor inválido en vel_adel: {vel_adel_str}, usando 20.0")
-      vel_adel = 20.0
+      vel_adel = 120.0
 
     # Si estamos en adelantamiento, sobreescribe el valor real del crucero
     if self.params.get_bool("sic_adelantar_nobsm"):
