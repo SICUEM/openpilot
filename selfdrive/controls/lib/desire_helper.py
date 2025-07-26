@@ -98,11 +98,12 @@ class DesireHelper:
     if controls_state_bytes:
       controls_state = log.ControlsState.from_bytes(controls_state_bytes)
       self.v_cruise_helper.v_cruise_kph = controls_state.vCruise
+      # --- NUEVO: inicializar vel_adel con el mismo valor que el setSpeed ---
+      self.params.put("vel_adel", str(controls_state.vCruise))  # Guardar en km/h
     else:
       # Si no existe, ponemos un valor seguro por defecto (ej. 30 km/h)
       self.v_cruise_helper.v_cruise_kph = 30
-
-
+      self.params.put("vel_adel", "30.0")
 
   def read_param(self):
     self.edge_toggle = self.param_s.get_bool("RoadEdge")
@@ -283,21 +284,22 @@ class DesireHelper:
     except Exception as e:
       set_speed = 0.1
 
-    try:
-      if self.sm.updated['carControl']:
-        car_control = self.sm['carControl']
-        set_speed = car_control.hudControl.setSpeed
-      else:
-        set_speed = 0.1
-    except Exception as e:
-      set_speed = 0.1
+    # --- Sincronizar vel_adel si no estamos adelantando ---
+    if not self.overtake_active and not self.speed_increased:
+      try:
+        # Guardar vel_adel como el set_speed actual en km/h
+        self.params.put("vel_adel", str(set_speed * 3.6))
+      except Exception as e:
+        cloudlog.error(f"Error al sincronizar vel_adel: {e}")
 
     # 👇 Si estamos en adelantamiento, usa el valor de vel_adel en lugar del HUD
     if self.overtake_active or self.speed_increased:
       try:
-        set_speed = float(self.params.get("vel_adel", encoding="utf8")) / 3.6  # lo pasamos a m/s
-      except:
-        pass
+        vel_adel_str = self.params.get("vel_adel", encoding="utf8")
+        if vel_adel_str:
+          set_speed = float(vel_adel_str) / 3.6  # lo pasamos a m/s
+      except (ValueError, TypeError) as e:
+        cloudlog.error(f"Valor inválido en vel_adel: {vel_adel_str}, usando set_speed actual")
 
     # 📤 Imprimir todos los datos juntos
     '''

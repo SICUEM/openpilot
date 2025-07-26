@@ -848,9 +848,10 @@ class Controls:
 
     vel_adel_str = self.params.get("vel_adel")
     try:
-      vel_adel = float(vel_adel_str) if vel_adel_str else 20.0
-    except ValueError:
-      vel_adel = 20.0  # fallback si el valor no es numérico
+      vel_adel = float(vel_adel_str)
+    except (ValueError, TypeError):
+      cloudlog.error(f"Valor inválido en vel_adel: {vel_adel_str}, usando 20.0")
+      vel_adel = 20.0
 
     # Si estamos en adelantamiento, sobreescribe el valor real del crucero
     if self.params.get_bool("sic_adelantar_nobsm"):
