@@ -40,6 +40,12 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
   tr("Adelantamiento automático sin usar BSM."),
   "../assets/offroad/icon_blank.png",
 },
+{
+  "subir_setspeed",
+  tr("SUBIR setspeed"),
+  tr("subir el setspeed"),
+  "../assets/offroad/icon_blank.png",
+},
 
     /**
     {

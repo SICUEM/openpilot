@@ -191,6 +191,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"turn_distance", PERSISTENT}, // Adrian Cañadas Gallardo
     {"off_road_distance", PERSISTENT}, // Adrian Cañadas Gallardo
     {"on_road_distance", PERSISTENT}, // Adrian Cañadas Gallardo
+    {"subir_setspeed", PERSISTENT}, // Aumentar set speed automáticamente
+
 
     {"IsOffroad", CLEAR_ON_MANAGER_START},
     {"IsOnroad", PERSISTENT},

@@ -4,6 +4,7 @@ import numpy as np
 from cereal import car, log, custom
 from openpilot.common.conversions import Conversions as CV
 from openpilot.common.numpy_fast import clip, interp
+from openpilot.common.params_pyx import Params
 from openpilot.common.realtime import DT_MDL, DT_CTRL
 from openpilot.selfdrive.modeld.constants import ModelConstants
 
@@ -83,6 +84,9 @@ class VCruiseHelper:
     self.slc_state = SpeedLimitControlState.inactive
     self.slc_state_prev = SpeedLimitControlState.inactive
     self.slc_speed_limit_offsetted = 0
+    self.old_set_speed = 0  # Velocidad base sin offset
+    self.last_toggle_state = False  # Estado anterior del toggle  <--- IMPORTANTE
+
 
   @property
   def v_cruise_initialized(self):
@@ -211,16 +215,45 @@ class VCruiseHelper:
 
     self.v_cruise_cluster_kph = self.v_cruise_kph
 
-  def _update_v_cruise_slc(self, long_plan_sp):
-    if self.slc_state == SpeedLimitControlState.active and self.slc_state_prev != SpeedLimitControlState.preActive:
-      return
+  from openpilot.common.params import Params  # Asegúrate de importar Params
 
+  def _update_v_cruise_slc(self, long_plan_sp, is_metric=True):
+    toggle = Params().get_bool("subir_setspeed")
+    print("++++++++++++++++++++++++++", toggle)
+
+    # Detectar cambio de estado (de True a False)
+    if hasattr(self, "last_toggle_state"):
+        if self.last_toggle_state and not toggle:  # Si antes estaba True y ahora False
+            self.v_cruise_kph = self.old_set_speed
+            print(f"[RESTORE] Toggle apagado, restaurando set speed a old_set_speed: {self.old_set_speed} km/h")
+    self.last_toggle_state = toggle
+
+    # Si está sin inicializar, ponlo a un valor razonable (mínimo)
+    if self.v_cruise_kph in (V_CRUISE_UNSET, 0):
+        self.v_cruise_kph = self.v_cruise_min
+
+    # Calcula el límite base
     self.slc_speed_limit_offsetted = (long_plan_sp.speedLimit + long_plan_sp.speedLimitOffset) * CV.MS_TO_KPH
 
-    if self.slc_state == SpeedLimitControlState.active and self.slc_state_prev == SpeedLimitControlState.preActive:
-      self.v_cruise_kph = clip(round(self.slc_speed_limit_offsetted, 1), self.v_cruise_min, V_CRUISE_MAX)
+    # Ajusta al límite si SLC está activo
+    if self.slc_state == SpeedLimitControlState.active:
+        if toggle:
+            offset = 10 if is_metric else 10 / CV.MPH_TO_KPH
+            self.v_cruise_kph = clip(round(self.base_speed_limit_kph + offset, 1), self.v_cruise_min, V_CRUISE_MAX)
+        else:
+            self.v_cruise_kph = self.base_speed_limit_kph
+
+    if toggle:
+        offset = 10 if is_metric else 10 / CV.MPH_TO_KPH
+        self.v_cruise_kph = clip(round(self.v_cruise_kph + offset, 1), self.v_cruise_min, V_CRUISE_MAX)
+    else:
+        # Guardar el valor actual solo cuando el toggle está en False
+        self.old_set_speed = self.v_cruise_kph
+
+    print(f"SetSpeed actual: {self.v_cruise_kph} km/h (old_set_speed: {self.old_set_speed})")
 
     self.slc_state_prev = self.slc_state
+
 
   def _update_v_cruise_min(self, is_metric):
     if is_metric != self.is_metric_prev:
