@@ -15,17 +15,102 @@
             "canal": "carState",
             "enable": 1,
             "descripcion": "Estado del veh\u00edculo",
-           "keys_importantes": [
-              "aEgo",
-              "cruiseState",
-              "leftBlinker",
-              "rightBlinker",
-              "vEgo",
-              "vEgoCluster",
-              "leftBlindspot",
-              "rightBlindspot"
+            "keys_importantes": [
+                "aEgo",
+                "cruiseState",
+                "leftBlinker",
+                "rightBlinker",
+                "vCruise",
+                "vCruiseCluster",
+                "vEgo",
+                "vEgoCluster",
+                "leftBlindspot",
+                "rightBlindspot",
+                "standstill",
+                "steeringAngleDeg",
+                "steeringTorque",
+                "steeringPressed",
+                "gasPressed",
+                "brakePressed",
+                "canValid",
+                "gearShifter",
+                "engineRPM",
+                "steerFaultTemporary",
+                "steerFaultPermanent"
             ]
-
+        },
+        {
+            "topic": "telemetry_mqtt/{0}/controlsState",
+            "canal": "controlsState",
+            "enable": 1,
+            "descripcion": "Estado de control del sistema",
+            "keys_importantes": [
+                "active",
+                "alertText1",
+                "alertText2",
+                "alertSize",
+                "alertStatus",
+                "alertBlinkingRate",
+                "alertType",
+                "alertSound",
+                "canErrorCounter",
+                "vCruise",
+                "uiSpeed",
+                "speedLimit",
+                "longControlState",
+                "vPid",
+                "vTargetLead",
+                "upAccelCmd",
+                "uiAccelCmd",
+                "ufAccelCmd",
+                "radarState",
+                "radarCanError",
+                "vEgo",
+                "vEgoRaw",
+                "aEgo",
+                "aTarget",
+                "aTargetMin",
+                "aTargetMax",
+                "jerkFactor",
+                "gpsPlannerActive",
+                "saturated",
+                "cumLagMs",
+                "maxCumLagMs",
+                "vTargetFuture",
+                "hasLead",
+                "longitudinalPlanSource",
+                "visionTurnControllerState",
+                "turnSpeed",
+                "turnSpeedControl",
+                "experimentalMode",
+                "personality",
+                "alertText1",
+                "alertText2",
+                "alertSize",
+                "alertStatus",
+                "alertBlinkingRate",
+                "alertType",
+                "alertSound"
+            ]
+        },
+        {
+            "topic": "telemetry_mqtt/{0}/liveCalibration",
+            "canal": "liveCalibration",
+            "enable": 1,
+            "descripcion": "Calibraci\u00f3n en vivo del sistema",
+            "keys_importantes": [
+                "calStatus",
+                "calPerc",
+                "calValid",
+                "calAge",
+                "calPerc",
+                "calValid",
+                "calAge",
+                "calStatus",
+                "calPerc",
+                "calValid",
+                "calAge"
+            ]
         },
         {
             "topic": "telemetry_mqtt/{0}/gpsLocationExternal",
@@ -36,6 +121,26 @@
                 "latitude",
                 "longitude",
                 "altitude"
+            ]
+        },
+        {
+            "topic": "telemetry_mqtt/{0}/gpsLocation",
+            "canal": "gpsLocation",
+            "enable": 1,
+            "descripcion": "Ubicaci\u00f3n GPS interna",
+            "keys_importantes": [
+                "latitude",
+                "longitude",
+                "altitude",
+                "speed",
+                "bearing",
+                "accuracy",
+                "timestamp",
+                "source",
+                "vNED",
+                "bearingDeg",
+                "speedAccuracy",
+                "bearingAccuracy"
             ]
         },
         {
@@ -59,8 +164,20 @@
                 "aRel",
                 "dRel",
                 "vRel",
-                "dRel",
-                "vLead"
+                "vLead",
+                "yRel",
+                "aLeadK",
+                "aLeadTau",
+                "status",
+                "radarErrors",
+                "canErrors",
+                "radarCanError",
+                "radarErrors",
+                "canErrors",
+                "radarCanError",
+                "radarErrors",
+                "canErrors",
+                "radarCanError"
             ]
         },
         {
@@ -69,7 +186,18 @@
             "enable": 1,
             "descripcion": "Datos del modelo de conducci\u00f3n",
             "keys_importantes": [
-                "laneLineMeta"
+                "laneLineMeta",
+                "laneLines",
+                "roadEdges",
+                "laneLineProbs",
+                "laneLineStds",
+                "laneLineDists",
+                "laneLineProbs",
+                "laneLineStds",
+                "laneLineDists",
+                "laneLineProbs",
+                "laneLineStds",
+                "laneLineDists"
             ]
         }
     ]
