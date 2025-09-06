@@ -219,7 +219,7 @@ class VCruiseHelper:
 
   def _update_v_cruise_slc(self, long_plan_sp, is_metric=True):
     toggle = Params().get_bool("subir_setspeed")
-    print("++++++++++++++++++++++++++", toggle)
+    #print("++++++++++++++++++++++++++", toggle)
 
     # Detectar cambio de estado (de True a False)
     if hasattr(self, "last_toggle_state"):
@@ -250,7 +250,7 @@ class VCruiseHelper:
         # Guardar el valor actual solo cuando el toggle está en False
         self.old_set_speed = self.v_cruise_kph
 
-    print(f"SetSpeed actual: {self.v_cruise_kph} km/h (old_set_speed: {self.old_set_speed})")
+   # print(f"SetSpeed actual: {self.v_cruise_kph} km/h (old_set_speed: {self.old_set_speed})")
 
     self.slc_state_prev = self.slc_state
 
