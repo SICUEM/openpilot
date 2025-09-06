@@ -42,13 +42,8 @@ class MQTTEnvioGeneral:
     }
 
   def init_submaster(self):
-    # Usar todos los canales disponibles para máxima telemetría
-    canales_completos = [
-      'carState', 'controlsState', 'liveCalibration', 'carControl',
-      'gpsLocationExternal', 'gpsLocation', 'navInstruction',
-      'radarState', 'drivingModelData'
-    ]
-    self.sm = messaging.SubMaster(canales_completos)
+    # Usar los canales habilitados del archivo JSON
+    self.sm = messaging.SubMaster(self.lista_suscripciones)
 
   def init_mqtt(self):
     self.mqttc = mqtt.Client()
@@ -212,6 +207,13 @@ class MQTTEnvioGeneral:
       print(f"❌ Error al procesar mensaje MQTT: {e}")
 
   def start(self):
+    # Debug: mostrar canales configurados
+    print("🔍 DEBUG: Canales configurados:")
+    print(f"   - Canales habilitados: {len(self.enabled_items)}")
+    for canal in self.enabled_items:
+      print(f"   - {canal['canal']}: {canal['topic']}")
+    print(f"   - Lista suscripciones: {self.lista_suscripciones}")
+
     threading.Thread(target=self.loop, daemon=True).start()
 
   def loop(self):
@@ -227,6 +229,11 @@ class MQTTEnvioGeneral:
           datos = self.sm[nombre].to_dict()
           datos_filtrados = self.enviar_datos_importantes(nombre, datos)
           if datos_filtrados:
+            # Log especial para velocidad
+            if nombre == "carState" and "vEgo" in datos_filtrados:
+              v_ego = datos_filtrados.get("vEgo", 0)
+              v_ego_kmh = datos_filtrados.get("vEgo_kmh", 0)
+              print(f"🚗 VELOCIDAD: {v_ego:.2f} m/s = {v_ego_kmh:.1f} km/h")
             print(f"📤 Enviando a {topic}: {datos_filtrados}")
             self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
 

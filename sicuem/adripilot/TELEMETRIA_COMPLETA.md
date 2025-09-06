@@ -267,3 +267,5 @@ Configura la conexión al broker MQTT.
 1. Ajustar frecuencia de envío
 2. Filtrar datos innecesarios
 3. Optimizar configuración de red
+
+
