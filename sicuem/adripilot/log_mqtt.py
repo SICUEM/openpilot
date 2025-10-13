@@ -1,7 +1,7 @@
 # log_mqtt.py
 import json
 from datetime import datetime
-#import paho.mqtt.publish as publish
+import paho.mqtt.publish as publish
 from openpilot.common.params import Params
 import os
 
