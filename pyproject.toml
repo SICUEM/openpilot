@@ -45,7 +45,7 @@ dependencies = [
   # logging
   "pyzmq",
   "sentry-sdk",
-  "paho-mqtt"
+  "paho-mqtt",
 
   # athena
   "PyJWT",
