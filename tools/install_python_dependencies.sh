@@ -36,6 +36,7 @@ update_uv
 echo "installing python packages..."
 uv --no-cache sync --frozen --all-extras
 source .venv/bin/activate
+pip install paho-mqtt
 
 echo "PYTHONPATH=${PWD}" > $ROOT/.env
 if [[ "$(uname)" == 'Darwin' ]]; then
