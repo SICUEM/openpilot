@@ -5,6 +5,7 @@ from datetime import datetime
 from openpilot.common.params import Params
 import os
 
+'''
 # Obtener ruta base
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
 CONFIG_FILE = os.path.join(BASE_PATH, "config_mqtt.json")
@@ -17,7 +18,11 @@ with open(CONFIG_FILE, "r") as f:
 
 # Obtener DongleID automáticamente
 params = Params()
+'''
+DONGLE_ID = "UnregisteredDevice"
+'''
 DONGLE_ID = params.get("DongleId").decode("utf-8") if params.get("DongleId") else "UnregisteredDevice"
+'''
 
 def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
     topic = f"telemetry_mqtt/{DONGLE_ID}/logs"
