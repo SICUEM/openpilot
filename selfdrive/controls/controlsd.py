@@ -853,11 +853,6 @@ class Controls:
       cloudlog.error(f"Valor inválido en vel_adel: {vel_adel_str}, usando 20.0")
       vel_adel = 120.0
 
-    # 🧪 PRUEBA: Forzar setSpeed a 34 km/h SIEMPRE
-    velocidad_fija_kmh = 34.0
-    self.v_cruise_helper.v_cruise_kph = velocidad_fija_kmh
-    print(f"🔧 PRUEBA: Forzando setSpeed a {velocidad_fija_kmh} km/h")
-
     # Si estamos en adelantamiento, sobreescribe el valor real del crucero
     if self.params.get_bool("sic_adelantar_nobsm"):
       self.v_cruise_helper.v_cruise_kph = vel_adel
