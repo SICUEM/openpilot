@@ -5,26 +5,14 @@
             "canal": "carControl",
             "enable": 1,
             "descripcion": "Control del veh\u00edculo",
-            "keys_importantes": [
-                "actuators",
-                "hudControl"
-            ]
+            "keys_importantes": []
         },
         {
             "topic": "telemetry_mqtt/{0}/carState",
             "canal": "carState",
             "enable": 1,
             "descripcion": "Estado del veh\u00edculo",
-           "keys_importantes": [
-              "aEgo",
-              "cruiseState",
-              "leftBlinker",
-              "rightBlinker",
-              "vEgo",
-              "vEgoCluster",
-              "leftBlindspot",
-              "rightBlindspot"
-            ]
+           "keys_importantes": []
 
         },
         {
@@ -32,45 +20,49 @@
             "canal": "gpsLocationExternal",
             "enable": 1,
             "descripcion": "Ubicaci\u00f3n GPS externa",
-            "keys_importantes": [
-                "latitude",
-                "longitude",
-                "altitude"
-            ]
+            "keys_importantes": []
         },
         {
             "topic": "telemetry_mqtt/{0}/navInstruction",
             "canal": "navInstruction",
             "enable": 1,
             "descripcion": "Instrucciones de navegaci\u00f3n",
-            "keys_importantes": [
-                "distanceRemaining",
-                "maneuverDistance",
-                "speedLimit",
-                "timeRemaining"
-            ]
+            "keys_importantes": []
         },
         {
             "topic": "telemetry_mqtt/{0}/radarState",
             "canal": "radarState",
             "enable": 1,
             "descripcion": "Estado del radar",
-            "keys_importantes": [
-                "aRel",
-                "dRel",
-                "vRel",
-                "dRel",
-                "vLead"
-            ]
+            "keys_importantes": []
         },
         {
             "topic": "telemetry_mqtt/{0}/drivingModelData",
             "canal": "drivingModelData",
             "enable": 1,
             "descripcion": "Datos del modelo de conducci\u00f3n",
-            "keys_importantes": [
-                "laneLineMeta"
-            ]
+            "keys_importantes": []
+        },
+        {
+            "topic": "telemetry_mqtt/{0}/controlsState",
+            "canal": "controlsState",
+            "enable": 1,
+            "descripcion": "Estado de controles",
+            "keys_importantes": []
+        },
+        {
+            "topic": "telemetry_mqtt/{0}/liveCalibration",
+            "canal": "liveCalibration",
+            "enable": 1,
+            "descripcion": "Calibración en vivo",
+            "keys_importantes": []
+        },
+        {
+            "topic": "telemetry_mqtt/{0}/gpsLocation",
+            "canal": "gpsLocation",
+            "enable": 1,
+            "descripcion": "Ubicación GPS",
+            "keys_importantes": []
         }
     ]
 }

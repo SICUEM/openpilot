@@ -156,3 +156,8 @@ Una vez que confirmemos que funciona:
 - **Modificado**: `selfdrive/controls/controlsd.py`
 - **Prueba**: `sicuem/adripilot/test_setspeed_fijo.py`
 - **Documentación**: `sicuem/adripilot/PRUEBA_SETSPEED_FIJO.md`
+
+
+
+
+
