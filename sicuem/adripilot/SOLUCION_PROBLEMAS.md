@@ -125,3 +125,4 @@ mosquitto_pub -h 80.29.2.242 -p 1883 -t "telemetry_config/UnregisteredDevice/rig
 3. Probar desde la app
 
 El error de importación ha sido resuelto y el sistema debería funcionar correctamente.
+

@@ -31,3 +31,4 @@ except ImportError as e:
     print(f"❌ Error de importación: {e}")
 except Exception as e:
     print(f"❌ Error general: {e}")
+
