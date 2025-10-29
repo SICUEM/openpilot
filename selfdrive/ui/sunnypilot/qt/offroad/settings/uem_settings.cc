@@ -73,6 +73,17 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
   mads_settings = new TelUemSettings(this);  // Instancia de TelUemSettings
   main_layout->addWidget(mads_settings);     // AÑADIR TelUemSettings AL QStackedLayout
 
+  // Subpanel para Configuración de IPs de Servidores
+  SubPanelButton *serverIpSettingsBtn = new SubPanelButton(tr("Conf. IP Servidores"));
+  serverIpSettingsBtn->setObjectName("server_ip_btn");
+  QVBoxLayout* serverIpSettingsLayout = new QVBoxLayout;
+  serverIpSettingsLayout->setContentsMargins(0, 0, 0, 30);
+  serverIpSettingsLayout->addWidget(serverIpSettingsBtn);
+
+  // Crear instancia de ServerIpSettings y agregarla al layout
+  server_ip_settings = new ServerIpSettings(this);
+  main_layout->addWidget(server_ip_settings);
+
 /*
 SubPanelButton *madsSettings2 = new SubPanelButton(tr("INFO SOFTWARE UEM"));
   madsSettings2->setObjectName("mads_btn2");
@@ -116,6 +127,18 @@ SubPanelButton *madsSettings3 = new SubPanelButton(tr("Sender UEM"));
 */
   // Conectar el evento backPress para regresar a la pantalla principal
   connect(mads_settings, &TelUemSettings::backPress, [=]() {
+    scrollView->restoreScrollPosition();
+    main_layout->setCurrentWidget(sunnypilotScreen);  // Volver a la pantalla principal
+  });
+
+  // Conectar el botón de configuración de IPs
+  connect(serverIpSettingsBtn, &QPushButton::clicked, [=]() {
+    scrollView->setLastScrollPosition();
+    main_layout->setCurrentWidget(server_ip_settings);  // Cambiar al panel de ServerIpSettings
+  });
+
+  // Conectar el evento backPress de ServerIpSettings para regresar a la pantalla principal
+  connect(server_ip_settings, &ServerIpSettings::backPress, [=]() {
     scrollView->restoreScrollPosition();
     main_layout->setCurrentWidget(sunnypilotScreen);  // Volver a la pantalla principal
   });
@@ -168,9 +191,7 @@ SubPanelButton *madsSettings3 = new SubPanelButton(tr("Sender UEM"));
 
     if (param == "telemetria_uem") {
       list->addItem(madsSettingsLayout);  // Añadir el botón debajo del toggle de TELEMETRIA UEM
-
-
-
+      list->addItem(serverIpSettingsLayout);  // Añadir el botón de configuración de IPs
     }
      //list->addItem(madsSettingsLayout3);  // Añadir el botón debajo del toggle de TELEMETRIA UEM
       list->addItem(horizontal_line());   // Separador

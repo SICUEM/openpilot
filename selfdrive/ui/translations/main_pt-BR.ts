@@ -1609,6 +1609,45 @@ Reboot Required.</source>
     </message>
 </context>
 <context>
+    <name>ServerIpSettings</name>
+    <message>
+        <source>Servidor AdriPilot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ingrese la IP del servidor AdriPilot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>GUARDAR IP ADRIPILOT</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Servidor SICUEM (Universidad Europea)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ingrese la IP del servidor SICUEM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>GUARDAR IP SICUEM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IP actual: -</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IP actual: %1</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IP actual: (No configurada)</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>SettingsWindow</name>
     <message>
         <source>×</source>
@@ -3238,14 +3277,6 @@ This feature must be used along with SLC, and/or V-TSC, and/or M-TSC.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>INFO SOFTWARE UEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Sender UEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Formerly known as &lt;b&gt;&quot;NNFF&quot;&lt;/b&gt;, this replaces the lateral &lt;b&gt;&quot;torque&quot;&lt;/b&gt; controller, with one using a neural network trained on each car&apos;s (actually, each separate EPS firmware) driving data for increased controls accuracy.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -3259,6 +3290,42 @@ This feature must be used along with SLC, and/or V-TSC, and/or M-TSC.</source>
     </message>
     <message>
         <source>Default is Laneless. In Auto mode, sunnnypilot dynamically chooses between Laneline or Laneless model based on lane recognition confidence level on road and certain conditions.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>FUNC CAMBIO CARRIL</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>EXPL CC</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>MOSTRAR ÁNGULO MUERTO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Muestra estado de ángulo muerto en AnnotatedCamera.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ACTIVAR ADELANTAR (con BSM)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Usar BSM para adelantar automáticamente.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ACTIVAR ADELANTAR (sin BSM)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Adelantamiento automático sin usar BSM.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Conf. IP Servidores</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

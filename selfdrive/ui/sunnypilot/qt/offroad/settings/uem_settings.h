@@ -37,6 +37,7 @@ Last updated: July 29, 2024
 
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/info_uem.h"
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/sender_uem.h"
+#include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/server_ip_settings.h"
 
 
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/speed_limit_control_settings.h"
@@ -64,6 +65,7 @@ private:
   TelUemSettings* mads_settings = nullptr;  // Cambiado a TelUemSettings
   InfoUem* mads_settings2 = nullptr;// Cambiado a Infouem
     SenderUem* mads_settings3 = nullptr;// Cambiado a Infouem
+  ServerIpSettings* server_ip_settings = nullptr;  // Configuración de IPs de servidores
 
   SubPanelButton* slcSettings = nullptr;
   SlcSettings* slc_settings = nullptr;
