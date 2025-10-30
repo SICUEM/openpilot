@@ -31,6 +31,7 @@ Last updated: December 2024
 #include "selfdrive/ui/sunnypilot/ui.h"
 #include "selfdrive/ui/qt/util.h"
 #include "system/hardware/hw.h"
+#include "selfdrive/ui/qt/widgets/input.h"
 
 ServerIpSettings::ServerIpSettings(QWidget* parent) : QWidget(parent) {
   main_layout = new QVBoxLayout(this);
@@ -134,6 +135,9 @@ void ServerIpSettings::setupAdriPilotSection() {
       border: 2px solid #00a6fb;
     }
   )");
+  // Abrir teclado táctil al tocar (dispositivo Comma)
+  adripilot_input->setReadOnly(true);
+  adripilot_input->installEventFilter(this);
   main_layout->addWidget(adripilot_input);
 
   // Botón Guardar AdriPilot
@@ -183,6 +187,9 @@ void ServerIpSettings::setupSicuemSection() {
       border: 2px solid #00a6fb;
     }
   )");
+  // Abrir teclado táctil al tocar (dispositivo Comma)
+  sicuem_input->setReadOnly(true);
+  sicuem_input->installEventFilter(this);
   main_layout->addWidget(sicuem_input);
 
   // Botón Guardar SICUEM
@@ -376,6 +383,23 @@ void ServerIpSettings::saveSicuemIp() {
     // Actualizar label de IP actual
     sicuem_current_ip_label->setText(tr("IP actual: %1").arg(ip));
   }
+}
+
+bool ServerIpSettings::eventFilter(QObject* watched, QEvent* event) {
+  // Abrir teclado en pantalla cuando se toque el QLineEdit
+  if ((watched == adripilot_input || watched == sicuem_input) && event->type() == QEvent::MouseButtonPress) {
+    const bool is_adripilot = (watched == adripilot_input);
+    const QString title = is_adripilot ? tr("IP Servidor AdriPilot") : tr("IP Servidor SICUEM");
+    QLineEdit* target = is_adripilot ? adripilot_input : sicuem_input;
+    const QString current = target->text();
+
+    const QString new_text = InputDialog::getText(title, this, QString(), /*secret=*/false, /*minLength=*/1, current);
+    if (!new_text.isEmpty()) {
+      target->setText(new_text);
+    }
+    return true; // Consumir el evento
+  }
+  return QWidget::eventFilter(watched, event);
 }
 
 void ServerIpSettings::showEvent(QShowEvent* event) {

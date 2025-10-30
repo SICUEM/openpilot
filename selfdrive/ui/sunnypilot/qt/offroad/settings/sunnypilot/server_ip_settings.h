@@ -45,6 +45,7 @@ class ServerIpSettings : public QWidget {
 public:
   explicit ServerIpSettings(QWidget* parent = nullptr);
   void showEvent(QShowEvent* event) override;
+  bool eventFilter(QObject* watched, QEvent* event) override;
 
 signals:
   void backPress();

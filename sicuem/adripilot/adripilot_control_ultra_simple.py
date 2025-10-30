@@ -122,3 +122,4 @@ class AdriPilotControlUltraSimple:
 # Instancia global del controlador ultra simplificado
 adripilot_control_ultra_simple = AdriPilotControlUltraSimple()
 
+

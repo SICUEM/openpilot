@@ -1628,6 +1628,14 @@ Reboot Required.</source>
         <source>IP actual: (No configurada)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>IP Servidor AdriPilot</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IP Servidor SICUEM</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>SettingsWindow</name>
