@@ -43,7 +43,7 @@ void OffroadHomeSP::replaceLeftWidget(){
   new_left_widget->addWidget(new LEFT_WIDGET);
   if (!custom_mapbox)
     new_left_widget->addWidget(new PrimeAdWidget);
-    
+
   new_left_widget->setStyleSheet("border-radius: 10px;");
   new_left_widget->setCurrentIndex((uiStateSP()->hasPrime() || custom_mapbox) ? 0 : 1);
   connect(uiStateSP(), &UIStateSP::primeChanged, [=](bool prime)    {

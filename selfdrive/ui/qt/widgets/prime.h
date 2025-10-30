@@ -67,7 +67,24 @@ private:
   PairingPopup *popup;
   QStackedWidget *mainLayout;
   PrimeUserWidget *primeUser;
+  // UEM status UI
+  QLabel *uemTitle = nullptr;
+  QLabel *uemSubtitle = nullptr;
+  QLabel *adripilotStatusLabel = nullptr;
+  QLabel *sicuemStatusLabel = nullptr;
+  QWidget *adripilotIndicator = nullptr;
+  QWidget *sicuemIndicator = nullptr;
+  QTimer *statusTimer = nullptr;
+  QString adripilotConfigPath;
+  QString sicuemConfigPath;
 
 private slots:
   void replyFinished(const QString &response, bool success);
+  void refreshNetworkStatus();
+
+private:
+  QString loadIpFromJson(const QString &file_path, const QString &key_path);
+  void ensureConfigPaths();
+  bool pingHost(const QString &ip, int timeout_ms = 1000);
+  void setIndicator(QWidget *w, bool up);
 };

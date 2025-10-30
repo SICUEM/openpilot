@@ -1862,6 +1862,30 @@ Reboot Required.</source>
         <source>Pair device</source>
         <translation>اقتران الجهاز</translation>
     </message>
+    <message>
+        <source>Universidad Europea - UEM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Integración AdriPilot / SICUEM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AdriPilot IP: - (DOWN)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SICUEM IP: - (DOWN)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>AdriPilot IP: %1 (%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SICUEM IP: %1 (%2)</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Sidebar</name>

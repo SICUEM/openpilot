@@ -16,6 +16,12 @@
 #include "selfdrive/ui/qt/util.h"
 #include "selfdrive/ui/qt/qt_window.h"
 #include "selfdrive/ui/qt/widgets/wifi.h"
+#include <QFile>
+#include <QFileInfo>
+#include <QJsonDocument>
+#include <QJsonObject>
+#include <QProcess>
+#include <QDir>
 
 using qrcodegen::QrCode;
 
@@ -263,20 +269,56 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
 
   QWidget *content = new QWidget;
   QVBoxLayout *content_layout = new QVBoxLayout(content);
-  content_layout->setContentsMargins(0, 0, 0, 0);
-  content_layout->setSpacing(30);
+  content_layout->setContentsMargins(40, 30, 40, 30);
+  content_layout->setSpacing(20);
 
-  primeUser = new PrimeUserWidget;
-  content_layout->addWidget(primeUser);
+  // Cabecera UEM
+  QWidget *header = new QWidget(content);
+  QVBoxLayout *hl = new QVBoxLayout(header);
+  hl->setContentsMargins(0, 0, 0, 0);
+  uemTitle = new QLabel(tr("Universidad Europea - UEM"), header);
+  uemTitle->setStyleSheet("font-size: 75px; font-weight: 700; color: white;");
+  uemSubtitle = new QLabel(tr("Integración AdriPilot / SICUEM"), header);
+  uemSubtitle->setStyleSheet("font-size: 50px; color: #BDBDBD;");
+  hl->addWidget(uemTitle);
+  hl->addWidget(uemSubtitle);
+  content_layout->addWidget(header);
 
-  WiFiPromptWidget *wifi_prompt = new WiFiPromptWidget;
-  QObject::connect(wifi_prompt, &WiFiPromptWidget::openSettings, this, &SetupWidget::openSettings);
-  content_layout->addWidget(wifi_prompt);
+  // Panel de estado de servidores
+  auto mkIndicator = [](QWidget *parent) {
+    QWidget *w = new QWidget(parent);
+    w->setFixedSize(36, 36);
+    w->setStyleSheet("border-radius: 18px; background: #888888;");
+    return w;
+  };
+
+  auto mkRow = [&](const QString &label_text, QLabel **label_out, QWidget **ind_out) {
+    QWidget *row = new QWidget(content);
+    QHBoxLayout *rl = new QHBoxLayout(row);
+    rl->setContentsMargins(0, 10, 0, 10);
+    rl->setSpacing(20);
+    QWidget *ind = mkIndicator(row);
+    QLabel *lab = new QLabel(label_text, row);
+    lab->setStyleSheet("font-size: 55px; color: white;");
+    rl->addWidget(ind, 0, Qt::AlignLeft);
+    rl->addWidget(lab, 0, Qt::AlignLeft);
+    rl->addStretch(1);
+    content_layout->addWidget(row);
+    *label_out = lab;
+    *ind_out = ind;
+  };
+
+  adripilotStatusLabel = nullptr;
+  adripilotIndicator = nullptr;
+  sicuemStatusLabel = nullptr;
+  sicuemIndicator = nullptr;
+  mkRow(tr("AdriPilot IP: - (DOWN)"), &adripilotStatusLabel, &adripilotIndicator);
+  mkRow(tr("SICUEM IP: - (DOWN)"), &sicuemStatusLabel, &sicuemIndicator);
+
   content_layout->addStretch();
-
   mainLayout->addWidget(content);
 
-  primeUser->setVisible(uiState()->hasPrime());
+  // Mostrar directamente el panel UEM simplificado
   mainLayout->setCurrentIndex(1);
 
   setStyleSheet(R"(
@@ -298,6 +340,14 @@ SetupWidget::SetupWidget(QWidget* parent) : QFrame(parent) {
 
     QObject::connect(repeater, &RequestRepeater::requestDone, this, &SetupWidget::replyFinished);
   }
+
+  // Inicializar rutas de config y temporizador de estado
+  ensureConfigPaths();
+  statusTimer = new QTimer(this);
+  statusTimer->setInterval(8000);
+  QObject::connect(statusTimer, &QTimer::timeout, this, &SetupWidget::refreshNetworkStatus);
+  statusTimer->start();
+  QTimer::singleShot(100, this, &SetupWidget::refreshNetworkStatus);
 }
 
 void SetupWidget::replyFinished(const QString &response, bool success) {
@@ -322,4 +372,66 @@ void SetupWidget::replyFinished(const QString &response, bool success) {
     primeUser->setVisible(uiState()->hasPrime());
     mainLayout->setCurrentIndex(1);
   }
+}
+
+// Helpers
+QString SetupWidget::loadIpFromJson(const QString &file_path, const QString &key_path) {
+  QFile file(file_path);
+  if (!file.exists() || !file.open(QIODevice::ReadOnly | QIODevice::Text)) return QString();
+  const QByteArray data = file.readAll();
+  file.close();
+  QJsonParseError err; QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+  if (err.error != QJsonParseError::NoError || !doc.isObject()) return QString();
+  QJsonObject root = doc.object();
+  if (key_path == "broker") {
+    return root.value("broker").toString();
+  }
+  if (key_path == "config.IpServer.value") {
+    QJsonObject cfg = root.value("config").toObject();
+    QJsonObject ipS = cfg.value("IpServer").toObject();
+    return ipS.value("value").toString();
+  }
+  return QString();
+}
+
+void SetupWidget::ensureConfigPaths() {
+  QStringList bases = { QDir::currentPath(), QDir::currentPath()+"/..", QDir::currentPath()+"/../..", "/data/openpilot" };
+  for (const QString &b : bases) {
+    QString a = b + "/sicuem/adripilot/config_mqtt.json";
+    QString s = b + "/sicuem/config.json";
+    if (adripilotConfigPath.isEmpty() && QFile::exists(a)) adripilotConfigPath = QFileInfo(a).absoluteFilePath();
+    if (sicuemConfigPath.isEmpty() && QFile::exists(s)) sicuemConfigPath = QFileInfo(s).absoluteFilePath();
+  }
+  if (adripilotConfigPath.isEmpty()) adripilotConfigPath = "/data/openpilot/sicuem/adripilot/config_mqtt.json";
+  if (sicuemConfigPath.isEmpty()) sicuemConfigPath = "/data/openpilot/sicuem/config.json";
+}
+
+bool SetupWidget::pingHost(const QString &ip, int timeout_ms) {
+  if (ip.isEmpty()) return false;
+  QProcess p;
+  QStringList args = {"-c", "1", "-W", QString::number(qMax(1, timeout_ms/1000)), ip};
+  p.start("/system/bin/ping", args);
+  if (!p.waitForStarted(200)) {
+    p.start("/bin/ping", args);
+    if (!p.waitForStarted(200)) return false;
+  }
+  p.waitForFinished(timeout_ms + 500);
+  return p.exitStatus() == QProcess::NormalExit && p.exitCode() == 0;
+}
+
+void SetupWidget::setIndicator(QWidget *w, bool up) {
+  if (!w) return;
+  w->setStyleSheet(QString("border-radius: 18px; background: %1;").arg(up ? "#27AE60" : "#C0392B"));
+}
+
+void SetupWidget::refreshNetworkStatus() {
+  ensureConfigPaths();
+  const QString ipA = loadIpFromJson(adripilotConfigPath, "broker");
+  const QString ipS = loadIpFromJson(sicuemConfigPath, "config.IpServer.value");
+  const bool upA = pingHost(ipA, 1000);
+  const bool upS = pingHost(ipS, 1000);
+  if (adripilotStatusLabel) adripilotStatusLabel->setText(tr("AdriPilot IP: %1 (%2)").arg(ipA.isEmpty()?"-":ipA, upA?"UP":"DOWN"));
+  if (sicuemStatusLabel) sicuemStatusLabel->setText(tr("SICUEM IP: %1 (%2)").arg(ipS.isEmpty()?"-":ipS, upS?"UP":"DOWN"));
+  setIndicator(adripilotIndicator, upA);
+  setIndicator(sicuemIndicator, upS);
 }
