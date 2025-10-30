@@ -1282,46 +1282,30 @@ Warning: You are on a metered connection!</source>
     <name>PrimeAdWidget</name>
     <message>
         <source>Upgrade Now</source>
-        <translation type="vanished">今すぐｱｯﾌﾟｸﾞﾚｰﾄ</translation>
+        <translation>今すぐｱｯﾌﾟｸﾞﾚｰﾄ</translation>
     </message>
     <message>
         <source>Become a comma prime member at connect.comma.ai</source>
-        <translation type="vanished">connect.comma.ai でﾌﾟﾗｲﾑ会員に登録できます</translation>
+        <translation>connect.comma.ai でﾌﾟﾗｲﾑ会員に登録できます</translation>
     </message>
     <message>
         <source>PRIME FEATURES:</source>
-        <translation type="vanished">特典：</translation>
+        <translation>特典：</translation>
     </message>
     <message>
         <source>Remote access</source>
-        <translation type="vanished">リモートアクセス</translation>
+        <translation>リモートアクセス</translation>
     </message>
     <message>
-        <source>SICUEM</source>
+        <source>24/7 LTE connectivity</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Grupo de investigacion de la Universidad Europea</source>
+        <source>1 year of drive storage</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>Integrantes del grupo:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Adrian Cañadas</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Javier F.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Nourdine A.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Sergio B.</source>
+        <source>Turn-by-turn navigation</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1827,30 +1811,6 @@ Reboot Required.</source>
     <message>
         <source>Pair device</source>
         <translation>デバイスをペアリング</translation>
-    </message>
-    <message>
-        <source>Universidad Europea - UEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integración AdriPilot / SICUEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

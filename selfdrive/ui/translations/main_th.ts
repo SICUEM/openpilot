@@ -1283,59 +1283,31 @@ Warning: You are on a metered connection!</source>
     <name>PrimeAdWidget</name>
     <message>
         <source>Upgrade Now</source>
-        <translation type="vanished">อัพเกรดเดี๋ยวนี้</translation>
+        <translation>อัพเกรดเดี๋ยวนี้</translation>
     </message>
     <message>
         <source>Become a comma prime member at connect.comma.ai</source>
-        <translation type="vanished">สมัครสมาชิก comma prime ได้ที่ connect.comma.ai</translation>
+        <translation>สมัครสมาชิก comma prime ได้ที่ connect.comma.ai</translation>
     </message>
     <message>
         <source>PRIME FEATURES:</source>
-        <translation type="vanished">คุณสมบัติของ PRIME:</translation>
+        <translation>คุณสมบัติของ PRIME:</translation>
     </message>
     <message>
         <source>Remote access</source>
-        <translation type="vanished">การเข้าถึงระยะไกล</translation>
+        <translation>การเข้าถึงระยะไกล</translation>
     </message>
     <message>
         <source>24/7 LTE connectivity</source>
-        <translation type="vanished">การเชื่อมต่อ LTE แบบ 24/7</translation>
+        <translation>การเชื่อมต่อ LTE แบบ 24/7</translation>
     </message>
     <message>
         <source>1 year of drive storage</source>
-        <translation type="vanished">จัดเก็บข้อมูลการขับขี่นาน 1 ปี</translation>
+        <translation>จัดเก็บข้อมูลการขับขี่นาน 1 ปี</translation>
     </message>
     <message>
         <source>Turn-by-turn navigation</source>
-        <translation type="vanished">การนำทางแบบเลี้ยวต่อเลี้ยว</translation>
-    </message>
-    <message>
-        <source>SICUEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Grupo de investigacion de la Universidad Europea</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integrantes del grupo:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Adrian Cañadas</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Javier F.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Nourdine A.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Sergio B.</source>
-        <translation type="unfinished"></translation>
+        <translation>การนำทางแบบเลี้ยวต่อเลี้ยว</translation>
     </message>
 </context>
 <context>
@@ -1841,30 +1813,6 @@ Reboot Required.</source>
     <message>
         <source>Pair device</source>
         <translation>จับคู่อุปกรณ์</translation>
-    </message>
-    <message>
-        <source>Universidad Europea - UEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integración AdriPilot / SICUEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

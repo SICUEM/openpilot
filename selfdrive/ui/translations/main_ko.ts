@@ -1283,59 +1283,31 @@ Warning: You are on a metered connection!</source>
     <name>PrimeAdWidget</name>
     <message>
         <source>Upgrade Now</source>
-        <translation type="vanished">지금 업그레이드하세요</translation>
+        <translation>지금 업그레이드하세요</translation>
     </message>
     <message>
         <source>Become a comma prime member at connect.comma.ai</source>
-        <translation type="vanished">connect.comma.ai에 접속하여 comma prime 회원으로 등록하세요</translation>
+        <translation>connect.comma.ai에 접속하여 comma prime 회원으로 등록하세요</translation>
     </message>
     <message>
         <source>PRIME FEATURES:</source>
-        <translation type="vanished">PRIME 기능:</translation>
+        <translation>PRIME 기능:</translation>
     </message>
     <message>
         <source>Remote access</source>
-        <translation type="vanished">원격 접속</translation>
+        <translation>원격 접속</translation>
     </message>
     <message>
         <source>24/7 LTE connectivity</source>
-        <translation type="vanished">항상 LTE 연결</translation>
+        <translation>항상 LTE 연결</translation>
     </message>
     <message>
         <source>Turn-by-turn navigation</source>
-        <translation type="vanished">내비게이션 경로안내</translation>
+        <translation>내비게이션 경로안내</translation>
     </message>
     <message>
         <source>1 year of drive storage</source>
-        <translation type="vanished">1년간 드라이브 로그 저장</translation>
-    </message>
-    <message>
-        <source>SICUEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Grupo de investigacion de la Universidad Europea</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integrantes del grupo:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Adrian Cañadas</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Javier F.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Nourdine A.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Sergio B.</source>
-        <translation type="unfinished"></translation>
+        <translation>1년간 드라이브 로그 저장</translation>
     </message>
 </context>
 <context>
@@ -1841,30 +1813,6 @@ Reboot Required.</source>
     <message>
         <source>Pair device</source>
         <translation>장치 페어링</translation>
-    </message>
-    <message>
-        <source>Universidad Europea - UEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integración AdriPilot / SICUEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>

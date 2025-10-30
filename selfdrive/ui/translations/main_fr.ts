@@ -1284,59 +1284,31 @@ Warning: You are on a metered connection!</source>
     <name>PrimeAdWidget</name>
     <message>
         <source>Upgrade Now</source>
-        <translation type="vanished">Mettre à niveau</translation>
+        <translation>Mettre à niveau</translation>
     </message>
     <message>
         <source>Become a comma prime member at connect.comma.ai</source>
-        <translation type="vanished">Devenez membre comma prime sur connect.comma.ai</translation>
+        <translation>Devenez membre comma prime sur connect.comma.ai</translation>
     </message>
     <message>
         <source>PRIME FEATURES:</source>
-        <translation type="vanished">FONCTIONNALITÉS PRIME :</translation>
+        <translation>FONCTIONNALITÉS PRIME :</translation>
     </message>
     <message>
         <source>Remote access</source>
-        <translation type="vanished">Accès à distance</translation>
+        <translation>Accès à distance</translation>
     </message>
     <message>
         <source>24/7 LTE connectivity</source>
-        <translation type="vanished">Connexion LTE 24/7</translation>
+        <translation>Connexion LTE 24/7</translation>
     </message>
     <message>
         <source>1 year of drive storage</source>
-        <translation type="vanished">1 an de stockage de trajets</translation>
+        <translation>1 an de stockage de trajets</translation>
     </message>
     <message>
         <source>Turn-by-turn navigation</source>
-        <translation type="vanished">Navigation étape par étape</translation>
-    </message>
-    <message>
-        <source>SICUEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Grupo de investigacion de la Universidad Europea</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integrantes del grupo:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Adrian Cañadas</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Javier F.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Nourdine A.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Sergio B.</source>
-        <translation type="unfinished"></translation>
+        <translation>Navigation étape par étape</translation>
     </message>
 </context>
 <context>
@@ -1845,30 +1817,6 @@ Reboot Required.</source>
     <message>
         <source>Pair device</source>
         <translation>Associer l&apos;appareil</translation>
-    </message>
-    <message>
-        <source>Universidad Europea - UEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Integración AdriPilot / SICUEM</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: - (DOWN)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>AdriPilot IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>SICUEM IP: %1 (%2)</source>
-        <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
