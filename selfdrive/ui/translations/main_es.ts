@@ -3312,6 +3312,22 @@ This feature must be used along with SLC, and/or V-TSC, and/or M-TSC.</source>
         <source>Conf. IP Servidores</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Configuración UEM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ajustes y utilidades del sistema UEM</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Funciones</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Configuración</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

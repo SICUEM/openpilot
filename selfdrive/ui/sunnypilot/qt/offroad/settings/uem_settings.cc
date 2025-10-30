@@ -9,6 +9,20 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
 
 
   ListWidgetSP *list = new ListWidgetSP(this, false);
+  // Encabezado principal
+  {
+    QWidget *header = new QWidget(this);
+    QVBoxLayout *hl = new QVBoxLayout(header);
+    hl->setContentsMargins(30, 20, 30, 10);
+    QLabel *title = new QLabel(tr("Configuración UEM"), header);
+    title->setStyleSheet("font-size: 70px; font-weight: 700; color: white;");
+    QLabel *subtitle = new QLabel(tr("Ajustes y utilidades del sistema UEM"), header);
+    subtitle->setStyleSheet("font-size: 45px; color: #BDBDBD;");
+    hl->addWidget(title);
+    hl->addWidget(subtitle);
+    list->addItem(header);
+    list->addItem(horizontal_line());
+  }
   std::vector<std::tuple<QString, QString, QString, QString>> toggle_defs{
     {
       "telemetria_uem",
@@ -155,6 +169,18 @@ SubPanelButton *madsSettings3 = new SubPanelButton(tr("Sender UEM"));
       });
 */
 
+  // Sección: Funcionalidad
+  {
+    QWidget *section = new QWidget(this);
+    QHBoxLayout *sl = new QHBoxLayout(section);
+    sl->setContentsMargins(30, 10, 30, 0);
+    QLabel *label = new QLabel(tr("Funciones"), section);
+    label->setStyleSheet("font-size: 55px; font-weight: 600; color: #E0E0E0;");
+    sl->addWidget(label, 0, Qt::AlignLeft);
+    sl->addStretch(1);
+    list->addItem(section);
+  }
+
   // Añadir toggles y el botón de "Conf. TELEMETRIA UEM"
   for (auto &[param, title, desc, icon] : toggle_defs) {
 
@@ -191,6 +217,16 @@ SubPanelButton *madsSettings3 = new SubPanelButton(tr("Sender UEM"));
 
     if (param == "telemetria_uem") {
       list->addItem(madsSettingsLayout);  // Añadir el botón debajo del toggle de TELEMETRIA UEM
+      // Sección: Configuración
+      list->addItem(horizontal_line());
+      QWidget *section = new QWidget(this);
+      QHBoxLayout *sl = new QHBoxLayout(section);
+      sl->setContentsMargins(30, 0, 30, 0);
+      QLabel *label = new QLabel(tr("Configuración"), section);
+      label->setStyleSheet("font-size: 55px; font-weight: 600; color: #E0E0E0;");
+      sl->addWidget(label, 0, Qt::AlignLeft);
+      sl->addStretch(1);
+      list->addItem(section);
       list->addItem(serverIpSettingsLayout);  // Añadir el botón de configuración de IPs
     }
      //list->addItem(madsSettingsLayout3);  // Añadir el botón debajo del toggle de TELEMETRIA UEM
@@ -224,8 +260,12 @@ connect(toggles["telemetria_uem"], &ToggleControlSP::toggleFlipped, [=](bool sta
       color: #dddddd;
       background-color: #393939;
     }
-    #back_btn:pressed {
-      background-color:  #4a4a4a;
+    #back_btn:pressed { background-color: #4a4a4a; }
+
+    /* Estilo de botones de subpanel */
+    SubPanelButton {
+      font-size: 55px;
+      font-weight: 600;
     }
   )");
 }
