@@ -50,27 +50,41 @@ def send_event(title: str,
   if event_type is not None:
     payload["event_type"] = event_type
   try:
-    publish.single(topic, json.dumps(payload), hostname=broker, port=port)
-  except Exception:
-    # No lanzar excepción para no afectar al loop de control
-    pass
+    publish.single(topic, json.dumps(payload), hostname=broker, port=port, qos=0)
+    # Log solo en desarrollo, comentar en producción si es necesario
+    print(f"📤 Evento MQTT enviado a {topic}: {payload.get('title', 'N/A')} - {payload.get('message', 'N/A')}")
+  except Exception as e:
+    # Log del error para diagnóstico
+    print(f"❌ Error al enviar evento MQTT a {broker}:{port}: {e}")
+    raise  # Re-lanzar para que se capture en controlsd.py
 
 
 def send_alert(alert) -> None:
   """Send an Events.Alert-like object.
 
-  Expects attributes: alert_text_1, alert_text_2, priority
+  Expects attributes: alert_text_1, alert_text_2, priority, alert_type
   """
-  title = getattr(alert, "alert_text_1", "") or ""
-  msg = getattr(alert, "alert_text_2", "") or ""
-  prio = getattr(alert, "priority", 0) or 0
-  atype = getattr(alert, "alert_type", "") or ""
-  ev_name = None
-  ev_type = None
-  if "/" in atype:
-    parts = atype.split("/", 1)
-    if len(parts) == 2:
-      ev_name, ev_type = parts[0], parts[1]
-  send_event(title, msg, int(prio), event_name=ev_name, event_type=ev_type)
+  try:
+    title = getattr(alert, "alert_text_1", "") or ""
+    msg = getattr(alert, "alert_text_2", "") or ""
+    prio = getattr(alert, "priority", 0) or 0
+    atype = getattr(alert, "alert_type", "") or ""
+
+    # Validar que tenemos datos mínimos
+    if not title and not msg:
+      print(f"⚠️ AdriPilot: Alerta sin título ni mensaje, alert_type={atype}")
+      return
+
+    ev_name = None
+    ev_type = None
+    if "/" in atype:
+      parts = atype.split("/", 1)
+      if len(parts) == 2:
+        ev_name, ev_type = parts[0], parts[1]
+
+    send_event(title, msg, int(prio), event_name=ev_name, event_type=ev_type)
+  except Exception as e:
+    print(f"❌ AdriPilot: Error en send_alert: {e}")
+    raise  # Re-lanzar para diagnóstico
 
 
