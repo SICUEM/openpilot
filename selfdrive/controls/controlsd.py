@@ -34,6 +34,8 @@ from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE
 from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
 from openpilot.sicuem.adripilot.mqtt_envio_general import MQTTEnvioGeneral
+from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_control_ultra_simple
+from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_ultra_simple
 
 
 
@@ -72,6 +74,9 @@ class Controls:
   def __init__(self, CI=None):
     sicMqtt = SicMqttHilo2()
     sicMqtt.start()
+
+    # UEM/AdriPilot: set de alertas ya notificadas para no repetir envío MQTT por frame
+    self._adripilot_alerts_sent = set()
 
     sender = MQTTEnvioGeneral()
     sender.start()
@@ -536,6 +541,7 @@ class Controls:
     self.v_cruise_helper.update_v_cruise(CS, self.enabled_long, self.is_metric, self.reverse_acc_change,
                                          self.sm['longitudinalPlanSP'])
 
+
     # decrement the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state
     self.soft_disable_timer = max(0, self.soft_disable_timer - 1)
@@ -675,6 +681,16 @@ class Controls:
 
     actuators = CC.actuators
     actuators.longControlState = self.LoC.long_control_state
+
+    # Procesar comandos AdriPilot (ultra simplificado)
+    try:
+      adripilot_control_ultra_simple.process_commands(CC, CS, self.sm)
+    except Exception as e:
+      print(f"❌ Error procesando comandos AdriPilot: {e}")
+
+    # Procesar comandos de velocidad AdriPilot (ultra simplificado) - MOVIDO DESPUÉS
+    # Este código se ejecuta después de la asignación de CC.vCruise para evitar sobrescritura
+
 
     '''
     #CONTROL lateral
@@ -862,6 +878,16 @@ class Controls:
     hudControl = CC.hudControl
     hudControl.setSpeed = float(self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
 
+    # Procesar comandos de velocidad AdriPilot (ultra simplificado) - DESPUÉS de asignación
+    try:
+      adripilot_speed_ultra_simple.process_speed_commands(CC, CS, self.v_cruise_helper)
+    except Exception as e:
+      print(f"❌ Error procesando velocidad AdriPilot: {e}")
+
+    # Re-aplicar la velocidad actualizada después del procesamiento AdriPilot
+    CC.vCruise = self.v_cruise_helper.v_cruise_kph
+    hudControl.setSpeed = float(self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
+
     hudControl.speedVisible = self.enabled_long
     hudControl.lanesVisible = self.enabled
     hudControl.leadVisible = self.sm['longitudinalPlan'].hasLead
@@ -901,6 +927,39 @@ class Controls:
 
     alerts = self.events.create_alerts(self.current_alert_types,
                                        [self.CP, CS, self.sm, self.is_metric, self.soft_disable_timer])
+
+    # Enviar por MQTT solo nuevas alertas (título, mensaje, prioridad)
+    # IMPORTANTE: Este código se ejecuta SIEMPRE, tanto en simulador como en coche real
+    # Se ejecuta en cada iteración del loop de control, después de crear las alertas
+    try:
+      from openpilot.sicuem.adripilot import events_mqtt
+      current_types = set()
+
+      # Debug: Log cada 100 frames para no saturar logs
+      if self.sm.frame % 100 == 0:
+        cloudlog.info(f"🔍 AdriPilot: Frame {self.sm.frame}, eventos activos: {len(self.events)}, alertas creadas: {len(alerts)}")
+
+      for a in alerts:
+        # alert_type se establece en create_alerts, ej: "eventName/eventType"
+        atype = getattr(a, 'alert_type', '') or ''
+        if atype:
+          current_types.add(atype)
+          if atype not in self._adripilot_alerts_sent:
+            # Enviar alerta por MQTT
+            try:
+              events_mqtt.send_alert(a)
+              cloudlog.info(f"📤 AdriPilot: Evento MQTT enviado - {atype}")
+            except Exception as e:
+              cloudlog.error(f"❌ AdriPilot: Error enviando evento MQTT {atype}: {e}")
+
+      # Actualizar el conjunto de alertas enviadas; mantener solo las aún presentes para permitir re-envío si desaparecen y reaparecen
+      self._adripilot_alerts_sent &= current_types
+      self._adripilot_alerts_sent |= current_types
+    except ImportError as e:
+      cloudlog.error(f"❌ AdriPilot: Error importando events_mqtt: {e}")
+    except Exception as e:
+      cloudlog.error(f"❌ AdriPilot: Error procesando eventos MQTT: {e}")
+
     self.AM.add_many(self.sm.frame, alerts)
     current_alert = self.AM.process_alerts(self.sm.frame, clear_event_types)
     if current_alert:
