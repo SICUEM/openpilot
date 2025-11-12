@@ -184,3 +184,9 @@ print(f"Toggle c_carril: {c_carril_activo}")
 
 El sistema está **listo para funcionar** una vez que agregues los endpoints en el servidor Flask.
 
+
+
+
+
+
+

@@ -188,3 +188,9 @@ safety_toggle = params.get_bool("c_carril")
 3. Verificar que el sistema esté en modo de conducción activo
 
 
+
+
+
+
+
+

@@ -87,3 +87,9 @@ if __name__ == "__main__":
     # Prueba con dongle_id real (cambiar por uno real)
     test_with_real_dongle_id()
 
+
+
+
+
+
+

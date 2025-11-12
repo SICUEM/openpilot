@@ -48,15 +48,24 @@ class MQTTComandos:
     if rc == 0:
       self.conectado = True
       print("🔌 MQTT Comandos conectado")
-      # Suscribirse a los comandos de cambio de carril
-      client.subscribe(f"telemetry_config/{self.DongleID}/left", qos=0)
-      client.subscribe(f"telemetry_config/{self.DongleID}/right", qos=0)
-      client.subscribe(f"telemetry_config/{self.DongleID}/intervalos", qos=0)
+      # Suscribirse a todos los comandos del sistema AdriPilot
+      topics = [
+        f"telemetry_config/{self.DongleID}/left",           # Cambio carril izquierda
+        f"telemetry_config/{self.DongleID}/right",          # Cambio carril derecha
+        f"telemetry_config/{self.DongleID}/control",        # Control básico (forward, break, tright, tleft)
+        f"telemetry_config/{self.DongleID}/speed",          # Comandos de velocidad (formato JSON)
+        f"telemetry_config/{self.DongleID}/speed_up",       # Comando aumentar velocidad (formato servidor)
+        f"telemetry_config/{self.DongleID}/speed_down",     # Comando disminuir velocidad (formato servidor)
+        f"telemetry_config/{self.DongleID}/intervalos"      # Configuración intervalos
+      ]
+
+      for topic in topics:
+        client.subscribe(topic, qos=0)
+
       print(f"📡 Suscrito a comandos para {self.DongleID}")
       print(f"📡 Topics suscritos:")
-      print(f"   - telemetry_config/{self.DongleID}/left")
-      print(f"   - telemetry_config/{self.DongleID}/right")
-      print(f"   - telemetry_config/{self.DongleID}/intervalos")
+      for topic in topics:
+        print(f"   - {topic}")
     else:
       print(f"🔌 Error conexión MQTT Comandos: {rc}")
 
@@ -68,7 +77,7 @@ class MQTTComandos:
     """Callback que maneja los mensajes MQTT de comandos."""
     try:
       topic = msg.topic
-      payload = msg.payload.decode(errors="ignore").strip().lower()
+      payload = msg.payload.decode(errors="ignore").strip()
 
       print(f"📥 MQTT recibido: {topic} -> {payload}")
 
@@ -79,6 +88,22 @@ class MQTTComandos:
       # Comando de cambio de carril a la derecha
       elif topic.endswith("/right"):
         self.handle_lane_change_right(payload)
+
+      # Comando de control básico (forward, break, tright, tleft)
+      elif topic.endswith("/control"):
+        self.handle_control_commands(payload)
+
+      # Comando de velocidad (increase/decrease) - formato JSON
+      elif topic.endswith("/speed"):
+        self.handle_speed_commands(payload)
+
+      # Comando de aumentar velocidad - formato servidor
+      elif topic.endswith("/speed_up"):
+        self.handle_speed_up_server(payload)
+
+      # Comando de disminuir velocidad - formato servidor
+      elif topic.endswith("/speed_down"):
+        self.handle_speed_down_server(payload)
 
       # Comando de intervalos
       elif topic.endswith("/intervalos"):
@@ -133,16 +158,162 @@ class MQTTComandos:
       self.params.put_bool("ForceLaneChangeRight", True)
       print(f"✅ Ejecutando cambio de carril DERECHA para {self.DongleID}")
 
+  def handle_control_commands(self, payload):
+    """Maneja los comandos de control básico (forward, break, tright, tleft)."""
+    try:
+      import json
+      data = json.loads(payload)
+
+      # Comando Forward (Arriba)
+      if data.get("forward"):
+        try:
+          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_forward
+          adripilot_forward = True
+          print(f"🚀 Comando FORWARD activado para {self.DongleID}")
+        except ImportError:
+          self.params.put_bool("adripilot_forward", True)
+          print(f"🚀 Comando FORWARD activado para {self.DongleID} (fallback a Params)")
+
+      # Comando Break (Abajo)
+      if data.get("break"):
+        try:
+          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_break
+          adripilot_break = True
+          print(f"🛑 Comando BREAK activado para {self.DongleID}")
+        except ImportError:
+          self.params.put_bool("adripilot_break", True)
+          print(f"🛑 Comando BREAK activado para {self.DongleID} (fallback a Params)")
+
+      # Comando Tright (Derecha)
+      if data.get("tright"):
+        try:
+          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tright
+          adripilot_tright = True
+          print(f"↗️ Comando TRIGHT activado para {self.DongleID}")
+        except ImportError:
+          self.params.put_bool("adripilot_tright", True)
+          print(f"↗️ Comando TRIGHT activado para {self.DongleID} (fallback a Params)")
+
+      # Comando Tleft (Izquierda)
+      if data.get("tleft"):
+        try:
+          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tleft
+          adripilot_tleft = True
+          print(f"↖️ Comando TLEFT activado para {self.DongleID}")
+        except ImportError:
+          self.params.put_bool("adripilot_tleft", True)
+          print(f"↖️ Comando TLEFT activado para {self.DongleID} (fallback a Params)")
+
+    except json.JSONDecodeError:
+      print(f"❌ Error al decodificar comando de control: {payload}")
+    except Exception as e:
+      print(f"❌ Error procesando comando de control: {e}")
+
+  def handle_speed_commands(self, payload):
+    """Maneja los comandos de velocidad (increase/decrease) - formato JSON."""
+    try:
+      import json
+      data = json.loads(payload)
+
+      # Aumentar velocidad
+      if data.get("speed_increase"):
+        try:
+          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_increase
+          adripilot_speed_increase = True
+          print(f"⬆️ Comando SPEED INCREASE activado para {self.DongleID}")
+        except ImportError:
+          self.params.put_bool("adripilot_speed_increase", True)
+          print(f"⬆️ Comando SPEED INCREASE activado para {self.DongleID} (fallback a Params)")
+
+      # Reducir velocidad
+      if data.get("speed_decrease"):
+        try:
+          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_decrease
+          adripilot_speed_decrease = True
+          print(f"⬇️ Comando SPEED DECREASE activado para {self.DongleID}")
+        except ImportError:
+          self.params.put_bool("adripilot_speed_decrease", True)
+          print(f"⬇️ Comando SPEED DECREASE activado para {self.DongleID} (fallback a Params)")
+
+    except json.JSONDecodeError:
+      print(f"❌ Error al decodificar comando de velocidad: {payload}")
+    except Exception as e:
+      print(f"❌ Error procesando comando de velocidad: {e}")
+
+  def handle_speed_up_server(self, payload):
+    """Maneja el comando de aumentar velocidad - formato servidor."""
+    try:
+      # El servidor puede enviar "+1" o "1" como string
+      if payload in ["+1", "1"]:
+        # Usar variable global del sistema ultra simplificado
+        try:
+          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_increase
+          adripilot_speed_increase = True
+          print(f"⬆️ Comando SPEED UP ({payload}) activado para {self.DongleID}")
+        except ImportError:
+          # Fallback: usar parámetros como respaldo
+          self.params.put_bool("adripilot_speed_increase", True)
+          print(f"⬆️ Comando SPEED UP ({payload}) activado para {self.DongleID} (fallback a Params)")
+      else:
+        print(f"⚠️ Comando SPEED UP no reconocido: {payload}")
+
+    except Exception as e:
+      print(f"❌ Error procesando comando SPEED UP: {e}")
+
+  def handle_speed_down_server(self, payload):
+    """Maneja el comando de disminuir velocidad - formato servidor."""
+    try:
+      # El servidor puede enviar "-1" o "1" como string
+      if payload in ["-1", "1"]:
+        # Usar variable global del sistema ultra simplificado
+        try:
+          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_decrease
+          adripilot_speed_decrease = True
+          print(f"⬇️ Comando SPEED DOWN ({payload}) activado para {self.DongleID}")
+        except ImportError:
+          # Fallback: usar parámetros como respaldo
+          self.params.put_bool("adripilot_speed_decrease", True)
+          print(f"⬇️ Comando SPEED DOWN ({payload}) activado para {self.DongleID} (fallback a Params)")
+      else:
+        print(f"⚠️ Comando SPEED DOWN no reconocido: {payload}")
+
+    except Exception as e:
+      print(f"❌ Error procesando comando SPEED DOWN: {e}")
+
   def handle_intervalos(self, payload):
     """Maneja el comando de intervalos."""
-    if payload == "true":
-      self.params.put_bool("intervalos_toggle", True)
-      print("✅ intervalos_toggle activado")
-    elif payload == "false":
-      self.params.put_bool("intervalos_toggle", False)
-      print("🛑 intervalos_toggle desactivado")
-    else:
-      print(f"⚠️ Valor no reconocido en intervalos: '{payload}'")
+    try:
+      import json
+      data = json.loads(payload)
+
+      if data.get("intervalos_toggle") == "true":
+        self.params.put_bool("intervalos_toggle", True)
+        print(f"✅ intervalos_toggle activado para {self.DongleID}")
+      elif data.get("intervalos_toggle") == "false":
+        self.params.put_bool("intervalos_toggle", False)
+        print(f"🛑 intervalos_toggle desactivado para {self.DongleID}")
+      else:
+        # Compatibilidad con formato anterior
+        if payload.lower() == "true":
+          self.params.put_bool("intervalos_toggle", True)
+          print(f"✅ intervalos_toggle activado para {self.DongleID}")
+        elif payload.lower() == "false":
+          self.params.put_bool("intervalos_toggle", False)
+          print(f"🛑 intervalos_toggle desactivado para {self.DongleID}")
+        else:
+          print(f"⚠️ Valor no reconocido en intervalos: '{payload}'")
+    except json.JSONDecodeError:
+      # Fallback para formato simple
+      if payload.lower() == "true":
+        self.params.put_bool("intervalos_toggle", True)
+        print(f"✅ intervalos_toggle activado para {self.DongleID}")
+      elif payload.lower() == "false":
+        self.params.put_bool("intervalos_toggle", False)
+        print(f"🛑 intervalos_toggle desactivado para {self.DongleID}")
+      else:
+        print(f"⚠️ Valor no reconocido en intervalos: '{payload}'")
+    except Exception as e:
+      print(f"❌ Error procesando comando de intervalos: {e}")
 
   def start(self):
     """Inicia el cliente MQTT de comandos."""
