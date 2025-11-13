@@ -8,6 +8,7 @@ import cereal.messaging as messaging
 from openpilot.common.params import Params
 import os
 from .mqtt_comandos import MQTTComandos
+from .camera_sender import CameraSender
 
 class MQTTEnvioGeneral:
   def __init__(self):
@@ -27,6 +28,7 @@ class MQTTEnvioGeneral:
     self.init_submaster()
     self.init_mqtt()
     self.init_comandos()
+    self.init_camera_sender()
 
   def load_config(self):
     with open(self.jsonConfig, "r") as f:
@@ -61,6 +63,24 @@ class MQTTEnvioGeneral:
     self.comandos_mqtt = MQTTComandos()
     self.comandos_mqtt.start()
 
+  def init_camera_sender(self):
+    """Inicializa el sistema de envío de imágenes de cámaras."""
+    try:
+      # Configuración: calidad baja, frame rate alto (cada 2 segundos)
+      # Resolución: 320x180 (pequeña pero suficiente para visualización)
+      # Calidad JPEG: 35% (baja para reducir tamaño)
+      self.camera_sender = CameraSender(
+        camera_type="road",  # Solo road camera inicialmente
+        interval_seconds=2.0,  # Cada 2 segundos (0.5 FPS)
+        thumbnail_size=(320, 180),  # Resolución pequeña
+        quality=35  # Calidad baja
+      )
+      self.camera_sender.start()
+      print("📷 CameraSender iniciado para road camera")
+    except Exception as e:
+      print(f"⚠️ Error iniciando CameraSender: {e}")
+      self.camera_sender = None
+
   def setup_mqtt(self):
     while not self.stop_event.is_set():
       try:
@@ -89,6 +109,8 @@ class MQTTEnvioGeneral:
     self.stop_event.set()
     if hasattr(self, 'comandos_mqtt'):
       self.comandos_mqtt.stop()
+    if hasattr(self, 'camera_sender') and self.camera_sender is not None:
+      self.camera_sender.stop()
     self.mqttc.disconnect()
     print("🛑 Sistema MQTT detenido")
 
