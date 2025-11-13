@@ -68,3 +68,4 @@ adripilot_speed_global = AdriPilotSpeedGlobal()
 
 
 
+
