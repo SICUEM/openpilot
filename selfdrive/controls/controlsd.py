@@ -187,6 +187,14 @@ class Controls:
     self.enable_nnff = self.params.get_bool("NNFF")
 
     self.reverse_acc_change = False
+
+    # Variables para giro temporal del volante (AdriPilot)
+    # Ahora se usan variables globales en lugar de parámetros
+    try:
+      from openpilot.sicuem.adripilot.adripilot_steering_pulse import clear_steering_pulse
+      clear_steering_pulse()  # Limpiar cualquier pulso pendiente al iniciar
+    except ImportError:
+      pass  # Módulo no disponible, ignorar
     self.dynamic_experimental_control = False
 
     self.live_torque = self.params.get_bool("LiveTorque")
@@ -752,6 +760,47 @@ class Controls:
         self.sm['liveLocationKalman'],  # Datos en vivo de ubicación y orientación del vehículo.
         model_data=model_v2  # Datos del modelo de conducción.
       )
+
+      # AdriPilot: Aplicar giro temporal del volante si hay comando MQTT
+      # IMPORTANTE: Se aplica solo si el control lateral está activo (CC.latActive)
+      try:
+        from openpilot.sicuem.adripilot.adripilot_steering_pulse import get_steering_pulse, adripilot_steering_pulse_duration, adripilot_steering_pulse_angle
+
+        pulse_start, direction, is_active = get_steering_pulse()
+
+        if is_active and direction in ["right", "left"] and CC.latActive:
+          import time
+          current_time = time.time()
+          elapsed = current_time - pulse_start
+
+          # Aplicar offset según dirección
+          if direction == "right":
+            actuators.steeringAngleDeg += adripilot_steering_pulse_angle
+            # También ajustar curvatura para consistencia
+            self.desired_curvature += 0.008
+          elif direction == "left":
+            actuators.steeringAngleDeg -= adripilot_steering_pulse_angle
+            # También ajustar curvatura para consistencia
+            self.desired_curvature -= 0.008
+
+          # Log cada vez para debug (temporal)
+          angle_str = f"{actuators.steeringAngleDeg:.2f}°"
+          cloudlog.info(f"🔄 AdriPilot: Giro temporal {direction} ({elapsed:.2f}s/{adripilot_steering_pulse_duration}s) - angle: {angle_str}")
+        elif is_active and not CC.latActive:
+          # Pulso activo pero control lateral no activo
+          if self.sm.frame % 50 == 0:
+            cloudlog.warning("⚠️ AdriPilot: Pulso activo pero latActive=False - esperando activación")
+        elif pulse_start is not None:
+          # Hay un pulso pero no está activo (ya expiró o hay error)
+          if self.sm.frame % 50 == 0:
+            cloudlog.warning(f"⚠️ AdriPilot: Pulso detectado pero no activo - start: {pulse_start}, direction: {direction}, active: {is_active}")
+      except ImportError as e:
+        # Módulo no disponible, log para debug
+        if self.sm.frame % 200 == 0:
+          cloudlog.error(f"❌ AdriPilot: Error importando módulo de giro temporal: {e}")
+      except Exception as e:
+        # Error inesperado, log siempre para debug
+        cloudlog.error(f"❌ AdriPilot: Error en giro temporal: {e}")
 
       if self.model_use_lateral_planner:
         actuators.curvature = self.desired_curvature

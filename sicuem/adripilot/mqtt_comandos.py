@@ -162,50 +162,88 @@ class MQTTComandos:
     """Maneja los comandos de control básico (forward, break, tright, tleft)."""
     try:
       import json
-      data = json.loads(payload)
 
-      # Comando Forward (Arriba)
-      if data.get("forward"):
-        try:
-          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_forward
-          adripilot_forward = True
-          print(f"🚀 Comando FORWARD activado para {self.DongleID}")
-        except ImportError:
-          self.params.put_bool("adripilot_forward", True)
-          print(f"🚀 Comando FORWARD activado para {self.DongleID} (fallback a Params)")
+      # Intentar parsear como JSON primero
+      try:
+        data = json.loads(payload)
 
-      # Comando Break (Abajo)
-      if data.get("break"):
-        try:
-          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_break
-          adripilot_break = True
-          print(f"🛑 Comando BREAK activado para {self.DongleID}")
-        except ImportError:
-          self.params.put_bool("adripilot_break", True)
-          print(f"🛑 Comando BREAK activado para {self.DongleID} (fallback a Params)")
+        # Comando Forward (Arriba)
+        if data.get("forward"):
+          try:
+            from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_forward
+            adripilot_forward = True
+            print(f"🚀 Comando FORWARD activado para {self.DongleID}")
+          except ImportError:
+            self.params.put_bool("adripilot_forward", True)
+            print(f"🚀 Comando FORWARD activado para {self.DongleID} (fallback a Params)")
 
-      # Comando Tright (Derecha)
-      if data.get("tright"):
-        try:
-          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tright
-          adripilot_tright = True
-          print(f"↗️ Comando TRIGHT activado para {self.DongleID}")
-        except ImportError:
-          self.params.put_bool("adripilot_tright", True)
-          print(f"↗️ Comando TRIGHT activado para {self.DongleID} (fallback a Params)")
+        # Comando Break (Abajo)
+        if data.get("break"):
+          try:
+            from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_break
+            adripilot_break = True
+            print(f"🛑 Comando BREAK activado para {self.DongleID}")
+          except ImportError:
+            self.params.put_bool("adripilot_break", True)
+            print(f"🛑 Comando BREAK activado para {self.DongleID} (fallback a Params)")
 
-      # Comando Tleft (Izquierda)
-      if data.get("tleft"):
-        try:
-          from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tleft
-          adripilot_tleft = True
-          print(f"↖️ Comando TLEFT activado para {self.DongleID}")
-        except ImportError:
-          self.params.put_bool("adripilot_tleft", True)
-          print(f"↖️ Comando TLEFT activado para {self.DongleID} (fallback a Params)")
+        # Comando Tright (Derecha) - formato JSON
+        if data.get("tright"):
+          # Activar giro temporal usando el nuevo sistema
+          try:
+            from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
+            set_steering_pulse("right")
+            print(f"↗️ Comando TRIGHT (JSON) activado para {self.DongleID} - giro temporal a la derecha")
+          except Exception as e:
+            print(f"❌ Error activando giro temporal TRIGHT: {e}")
+          # Mantener compatibilidad con código viejo (opcional)
+          try:
+            from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tright
+            adripilot_tright = True
+          except ImportError:
+            pass
 
-    except json.JSONDecodeError:
-      print(f"❌ Error al decodificar comando de control: {payload}")
+        # Comando Tleft (Izquierda) - formato JSON
+        if data.get("tleft"):
+          # Activar giro temporal usando el nuevo sistema
+          try:
+            from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
+            set_steering_pulse("left")
+            print(f"↖️ Comando TLEFT (JSON) activado para {self.DongleID} - giro temporal a la izquierda")
+          except Exception as e:
+            print(f"❌ Error activando giro temporal TLEFT: {e}")
+          # Mantener compatibilidad con código viejo (opcional)
+          try:
+            from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tleft
+            adripilot_tleft = True
+          except ImportError:
+            pass
+
+      except json.JSONDecodeError:
+        # Si no es JSON, tratar como string simple (formato servidor: "tleft" o "tright")
+        payload_lower = payload.lower().strip()
+
+        if payload_lower == "tright":
+          # Activar giro temporal a la derecha usando variables globales
+          try:
+            from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
+            set_steering_pulse("right")
+            print(f"↗️ Comando TRIGHT (string) activado para {self.DongleID} - giro temporal a la derecha")
+          except Exception as e:
+            print(f"❌ Error activando giro temporal TRIGHT: {e}")
+
+        elif payload_lower == "tleft":
+          # Activar giro temporal a la izquierda usando variables globales
+          try:
+            from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
+            set_steering_pulse("left")
+            print(f"↖️ Comando TLEFT (string) activado para {self.DongleID} - giro temporal a la izquierda")
+          except Exception as e:
+            print(f"❌ Error activando giro temporal TLEFT: {e}")
+
+        else:
+          print(f"⚠️ Comando de control no reconocido (string): '{payload}'")
+
     except Exception as e:
       print(f"❌ Error procesando comando de control: {e}")
 
