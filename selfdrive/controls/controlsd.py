@@ -75,8 +75,7 @@ class Controls:
     sicMqtt = SicMqttHilo2()
     sicMqtt.start()
 
-    # UEM/AdriPilot: set de alertas ya notificadas para no repetir envío MQTT por frame
-    self._adripilot_alerts_sent = set()
+    # UEM/AdriPilot: el cooldown de eventos MQTT está manejado en events_mqtt.py
 
     sender = MQTTEnvioGeneral()
     sender.start()
@@ -928,37 +927,33 @@ class Controls:
     alerts = self.events.create_alerts(self.current_alert_types,
                                        [self.CP, CS, self.sm, self.is_metric, self.soft_disable_timer])
 
-    # Enviar por MQTT solo nuevas alertas (título, mensaje, prioridad)
+    # Enviar por MQTT eventos completos con cooldown
     # IMPORTANTE: Este código se ejecuta SIEMPRE, tanto en simulador como en coche real
-    # Se ejecuta en cada iteración del loop de control, después de crear las alertas
+    # Sistema optimizado: envía eventos completos con toda su información
+    # Cooldown de 12 segundos por evento para evitar saturación
     try:
       from openpilot.sicuem.adripilot import events_mqtt
-      current_types = set()
 
       # Debug: Log cada 100 frames para no saturar logs
       if self.sm.frame % 100 == 0:
         cloudlog.info(f"🔍 AdriPilot: Frame {self.sm.frame}, eventos activos: {len(self.events)}, alertas creadas: {len(alerts)}")
 
+      # Procesar cada alerta - el sistema de cooldown está dentro de send_alert
       for a in alerts:
-        # alert_type se establece en create_alerts, ej: "eventName/eventType"
         atype = getattr(a, 'alert_type', '') or ''
         if atype:
-          current_types.add(atype)
-          if atype not in self._adripilot_alerts_sent:
-            # Enviar alerta por MQTT
-            try:
-              events_mqtt.send_alert(a)
-              cloudlog.info(f"📤 AdriPilot: Evento MQTT enviado - {atype}")
-            except Exception as e:
+          # send_alert maneja internamente el cooldown y solo envía códigos cortos
+          try:
+            events_mqtt.send_alert(a)
+          except Exception as e:
+            # Error silencioso para no afectar el loop de control
+            if self.sm.frame % 100 == 0:  # Log solo ocasionalmente
               cloudlog.error(f"❌ AdriPilot: Error enviando evento MQTT {atype}: {e}")
-
-      # Actualizar el conjunto de alertas enviadas; mantener solo las aún presentes para permitir re-envío si desaparecen y reaparecen
-      self._adripilot_alerts_sent &= current_types
-      self._adripilot_alerts_sent |= current_types
     except ImportError as e:
       cloudlog.error(f"❌ AdriPilot: Error importando events_mqtt: {e}")
     except Exception as e:
-      cloudlog.error(f"❌ AdriPilot: Error procesando eventos MQTT: {e}")
+      if self.sm.frame % 100 == 0:  # Log solo ocasionalmente
+        cloudlog.error(f"❌ AdriPilot: Error procesando eventos MQTT: {e}")
 
     self.AM.add_many(self.sm.frame, alerts)
     current_alert = self.AM.process_alerts(self.sm.frame, clear_event_types)
