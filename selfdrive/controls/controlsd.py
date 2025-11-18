@@ -763,29 +763,33 @@ class Controls:
 
       # AdriPilot: Aplicar giro temporal del volante si hay comando MQTT
       # IMPORTANTE: Se aplica solo si el control lateral está activo (CC.latActive)
+      # Sistema de dos fases:
+      # 1. Fase inicial (0.5s): Gira en la dirección indicada
+      # 2. Fase de retorno (0.5s): Gira en la dirección contraria para volver al estado original
       try:
         from openpilot.sicuem.adripilot.adripilot_steering_pulse import get_steering_pulse, adripilot_steering_pulse_duration, adripilot_steering_pulse_angle
 
-        pulse_start, direction, is_active = get_steering_pulse()
+        pulse_start, original_direction, is_active, phase, effective_direction = get_steering_pulse()
 
-        if is_active and direction in ["right", "left"] and CC.latActive:
+        if is_active and effective_direction in ["right", "left"] and CC.latActive:
           import time
           current_time = time.time()
           elapsed = current_time - pulse_start
 
-          # Aplicar offset según dirección
-          if direction == "right":
+          # Aplicar offset según la dirección efectiva (puede ser la original o la contraria en fase de retorno)
+          if effective_direction == "right":
             actuators.steeringAngleDeg += adripilot_steering_pulse_angle
             # También ajustar curvatura para consistencia
             self.desired_curvature += 0.008
-          elif direction == "left":
+          elif effective_direction == "left":
             actuators.steeringAngleDeg -= adripilot_steering_pulse_angle
             # También ajustar curvatura para consistencia
             self.desired_curvature -= 0.008
 
-          # Log cada vez para debug (temporal)
+          # Log con información de la fase
           angle_str = f"{actuators.steeringAngleDeg:.2f}°"
-          cloudlog.info(f"🔄 AdriPilot: Giro temporal {direction} ({elapsed:.2f}s/{adripilot_steering_pulse_duration}s) - angle: {angle_str}")
+          phase_str = "INICIAL" if phase == "initial" else "RETORNO"
+          cloudlog.info(f"🔄 AdriPilot: Giro {phase_str} {effective_direction} ({elapsed:.2f}s/{adripilot_steering_pulse_duration}s) - angle: {angle_str}")
         elif is_active and not CC.latActive:
           # Pulso activo pero control lateral no activo
           if self.sm.frame % 50 == 0:
@@ -793,7 +797,7 @@ class Controls:
         elif pulse_start is not None:
           # Hay un pulso pero no está activo (ya expiró o hay error)
           if self.sm.frame % 50 == 0:
-            cloudlog.warning(f"⚠️ AdriPilot: Pulso detectado pero no activo - start: {pulse_start}, direction: {direction}, active: {is_active}")
+            cloudlog.warning(f"⚠️ AdriPilot: Pulso detectado pero no activo - start: {pulse_start}, direction: {original_direction}, active: {is_active}")
       except ImportError as e:
         # Módulo no disponible, log para debug
         if self.sm.frame % 200 == 0:
