@@ -87,12 +87,14 @@ function launch {
     ./build.py
   fi
 
-  ./mapd_installer.py;
+  ./mapd_installer.py
   # [Start Bemposta] ******************************************************************************
   # echo "***************** iniciamos instalacion *****************************************************"
-  echo "iniciamos instalacion" &>> /data/openpilot/sicuem/sic_install.txt
-  pip install paho-mqtt -t /data/pythonpath &>> sic_paho.txt
-  echo "continuamos arranque" &>> /data/openpilot/sicuem/sic_install.txt
+  echo "iniciamos instalacion" &>> sic_install.txt
+  ip a &>> sic_install.txt
+  chmod +x sic_install.sh &>> sic_install.txt
+  ./sic_install.sh &>> sic_install.txt
+  echo "continuamos arranque" &>> sic_install.txt
   # [End Bemposta] ******************************************************************************
   ./manager.py
 
