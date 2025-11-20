@@ -91,10 +91,7 @@ function launch {
   # [Start Bemposta] ******************************************************************************
   # echo "***************** iniciamos instalacion *****************************************************"
   echo "iniciamos instalacion" &>> /data/openpilot/sicuem/sic_install.txt
-  #python3 -m pip install paho-mqtt &>> sic_paho.txt
-  ls -la /data/openpilot/sicuem/ &>> sic_paho.txt
-  chmod +x /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
-  /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
+  pip install paho-mqtt -t /data/pythonpath &>> sic_paho.txt
   echo "continuamos arranque" &>> /data/openpilot/sicuem/sic_install.txt
   # [End Bemposta] ******************************************************************************
   ./manager.py
