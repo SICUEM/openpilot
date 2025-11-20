@@ -55,7 +55,7 @@ def launch_install_thread():
     INSTALL_THREAD_LAUNCHED = True
     t = threading.Thread(target=install_library_threaded, args=(PACKAGE_NAME, PERSIST_PATH), daemon=True)
     t.start()
-    INSTALL_THREAD_LAUNCHED = True
+    INSTALL_THREAD_LAUNCHED = False
 
 def test_and_set_paho_async():
     global PAHO_AVAILABLE
@@ -84,10 +84,10 @@ params = Params()
 DONGLE_ID = params.get("DongleId").decode("utf-8") if params.get("DongleId") else "UnregisteredDevice"
 
 def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
-    a = 1
-    '''
     if not test_and_set_paho_async():
         return
+    a = 1
+    '''
     topic = f"telemetry_mqtt/{DONGLE_ID}/logs"
     payload = {
         "log": mensaje,
@@ -99,10 +99,10 @@ def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
     '''
 
 def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido"):
-    a = 1
-    '''
     if not test_and_set_paho_async():
         return
+    a = 1
+    '''
     topic = f"telemetry_mqtt/{dongle_id_manual}/logs"
     payload = {
         "log": mensaje,
