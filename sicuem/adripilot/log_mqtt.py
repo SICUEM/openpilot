@@ -1,7 +1,7 @@
 # log_mqtt.py
 import json
 from datetime import datetime
-import paho.mqtt.publish as publish
+#import paho.mqtt.publish as publish
 from openpilot.common.params import Params
 import os
 
@@ -21,6 +21,7 @@ params = Params()
 DONGLE_ID = params.get("DongleId").decode("utf-8") if params.get("DongleId") else "UnregisteredDevice"
 
 def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
+    '''
     topic = f"telemetry_mqtt/{DONGLE_ID}/logs"
     payload = {
         "log": mensaje,
@@ -29,8 +30,10 @@ def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
         "origen": origen
     }
     publish.single(topic, json.dumps(payload), hostname=BROKER, port=PORT)
+    '''
   
 def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido"):
+    '''
     topic = f"telemetry_mqtt/{dongle_id_manual}/logs"
     payload = {
         "log": mensaje,
@@ -40,6 +43,7 @@ def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido
     }
     publish.single(topic, json.dumps(payload), hostname=BROKER, port=PORT)
     #print(f"📤 Log de test enviado a {topic}")
+    '''
 
 
 '''
