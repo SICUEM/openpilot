@@ -21,6 +21,7 @@ params = Params()
 DONGLE_ID = params.get("DongleId").decode("utf-8") if params.get("DongleId") else "UnregisteredDevice"
 
 def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
+    a = 1
     '''
     topic = f"telemetry_mqtt/{DONGLE_ID}/logs"
     payload = {
@@ -33,6 +34,7 @@ def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
     '''
   
 def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido"):
+    a = 1
     '''
     topic = f"telemetry_mqtt/{dongle_id_manual}/logs"
     payload = {
