@@ -54,9 +54,7 @@ def launch_install_thread():
     if INSTALL_THREAD_LAUNCHED:
         return  # Evitar lanzar múltiples hilos
     INSTALL_THREAD_LAUNCHED = True
-    t = threading.Thread(target=install_library_threaded,
-                         args=(PACKAGE_NAME, PERSIST_PATH),
-                         daemon=True)
+    t = threading.Thread(target=install_library_threaded, args=(PACKAGE_NAME, PERSIST_PATH), daemon=True)
     t.start()
     INSTALL_THREAD_LAUNCHED = True
 
@@ -97,7 +95,7 @@ def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
         "origen": origen
     }
     publish.single(topic, json.dumps(payload), hostname=BROKER, port=PORT)
-  
+
 def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido"):
     if not test_and_set_paho_async():
         return
