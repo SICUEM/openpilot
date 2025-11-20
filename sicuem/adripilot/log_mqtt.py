@@ -1,10 +1,12 @@
 # log_mqtt.py
 import json
 from datetime import datetime
-import paho.mqtt.publish as publish
 from openpilot.common.params import Params
 import os
+import importlib.util
 
+if importlib.util.find_spec("paho.mqtt"):
+    import paho.mqtt.publish as publish
 
 # Obtener ruta base
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
