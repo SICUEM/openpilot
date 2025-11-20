@@ -25,7 +25,7 @@ DONGLE_ID = params.get("DongleId").decode("utf-8") if params.get("DongleId") els
 def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
     if importlib.util.find_spec("paho.mqtt"):
         import paho.mqtt.publish as publish
-    else
+    else:
         return
     topic = f"telemetry_mqtt/{DONGLE_ID}/logs"
     payload = {
@@ -39,7 +39,7 @@ def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
 def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido"):
     if importlib.util.find_spec("paho.mqtt"):
         import paho.mqtt.publish as publish
-    else
+    else:
         return
     topic = f"telemetry_mqtt/{dongle_id_manual}/logs"
     payload = {
