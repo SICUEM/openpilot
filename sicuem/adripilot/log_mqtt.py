@@ -7,7 +7,6 @@ import importlib.util
 
 #import sys
 import subprocess
-import importlib.util
 import socket
 import threading
 
@@ -85,6 +84,8 @@ params = Params()
 DONGLE_ID = params.get("DongleId").decode("utf-8") if params.get("DongleId") else "UnregisteredDevice"
 
 def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
+    a = 1
+    '''
     if not test_and_set_paho_async():
         return
     topic = f"telemetry_mqtt/{DONGLE_ID}/logs"
@@ -95,8 +96,11 @@ def enviar_log(mensaje, nivel="INFO", origen="desconocido"):
         "origen": origen
     }
     publish.single(topic, json.dumps(payload), hostname=BROKER, port=PORT)
+    '''
 
 def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido"):
+    a = 1
+    '''
     if not test_and_set_paho_async():
         return
     topic = f"telemetry_mqtt/{dongle_id_manual}/logs"
@@ -108,6 +112,7 @@ def enviar_log_test(dongle_id_manual, mensaje, nivel="INFO", origen="desconocido
     }
     publish.single(topic, json.dumps(payload), hostname=BROKER, port=PORT)
     #print(f"📤 Log de test enviado a {topic}")
+    '''
 
 
 '''
