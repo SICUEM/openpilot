@@ -62,8 +62,6 @@ dependencies = [
 
   # logreader
   "zstandard",
-  #libreria paho mqtt
-  "paho-mqtt",
 ]
 
 [project.optional-dependencies]
