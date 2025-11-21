@@ -3,7 +3,7 @@ import paho.mqtt.client as mqtt
 import time
 
 # Configuración
-BROKER = "79.146.241.243"  # IP pública del servidor
+BROKER = "test.mosquitto.org"  # IP pública del servidor
 TOPIC = "telemetry_mqtt/abc123/carControl"  # reemplaza abc123 por tu dongle_id real
 PORT = 1883
 
