@@ -6,15 +6,12 @@ from openpilot.common.realtime import DT_MDL
 from openpilot.selfdrive.controls.lib.drive_helpers import get_road_edge
 from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata, ModelCapabilities
 from sicuem.adelantamiento import should_start_overtake, get_overtake_command
-from sicuem.adripilot.log_mqtt import enviar_log
 import cereal.messaging as messaging  # Asegúrate de que ya está importado
 from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper
 from cereal import car, log, custom
 
-
 import time
 from cereal import log
-
 
 LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
