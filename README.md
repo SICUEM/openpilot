@@ -1,11 +1,14 @@
 Readme hecho por [Adrian Cañadas](https://github.com/Dragoadri) 
 
 # ![Logo de la Universidad Europea](https://upload.wikimedia.org/wikipedia/commons/3/3a/UE_Madrid_Logo_Positive_RGB.png)
-# SIC-PRUEBAS - Sunnypilot
+# SIC-Librerias - Sunnypilot
+# Version Congelada que no funciona.
 
-**Rama de Desarrollo:** `sic-pruebas`
-**Proyecto Basado en:** Sunnypilot (fork de OpenPilot por Comma.ai)
-**Grupo de Investigación:** SICUEM
+-----
+
+**Rama de Desarrollo:** 'sic-pruebas'<br>
+**Proyecto Basado en:** Sunnypilot (fork de OpenPilot por Comma.ai)<br>
+**Grupo de Investigación:** SICUEM<br>
 
 
 ---
