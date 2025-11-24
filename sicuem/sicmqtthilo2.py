@@ -275,25 +275,37 @@ class SicMqttHilo2:
 
   def verificar_cambio_lider_toggle(self):
     """Detecta cambios en `lider_toggle` y los envía por MQTT."""
+    # Verificar conexión antes de procesar
+    if not self.conectado or not hasattr(self.mqttc, 'is_connected') or not self.mqttc.is_connected():
+      return
+
     # Obtener el estado actual de `lider_toggle`
     lider_toggle_actual = self.params.get_bool("lider_toggle")
 
     # Si es la primera vez o si ha cambiado, enviar por MQTT
     if lider_toggle_actual != self.last_lider_toggle_state:
       estado_mqtt = "on" if lider_toggle_actual else "off"
-      self.mqttc.publish(f"telemetry_mqtt/{self.DongleID}/lider_toggle", estado_mqtt, qos=0)
-      print(f"📡 Estado `lider_toggle` cambiado: {estado_mqtt}")
+      # Verificar conexión nuevamente antes de publicar
+      if self.conectado and self.mqttc.is_connected():
+        self.mqttc.publish(f"telemetry_mqtt/{self.DongleID}/lider_toggle", estado_mqtt, qos=0)
+        print(f"📡 Estado `lider_toggle` cambiado: {estado_mqtt}")
 
       # Actualizar el estado registrado
       self.last_lider_toggle_state = lider_toggle_actual
 
   def enviar_estado_lider_toggle(self):
     """Envia el estado inicial de `lider_toggle` cuando el programa inicia."""
+    # Verificar conexión antes de enviar
+    if not self.conectado or not hasattr(self.mqttc, 'is_connected') or not self.mqttc.is_connected():
+      return
+
     lider_toggle_actual = self.params.get_bool("lider_toggle")
     estado_mqtt = "on" if lider_toggle_actual else "off"
 
-    self.mqttc.publish(f"telemetry_mqtt/{self.DongleID}/lider_toggle", estado_mqtt, qos=0)
-    print(f"📡 Estado inicial `lider_toggle` enviado: {estado_mqtt}")
+    # Verificar conexión nuevamente antes de publicar
+    if self.conectado and self.mqttc.is_connected():
+      self.mqttc.publish(f"telemetry_mqtt/{self.DongleID}/lider_toggle", estado_mqtt, qos=0)
+      print(f"📡 Estado inicial `lider_toggle` enviado: {estado_mqtt}")
 
     # Guardar el estado inicial para futuras comparaciones
     self.last_lider_toggle_state = lider_toggle_actual
@@ -306,6 +318,13 @@ class SicMqttHilo2:
     - Publica periódicamente el estado del archivo mapbox.
     """
     self.pause_event.wait()  # Pausa las operaciones si está desactivada la telemetría
+
+    # Verificar conexión antes de procesar (evita encolar mensajes)
+    if not self.conectado or not hasattr(self.mqttc, 'is_connected') or not self.mqttc.is_connected():
+      # Sin conexión: no procesar ni encolar mensajes para evitar saturación de RAM
+      time.sleep(self.espera)
+      return
+
     self.cargar_canales()  # Carga los canales habilitados dinámicamente
 
     if len(self.enabled_items) > 0 and self.sm:
@@ -344,7 +363,10 @@ class SicMqttHilo2:
     """Bucle que publica mensajes de ping periódicamente sin bloquear."""
     while not self.stop_event.is_set():
       self.pause_event.wait()
-      self.mqttc.publish("telemetry_config/ping", str(time.time()).format(self.DongleID), qos=0)
+      # Verificar conexión antes de publicar ping (evita encolar mensajes)
+      if self.conectado and hasattr(self.mqttc, 'is_connected') and self.mqttc.is_connected():
+        self.mqttc.publish("telemetry_config/ping", str(time.time()).format(self.DongleID), qos=0)
+      # Si no hay conexión, simplemente no enviar (no encolar)
       time.sleep(3)
 
   ##------------------------------------------------------------------------------------------------ loop related end
@@ -631,7 +653,10 @@ class SicMqttHilo2:
 
           print(f"Distancias enviadas: {contenido}")
           if self.params.get_bool("mapbox_toggle"):
-            self.mqttc.publish("telemetry_mqtt/" + self.DongleID + "/mapbox_status", str(contenido), qos=0)
+            # Verificar conexión antes de publicar (evita encolar mensajes)
+            if self.conectado and hasattr(self.mqttc, 'is_connected') and self.mqttc.is_connected():
+              self.mqttc.publish("telemetry_mqtt/" + self.DongleID + "/mapbox_status", str(contenido), qos=0)
+            # Si no hay conexión, simplemente no enviar (no encolar)
 
       except Exception as e:
         print(f"Error al procesar el archivo Mapbox: {e}")
@@ -663,6 +688,11 @@ class SicMqttHilo2:
     #print(f"📤 ***************************---------!!!!!!!Datos enviados desde canal '{canal}':")
     #imprimir_setspeed_y_vego(canal, datos_importantes)
 
+    # Verificar conexión primero (evita encolar mensajes)
+    if not self.conectado or not hasattr(self.mqttc, 'is_connected') or not self.mqttc.is_connected():
+      # Sin conexión: no publicar ni encolar mensajes
+      return
+
     permitido = (
       ('carState' in canal and self.params.get_bool("carState_toggle")) or
       ('controlsState' in canal and self.params.get_bool("controlsState_toggle")) or
@@ -678,14 +708,17 @@ class SicMqttHilo2:
 
     if permitido:
       try:
-        topic_final = str(canal).format(self.DongleID)
-        #print(f"📡 Publicando en topic final: {topic_final}")
-        resultado = self.mqttc.publish(
-          topic_final,
-          json.dumps(datos_importantes),
-          qos=0
-        )
-        #print(f"✅ Publicación MQTT result: {resultado}")
+        # Verificar conexión nuevamente antes de publicar
+        if self.conectado and self.mqttc.is_connected():
+          topic_final = str(canal).format(self.DongleID)
+          #print(f"📡 Publicando en topic final: {topic_final}")
+          resultado = self.mqttc.publish(
+            topic_final,
+            json.dumps(datos_importantes),
+            qos=0
+          )
+          #print(f"✅ Publicación MQTT result: {resultado}")
+        # Si no hay conexión, simplemente no enviar (no encolar)
       except Exception as e:
         print(f"❌ Error al publicar en MQTT: {e}")
     else:

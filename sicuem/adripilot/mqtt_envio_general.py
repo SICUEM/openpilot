@@ -121,6 +121,14 @@ class MQTTEnvioGeneral:
       self.pause_event.wait()
       self.sm.update()
 
+      # Verificar conexión antes de intentar enviar (evita encolar mensajes)
+      is_connected = self.conectado and hasattr(self.mqttc, 'is_connected') and self.mqttc.is_connected()
+
+      if not is_connected:
+        # Sin conexión: no procesar ni encolar mensajes para evitar saturación de RAM
+        time.sleep(self.velocidadActualizacion)
+        continue
+
       for canal in self.enabled_items:
         nombre = canal["canal"]
         topic = canal["topic"].format(self.DongleID)
@@ -129,8 +137,11 @@ class MQTTEnvioGeneral:
           datos = self.sm[nombre].to_dict()
           datos_filtrados = self.enviar_datos_importantes(nombre, datos)
           if datos_filtrados:
-            print(f"📤 Enviando a {topic}: {datos_filtrados}")
-            self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
+            # Verificar conexión nuevamente antes de cada publicación
+            if self.conectado and self.mqttc.is_connected():
+              print(f"📤 Enviando a {topic}: {datos_filtrados}")
+              self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
+            # Si no hay conexión, simplemente no enviar (no encolar)
 
       # Enviar datos adicionales de canales que no están en enabled_items pero están disponibles
       canales_adicionales = ['controlsState', 'liveCalibration', 'gpsLocation']
@@ -141,8 +152,11 @@ class MQTTEnvioGeneral:
           topic_adicional = f"telemetry_mqtt/{self.DongleID}/{canal_nombre}"
           datos_filtrados = self.enviar_datos_importantes(canal_nombre, datos)
           if datos_filtrados:
-            print(f"📤 Enviando canal adicional a {topic_adicional}: {datos_filtrados}")
-            self.mqttc.publish(topic_adicional, json.dumps(datos_filtrados), qos=0)
+            # Verificar conexión nuevamente antes de cada publicación
+            if self.conectado and self.mqttc.is_connected():
+              print(f"📤 Enviando canal adicional a {topic_adicional}: {datos_filtrados}")
+              self.mqttc.publish(topic_adicional, json.dumps(datos_filtrados), qos=0)
+            # Si no hay conexión, simplemente no enviar (no encolar)
 
       time.sleep(self.velocidadActualizacion)
 

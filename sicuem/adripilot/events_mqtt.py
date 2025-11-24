@@ -4,9 +4,10 @@ import json
 import time
 from datetime import datetime
 import os
+import threading
 from typing import Optional, Dict
 
-import paho.mqtt.publish as publish
+import paho.mqtt.client as mqtt
 
 from openpilot.common.params import Params
 
@@ -19,6 +20,13 @@ TAKE_CONTROL_COOLDOWN_SECONDS = 30  # 30 segundos para eventos de "TAKE CONTROL"
 
 # Diccionario para trackear último envío de cada evento (basado en alert_type)
 _event_last_sent: Dict[str, float] = {}  # alert_type -> timestamp último envío
+
+# Cliente MQTT persistente
+_mqtt_client: Optional[mqtt.Client] = None
+_mqtt_connected = False
+_mqtt_client_lock = threading.Lock()
+_mqtt_broker: Optional[str] = None
+_mqtt_port: Optional[int] = None
 
 
 def _load_broker() -> tuple[str, int]:
@@ -38,6 +46,54 @@ def _get_dongle_id() -> str:
   params = Params()
   raw = params.get("DongleId")
   return raw.decode("utf-8") if raw else "UnregisteredDevice"
+
+
+def _on_mqtt_connect(client, userdata, flags, rc):
+  global _mqtt_connected
+  _mqtt_connected = (rc == 0)
+
+
+def _on_mqtt_disconnect(client, userdata, rc):
+  global _mqtt_connected
+  _mqtt_connected = False
+
+
+def _ensure_mqtt_client():
+  """Inicializa (o reutiliza) un cliente MQTT persistente."""
+  global _mqtt_client, _mqtt_broker, _mqtt_port
+
+  broker, port = _load_broker()
+
+  with _mqtt_client_lock:
+    needs_reinit = (
+      _mqtt_client is None or
+      broker != _mqtt_broker or
+      port != _mqtt_port
+    )
+
+    if needs_reinit:
+      try:
+        if _mqtt_client is not None:
+          _mqtt_client.loop_stop()
+          _mqtt_client.disconnect()
+      except Exception:
+        pass
+
+      client = mqtt.Client()
+      client.on_connect = _on_mqtt_connect
+      client.on_disconnect = _on_mqtt_disconnect
+      client.reconnect_delay_set(min_delay=1, max_delay=30)
+      try:
+        client.connect_async(broker, port, keepalive=60)
+        client.loop_start()
+        _mqtt_broker = broker
+        _mqtt_port = port
+        _mqtt_client = client
+      except Exception:
+        _mqtt_connected = False
+        _mqtt_client = None
+
+  return _mqtt_client
 
 
 def _should_filter_event(title: str, message: str, priority: int, event_name: Optional[str], alert_type: Optional[str]) -> bool:
@@ -178,14 +234,17 @@ def send_event_full(title: str,
     "timestamp": datetime.utcnow().isoformat() + "Z",
   }
 
+  client = _ensure_mqtt_client()
+
+  # Si no hay cliente o la conexión aún no está establecida, no enviar para evitar colas
+  if client is None or not _mqtt_connected:
+    return
+
   try:
-    # Optimización: usar publish.single con qos=0 para máximo rendimiento (fire and forget)
-    publish.single(topic, json.dumps(payload), hostname=broker, port=port, qos=0)
-    # Log reducido solo en desarrollo
-    # print(f"📤 Evento completo enviado a {topic}: {alert_type}")
-  except Exception as e:
+    # Publicar utilizando el cliente persistente (QoS 0 para máximo rendimiento)
+    client.publish(topic, json.dumps(payload), qos=0)
+  except Exception:
     # Error silencioso para no afectar el loop de control
-    # Solo loggear ocasionalmente para evitar saturación de logs
     pass
 
 
