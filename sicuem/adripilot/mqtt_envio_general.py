@@ -34,6 +34,7 @@ class MQTTEnvioGeneral:
     with open(self.jsonConfig, "r") as f:
       config = json.load(f)
       self.broker_address = config.get("broker", "localhost")
+      self.broker_port = int(config.get("broker_port", 1883))
 
   def cargar_canales(self):
     with open(self.jsonCanales, "r") as f:
@@ -85,22 +86,28 @@ class MQTTEnvioGeneral:
   def setup_mqtt(self):
     while not self.stop_event.is_set():
       try:
-        self.mqttc.connect(self.broker_address, 1883, 60)
+        self.mqttc.connect(self.broker_address, self.broker_port, 60)
         if not self.conectado:
           self.mqttc.loop_start()
-          self.conectado = True
-          print("✅ Conectado al broker MQTT")
+          # Esperar un momento para que se establezca la conexión
+          time.sleep(0.5)
+          print(f"✅ Iniciando conexión MQTT a {self.broker_address}:{self.broker_port}")
         break
       except Exception as e:
-        print(f"❌ Error al conectar MQTT: {e}")
+        print(f"❌ Error al conectar MQTT a {self.broker_address}:{self.broker_port}: {e}")
         time.sleep(5)
 
   def on_connect(self, client, userdata, flags, rc):
-    print("🔌 MQTT conectado" if rc == 0 else f"🔌 Error conexión MQTT: {rc}")
+    if rc == 0:
+      self.conectado = True
+      print(f"✅ MQTT conectado exitosamente a {self.broker_address}:{self.broker_port}")
+    else:
+      self.conectado = False
+      print(f"❌ Error conexión MQTT: código {rc}")
 
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
-    print("🔌 Desconectado MQTT. Reintentando...")
+    print(f"🔌 Desconectado MQTT de {self.broker_address}:{self.broker_port}. Reintentando...")
 
   def start(self):
     threading.Thread(target=self.loop, daemon=True).start()
@@ -122,12 +129,29 @@ class MQTTEnvioGeneral:
       self.sm.update()
 
       # Verificar conexión antes de intentar enviar (evita encolar mensajes)
-      is_connected = self.conectado and hasattr(self.mqttc, 'is_connected') and self.mqttc.is_connected()
+      # Usar verificación más simple: si está conectado según el callback
+      is_connected = self.conectado
+      # También verificar el estado real del cliente si está disponible
+      if hasattr(self.mqttc, 'is_connected'):
+        is_connected = is_connected and self.mqttc.is_connected()
 
       if not is_connected:
         # Sin conexión: no procesar ni encolar mensajes para evitar saturación de RAM
+        # Log ocasional para debug (cada 50 iteraciones = ~50 segundos)
+        if hasattr(self, '_no_connection_log_counter'):
+          self._no_connection_log_counter += 1
+        else:
+          self._no_connection_log_counter = 0
+
+        if self._no_connection_log_counter % 50 == 0:
+          print(f"⚠️ Telemetría: Esperando conexión MQTT a {self.broker_address}:{self.broker_port}...")
+
         time.sleep(self.velocidadActualizacion)
         continue
+
+      # Resetear contador si hay conexión
+      if hasattr(self, '_no_connection_log_counter'):
+        self._no_connection_log_counter = 0
 
       for canal in self.enabled_items:
         nombre = canal["canal"]
@@ -138,9 +162,15 @@ class MQTTEnvioGeneral:
           datos_filtrados = self.enviar_datos_importantes(nombre, datos)
           if datos_filtrados:
             # Verificar conexión nuevamente antes de cada publicación
-            if self.conectado and self.mqttc.is_connected():
-              print(f"📤 Enviando a {topic}: {datos_filtrados}")
-              self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
+            if self.conectado:
+              # Verificar también el estado real si está disponible
+              if hasattr(self.mqttc, 'is_connected') and not self.mqttc.is_connected():
+                continue
+              try:
+                self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
+              except Exception as e:
+                print(f"⚠️ Error publicando en {topic}: {e}")
+                self.conectado = False
             # Si no hay conexión, simplemente no enviar (no encolar)
 
       # Enviar datos adicionales de canales que no están en enabled_items pero están disponibles
@@ -153,9 +183,15 @@ class MQTTEnvioGeneral:
           datos_filtrados = self.enviar_datos_importantes(canal_nombre, datos)
           if datos_filtrados:
             # Verificar conexión nuevamente antes de cada publicación
-            if self.conectado and self.mqttc.is_connected():
-              print(f"📤 Enviando canal adicional a {topic_adicional}: {datos_filtrados}")
-              self.mqttc.publish(topic_adicional, json.dumps(datos_filtrados), qos=0)
+            if self.conectado:
+              # Verificar también el estado real si está disponible
+              if hasattr(self.mqttc, 'is_connected') and not self.mqttc.is_connected():
+                continue
+              try:
+                self.mqttc.publish(topic_adicional, json.dumps(datos_filtrados), qos=0)
+              except Exception as e:
+                print(f"⚠️ Error publicando en {topic_adicional}: {e}")
+                self.conectado = False
             # Si no hay conexión, simplemente no enviar (no encolar)
 
       time.sleep(self.velocidadActualizacion)
