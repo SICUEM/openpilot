@@ -73,6 +73,21 @@ function launch {
   ln -sfn $(pwd) /data/pythonpath
   export PYTHONPATH="$PWD"
 
+  # Bemposta #################################################################################
+  ORIGEN1 =  "/data/openpilot/sicuem/paho_install/paho"
+  DESTINO1 = "/data/pythonpath/paho"
+  ORIGEN2 =  "/data/openpilot/sicuem/paho_install/paho_mqtt-2.1.0.dist-info"
+  DESTINO2 = "/data/pythonpath/paho_mqtt-2.1.0.dist-info"
+
+  # Comprobar si la carpeta destino existe
+  if [ ! -d "$DESTINO1" ]; then
+    cp -r "$ORIGEN1" "$DESTINO1"
+  fi
+  if [ ! -d "$DESTINO2" ]; then
+    cp -r "$ORIGEN2" "$DESTINO2"
+  fi
+  # fin Bemposta #############################################################################
+
   # hardware specific init
   if [ -f /AGNOS ]; then
     agnos_init
@@ -87,14 +102,7 @@ function launch {
     ./build.py
   fi
 
-  ./mapd_installer.py;
-   # [Start Bemposta] ****************************************************************************
-  # echo "***************** iniciamos instalacion *****************************************************"
-  echo "iniciamos instalacion" &>> /data/openpilot/sicuem/sic_install.txt
-  chmod +x /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt
-  /data/openpilot/sicuem/sic_install.sh &>> /data/openpilot/sicuem/sic_install.txt &
-  echo "continuamos arranque" &>> /data/openpilot/sicuem/sic_install.txt
-  # [End Bemposta] ******************************************************************************
+  ./mapd_installer.py
   ./manager.py
 
   # if broken, keep on screen error
