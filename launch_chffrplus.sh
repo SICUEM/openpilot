@@ -74,10 +74,10 @@ function launch {
   export PYTHONPATH="$PWD"
 
   # Bemposta #################################################################################
-  ORIGEN1="/data/openpilot/sicuem/paho_install/paho"
-  ORIGEN2="/data/openpilot/sicuem/paho_install/paho_mqtt-2.1.0.dist-info"
-  DESTINO1="/data/pythonpath/paho"
-  DESTINO2="/data/pythonpath/paho_mqtt-2.1.0.dist-info"
+  ORIGEN1 =  "/data/openpilot/sicuem/paho_install/paho"
+  DESTINO1 = "/data/pythonpath/paho"
+  ORIGEN2 =  "/data/openpilot/sicuem/paho_install/paho_mqtt-2.1.0.dist-info"
+  DESTINO2 = "/data/pythonpath/paho_mqtt-2.1.0.dist-info"
 
   # Comprobar si la carpeta destino existe
   if [ ! -d "$DESTINO1" ]; then
