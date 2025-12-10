@@ -115,6 +115,14 @@ def match_fw_to_car_exact(live_fw_versions: LiveFwVersions, match_brand: str = N
   candidates = {c: f for c, f in FW_VERSIONS.items() if
                 is_brand(MODEL_TO_BRAND[c], match_brand)}
 
+  # DEBUG: Log para Tucson 4th gen
+  if match_brand == "hyundai" or match_brand is None:
+    tucson_candidates = [c for c in candidates.keys() if "TUCSON_4TH_GEN" in str(c)]
+    if tucson_candidates:
+      cloudlog.warning(f"[DEBUG] Tucson 4th gen candidates encontrados: {tucson_candidates}")
+      for tc in tucson_candidates:
+        cloudlog.warning(f"[DEBUG] Candidate {tc} tiene {len(candidates[tc])} ECUs")
+
   for candidate, fws in candidates.items():
     config = FW_QUERY_CONFIGS[MODEL_TO_BRAND[candidate]]
     for ecu, expected_versions in fws.items():
@@ -123,6 +131,16 @@ def match_fw_to_car_exact(live_fw_versions: LiveFwVersions, match_brand: str = N
       addr = ecu[1:]
 
       found_versions = live_fw_versions.get(addr, set())
+
+      # DEBUG: Log detallado para Tucson 4th gen
+      if "TUCSON_4TH_GEN" in str(candidate) and ecu_type == Ecu.fwdCamera:
+        cloudlog.warning(f"[DEBUG] Tucson 4th gen - ECU {ecu_type} addr {hex(addr[0])} subaddr {addr[1]}")
+        cloudlog.warning(f"[DEBUG] Expected versions count: {len(expected_versions)}")
+        cloudlog.warning(f"[DEBUG] Found versions: {[str(v)[:50] for v in found_versions]}")
+        if found_versions:
+          cloudlog.warning(f"[DEBUG] First expected: {expected_versions[0][:50] if expected_versions else 'None'}")
+          cloudlog.warning(f"[DEBUG] First found: {list(found_versions)[0][:50] if found_versions else 'None'}")
+
       if not len(found_versions):
         # Some models can sometimes miss an ecu, or show on two different addresses
         # FIXME: this logic can be improved to be more specific, should require one of the two addresses
@@ -138,10 +156,24 @@ def match_fw_to_car_exact(live_fw_versions: LiveFwVersions, match_brand: str = N
         continue
 
       if not any(found_version in expected_versions for found_version in found_versions):
+        # DEBUG: Log cuando no coincide
+        if "TUCSON_4TH_GEN" in str(candidate) and ecu_type == Ecu.fwdCamera:
+          cloudlog.warning(f"[DEBUG] Tucson 4th gen - NO MATCH en ECU {ecu_type}")
+        cloudlog.warning(f"[DEBUG] Found: {[str(v)[:50] for v in found_versions]}")
+        cloudlog.warning(f"[DEBUG] Expected (first 3): {[str(v)[:50] for v in expected_versions[:3]]}")
         invalid.add(candidate)
         break
 
-  return set(candidates.keys()) - invalid
+  result = set(candidates.keys()) - invalid
+  # DEBUG: Log resultado final
+  if match_brand == "hyundai" or match_brand is None:
+    tucson_results = [c for c in result if "TUCSON_4TH_GEN" in str(c)]
+    if tucson_results:
+      cloudlog.warning(f"[DEBUG] Tucson 4th gen en resultados exactos: {tucson_results}")
+    elif any("TUCSON_4TH_GEN" in str(c) for c in candidates.keys()):
+      cloudlog.warning("[DEBUG] Tucson 4th gen NO está en resultados exactos (fue invalidado)")
+
+  return result
 
 
 def match_fw_to_car(fw_versions: list[capnp.lib.capnp._DynamicStructBuilder], vin: str,
@@ -153,21 +185,43 @@ def match_fw_to_car(fw_versions: list[capnp.lib.capnp._DynamicStructBuilder], vi
   if allow_fuzzy:
     exact_matches.append((False, match_fw_to_car_fuzzy))
 
+  cloudlog.warning(f"[DEBUG MATCH] match_fw_to_car: allow_exact={allow_exact}, allow_fuzzy={allow_fuzzy}, fw_count={len(fw_versions)}")
+
+  # DEBUG: Log todas las versiones de FW recibidas
+  if log:
+    for fw in fw_versions[:5]:  # Primeras 5 para no saturar
+      fw_str = fw.version[:50] if fw.version else 'None'
+      msg = (f"[DEBUG MATCH] FW recibido: brand={fw.brand}, address={hex(fw.address)}, "
+             f"subAddress={fw.subAddress}, version={fw_str}")
+      cloudlog.warning(msg)
+
   for exact_match, match_func in exact_matches:
     # For each brand, attempt to fingerprint using all FW returned from its queries
     matches: set[str] = set()
     for brand in VERSIONS.keys():
       fw_versions_dict = build_fw_dict(fw_versions, filter_brand=brand)
+      if log and brand == "hyundai":
+        cloudlog.warning(f"[DEBUG MATCH] Procesando brand: {brand}, fw_versions_dict keys: {list(fw_versions_dict.keys())[:5]}")
+
       matches |= match_func(fw_versions_dict, match_brand=brand, log=log)
+
+      if log and brand == "hyundai":
+        cloudlog.warning(f"[DEBUG MATCH] Matches después de {match_func.__name__} para {brand}: {matches}")
 
       # If specified and no matches so far, fall back to brand's fuzzy fingerprinting function
       config = FW_QUERY_CONFIGS[brand]
       if not exact_match and not len(matches) and config.match_fw_to_car_fuzzy is not None:
+        if log and brand == "hyundai":
+          cloudlog.warning(f"[DEBUG MATCH] Intentando fuzzy matching específico de {brand}")
         matches |= config.match_fw_to_car_fuzzy(fw_versions_dict, vin, VERSIONS[brand])
+        if log and brand == "hyundai":
+          cloudlog.warning(f"[DEBUG MATCH] Matches después de fuzzy específico de {brand}: {matches}")
 
     if len(matches):
+      cloudlog.warning(f"[DEBUG MATCH] MATCH ENCONTRADO: exact={exact_match}, matches={matches}")
       return exact_match, matches
 
+  cloudlog.warning("[DEBUG MATCH] NO SE ENCONTRÓ MATCH")
   return True, set()
 
 

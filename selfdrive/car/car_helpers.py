@@ -148,6 +148,9 @@ def fingerprint(logcan, sendcan, num_pandas):
       cached = False
 
     exact_fw_match, fw_candidates = match_fw_to_car(car_fw, vin)
+    cloudlog.warning(f"[DEBUG FINGERPRINT] FW matching resultado: exact={exact_fw_match}, candidates={fw_candidates}, fw_count={len(car_fw)}")
+    if car_fw:
+      cloudlog.warning(f"[DEBUG FINGERPRINT] Primeras 3 FW versions: {[f'{fw.brand}:{hex(fw.address)}:{fw.version[:50] if fw.version else \"None\"}' for fw in car_fw[:3]]}")
   else:
     vin_rx_addr, vin_rx_bus, vin = -1, -1, VIN_UNKNOWN
     exact_fw_match, fw_candidates, car_fw = True, set(), []

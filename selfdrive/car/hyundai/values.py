@@ -635,13 +635,28 @@ def match_fw_to_car_fuzzy(live_fw_versions, vin, offline_fw_versions) -> set[str
   # Non-electric CAN FD platforms often do not have platform code specifiers needed
   # to distinguish between hybrid and ICE. All EVs so far are either exclusively
   # electric or specify electric in the platform code.
+  from openpilot.common.swaglog import cloudlog
+
   fuzzy_platform_blacklist = {str(c) for c in (CANFD_CAR - EV_CAR - CANFD_FUZZY_WHITELIST)}
   candidates: set[str] = set()
+
+  # DEBUG: Log para Tucson 4th gen
+  tucson_candidates = [c for c in offline_fw_versions.keys() if "TUCSON_4TH_GEN" in str(c)]
+  if tucson_candidates:
+    cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen en offline_fw_versions: {tucson_candidates}")
+    cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen en blacklist: {any('TUCSON_4TH_GEN' in str(c) for c in fuzzy_platform_blacklist)}")
 
   for candidate, fws in offline_fw_versions.items():
     # Keep track of ECUs which pass all checks (platform codes, within date range)
     valid_found_ecus = set()
     valid_expected_ecus = {ecu[1:] for ecu in fws if ecu[0] in PLATFORM_CODE_ECUS}
+
+    # DEBUG: Log para Tucson 4th gen
+    is_tucson = "TUCSON_4TH_GEN" in str(candidate)
+    if is_tucson:
+      cloudlog.warning(f"[DEBUG FUZZY] Procesando Tucson 4th gen: {candidate}")
+      cloudlog.warning(f"[DEBUG FUZZY] Valid expected ECUs: {valid_expected_ecus}")
+
     for ecu, expected_versions in fws.items():
       addr = ecu[1:]
       # Only check ECUs expected to have platform codes
@@ -658,27 +673,55 @@ def match_fw_to_car_fuzzy(live_fw_versions, vin, offline_fw_versions) -> set[str
       found_platform_codes = {code for code, _ in codes}
       found_dates = {date for _, date in codes if date is not None}
 
+      # DEBUG: Log detallado para Tucson 4th gen
+      if is_tucson and ecu[0] == Ecu.fwdCamera:
+        cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen - ECU fwdCamera addr {hex(addr[0])}")
+        cloudlog.warning(f"[DEBUG FUZZY] Expected platform codes: {expected_platform_codes}")
+        cloudlog.warning(f"[DEBUG FUZZY] Found platform codes: {found_platform_codes}")
+        cloudlog.warning(f"[DEBUG FUZZY] Expected dates: {expected_dates}")
+        cloudlog.warning(f"[DEBUG FUZZY] Found dates: {found_dates}")
+
       # Check platform code + part number matches for any found versions
       if not any(found_platform_code in expected_platform_codes for found_platform_code in found_platform_codes):
+        if is_tucson:
+          cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen - NO MATCH en platform codes para ECU {ecu[0]}")
         break
 
       if ecu[0] in DATE_FW_ECUS:
         # If ECU can have a FW date, require it to exist
         # (this excludes candidates in the database without dates)
         if not len(expected_dates) or not len(found_dates):
+          if is_tucson:
+            cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen - NO dates: expected={len(expected_dates)}, found={len(found_dates)}")
           break
 
         # Check any date within range in the database, format is %y%m%d
         if not any(min(expected_dates) <= found_date <= max(expected_dates) for found_date in found_dates):
+          if is_tucson:
+            cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen - NO MATCH en dates: found={found_dates}, expected range={min(expected_dates)}-{max(expected_dates)}")
           break
 
       valid_found_ecus.add(addr)
+      if is_tucson:
+        cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen - ECU {ecu[0]} PASSED, valid_found_ecus ahora: {valid_found_ecus}")
 
     # If all live ECUs pass all checks for candidate, add it as a match
     if valid_expected_ecus.issubset(valid_found_ecus):
       candidates.add(candidate)
+      if is_tucson:
+        cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen - AÑADIDO a candidates: {candidate}")
+    elif is_tucson:
+      cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen - NO añadido: valid_expected={valid_expected_ecus}, valid_found={valid_found_ecus}")
 
-  return candidates - fuzzy_platform_blacklist
+  result = candidates - fuzzy_platform_blacklist
+  # DEBUG: Log resultado final
+  tucson_results = [c for c in result if "TUCSON_4TH_GEN" in str(c)]
+  if tucson_results:
+    cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen en resultados fuzzy: {tucson_results}")
+  elif tucson_candidates:
+    cloudlog.warning(f"[DEBUG FUZZY] Tucson 4th gen NO está en resultados fuzzy (fue filtrado o no pasó checks)")
+
+  return result
 
 
 HYUNDAI_VERSION_REQUEST_LONG = bytes([uds.SERVICE_TYPE.READ_DATA_BY_IDENTIFIER]) + \
