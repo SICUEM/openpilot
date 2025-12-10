@@ -20,7 +20,7 @@ from openpilot.common.swaglog import cloudlog
 from openpilot.selfdrive.car.car_helpers import get_car_interface, get_startup_event
 from openpilot.selfdrive.controls.lib.alertmanager import AlertManager, set_offroad_alert
 from openpilot.selfdrive.controls.lib.drive_helpers import VCruiseHelper, clip_curvature, get_lag_adjusted_curvature, \
-  CRUISE_LONG_PRESS, V_CRUISE_UNSET, V_CRUISE_MAX
+  CRUISE_LONG_PRESS, V_CRUISE_UNSET, V_CRUISE_MIN
 from openpilot.selfdrive.controls.lib.events import Events, ET
 from openpilot.selfdrive.controls.lib.latcontrol import LatControl, MIN_LATERAL_CONTROL_SPEED
 from openpilot.selfdrive.controls.lib.latcontrol_pid import LatControlPID
@@ -548,16 +548,16 @@ class Controls:
     self.v_cruise_helper.update_v_cruise(CS, self.enabled_long, self.is_metric, self.reverse_acc_change,
                                          self.sm['longitudinalPlanSP'])
 
-    # AdriPilot: Incrementar siempre la velocidad objetivo en 20 km/h
+    # AdriPilot: Reducir siempre la velocidad objetivo en 20 km/h
     # Esto permite tener acceso a la velocidad que el software decide para algoritmos de adelantamiento
     # Se aplica SIEMPRE que haya una velocidad de crucero válida establecida
     if self.v_cruise_helper.v_cruise_kph != V_CRUISE_UNSET and self.v_cruise_helper.v_cruise_kph > 0:
       original_speed = self.v_cruise_helper.v_cruise_kph
-      # Incrementar 20 km/h pero respetar el máximo permitido
-      incremented_speed = min(original_speed + 20.0, V_CRUISE_MAX)
-      self.v_cruise_helper.v_cruise_kph = incremented_speed
+      # Reducir 20 km/h pero respetar el mínimo permitido
+      decremented_speed = max(original_speed - 20.0, V_CRUISE_MIN)
+      self.v_cruise_helper.v_cruise_kph = decremented_speed
       # También actualizar el cluster para consistencia
-      self.v_cruise_helper.v_cruise_cluster_kph = incremented_speed
+      self.v_cruise_helper.v_cruise_cluster_kph = decremented_speed
 
 
     # decrement the soft disable timer at every step, as it's reset on
