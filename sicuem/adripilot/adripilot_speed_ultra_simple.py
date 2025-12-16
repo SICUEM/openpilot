@@ -2,9 +2,10 @@
 # -*- coding: utf-8 -*-
 """
 Sistema de Control de Velocidad AdriPilot - Enfoque Ultra Simplificado
-Sin controlsState, sin parámetros problemáticos, solo variables globales
+Modifica la velocidad de crucero cuando el control longitudinal está activo
 """
 import time
+from openpilot.common.params import Params
 
 # Variables globales para comandos de velocidad
 adripilot_speed_increase = False
@@ -14,27 +15,62 @@ class AdriPilotSpeedUltraSimple:
   """Controlador de velocidad ultra simplificado."""
 
   def __init__(self):
-    self.speed_increment = 1.0  # km/h
+    self.params = Params()
+    # Incremento por defecto: 10 km/h (configurable desde app en el futuro)
+    self.speed_increment_default = 10.0  # km/h
     self.last_speed_command = 0
     self.command_duration = 0.5  # segundos
 
+  def get_speed_increment(self):
+    """Obtiene el incremento de velocidad desde Params o usa el valor por defecto."""
+    try:
+      increment_str = self.params.get("adripilot_speed_increment")
+      if increment_str:
+        increment = float(increment_str)
+        # Validar que esté en un rango razonable (1-50 km/h)
+        return max(1.0, min(50.0, increment))
+    except (ValueError, TypeError):
+      pass
+    return self.speed_increment_default
+
   def process_speed_commands(self, car_control, car_state, v_cruise_helper):
-    """Procesa comandos de velocidad usando variables globales."""
+    """Procesa comandos de velocidad usando variables globales.
+
+    IMPORTANTE: Solo funciona cuando el control longitudinal está activo (CC.longActive).
+    Esto significa que el usuario debe haber activado el control de crucero con el botón del volante.
+    """
     global adripilot_speed_increase, adripilot_speed_decrease
     current_time = time.time()
 
+    # Verificar que el control longitudinal esté activo
+    if not hasattr(car_control, 'longActive') or not car_control.longActive:
+      # Si hay comandos pendientes pero el control no está activo, limpiarlos sin procesar
+      if adripilot_speed_increase or adripilot_speed_decrease:
+        print("⚠️ Comando de velocidad ignorado: control longitudinal no activo")
+        adripilot_speed_increase = False
+        adripilot_speed_decrease = False
+      return
+
     if adripilot_speed_increase or adripilot_speed_decrease:
-      # Obtener velocidad actual
+      # Obtener velocidad actual desde v_cruise_helper
       current_speed = v_cruise_helper.v_cruise_kph
       if current_speed == 255:  # V_CRUISE_UNSET
-        current_speed = 40.0  # Velocidad por defecto
+        print("⚠️ Velocidad de crucero no establecida, usando velocidad actual del vehículo")
+        # Intentar obtener desde la velocidad actual del vehículo
+        if hasattr(car_state, 'vEgo'):
+          current_speed = car_state.vEgo * 3.6  # Convertir m/s a km/h
+        else:
+          current_speed = 40.0  # Velocidad por defecto
+
+      # Obtener incremento configurable (por ahora 10 km/h por defecto)
+      speed_increment = self.get_speed_increment()
 
       # Calcular nueva velocidad
       if adripilot_speed_increase:
-        new_speed = min(current_speed + self.speed_increment, 145.0)
+        new_speed = min(current_speed + speed_increment, 145.0)
         command_type = "INCREASE"
       else:
-        new_speed = max(current_speed - self.speed_increment, 8.0)
+        new_speed = max(current_speed - speed_increment, 8.0)
         command_type = "DECREASE"
 
       # Aplicar cambios directamente al v_cruise_helper
@@ -53,9 +89,10 @@ class AdriPilotSpeedUltraSimple:
 
       self.last_speed_command = current_time
 
-      print(f"🎯 Comando SPEED {command_type} ejecutado: {current_speed:.1f} → {new_speed:.1f} km/h")
+      print(f"🎯 Comando SPEED {command_type} ejecutado: {current_speed:.1f} → {new_speed:.1f} km/h (incremento: {speed_increment:.1f} km/h)")
       print(f"   📊 v_cruise_helper.v_cruise_kph: {new_speed:.1f} km/h")
       print(f"   📊 v_cruise_helper.v_cruise_cluster_kph: {new_speed:.1f} km/h")
+      print(f"   ✅ Control longitudinal activo - velocidad de crucero actualizada")
 
 # Instancia global del controlador de velocidad ultra simplificado
 adripilot_speed_ultra_simple = AdriPilotSpeedUltraSimple()

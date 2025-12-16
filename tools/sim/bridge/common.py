@@ -87,10 +87,27 @@ class SimulatorBridge(ABC):
     return bridge_p
 
   def print_status(self):
+    engageable_info = ""
+    state_info = ""
+    try:
+      if hasattr(self, 'simulated_car') and self.simulated_car is not None:
+        self.simulated_car.sm.update(0)
+        if 'controlsState' in self.simulated_car.sm.data and self.simulated_car.sm.recv_frame.get('controlsState', 0) > 0:
+          controlsState = self.simulated_car.sm['controlsState']
+          engageable_info = f" Engageable: {controlsState.engageable}"
+          state_info = f" State: {controlsState.state}"
+          if not controlsState.engageable and 'onroadEvents' in self.simulated_car.sm.data and self.simulated_car.sm.recv_frame.get('onroadEvents', 0) > 0:
+            blocking = [e.name for e in self.simulated_car.sm['onroadEvents'] if e.noEntry]
+            if blocking:
+              engageable_info += f" (Bloqueado: {', '.join(blocking[:2])})"
+    except Exception as e:
+      # Silenciar errores en print_status para no interrumpir el simulador
+      pass
+
     print(
     f"""
 State:
-Ignition: {self.simulator_state.ignition} Engaged: {self.simulator_state.is_engaged}
+Ignition: {self.simulator_state.ignition} Engaged: {self.simulator_state.is_engaged}{engageable_info}{state_info}
     """)
 
   @abstractmethod
@@ -179,6 +196,14 @@ Ignition: {self.simulator_state.ignition} Engaged: {self.simulator_state.is_enga
       elif not self.past_startup_engaged and controlsState.engageable:
         self.simulator_state.cruise_button = CruiseButtons.DECEL_SET if self.startup_button_prev else CruiseButtons.MAIN # force engagement on startup
         self.startup_button_prev = not self.startup_button_prev
+      elif not self.past_startup_engaged and not controlsState.engageable and self.rk.frame % 250 == 0:
+        # Debug: mostrar qué eventos están bloqueando la activación
+        if 'onroadEvents' in self.simulated_car.sm.updated and self.simulated_car.sm.updated.get('onroadEvents', False):
+          blocking_events = [e.name for e in self.simulated_car.sm['onroadEvents'] if e.noEntry]
+          if blocking_events:
+            print(f"⚠️ Eventos bloqueando activación: {blocking_events}")
+          else:
+            print(f"⚠️ No engageable pero sin eventos NO_ENTRY. Estado: {controlsState.state}")
 
       throttle_out = throttle_op if self.simulator_state.is_engaged else throttle_manual
       brake_out = brake_op if self.simulator_state.is_engaged else brake_manual

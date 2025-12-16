@@ -56,6 +56,7 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/speed",          # Comandos de velocidad (formato JSON)
         f"telemetry_config/{self.DongleID}/speed_up",       # Comando aumentar velocidad (formato servidor)
         f"telemetry_config/{self.DongleID}/speed_down",     # Comando disminuir velocidad (formato servidor)
+        f"telemetry_config/{self.DongleID}/speed_increment", # Configuración del incremento de velocidad (futuro)
         f"telemetry_config/{self.DongleID}/intervalos"      # Configuración intervalos
       ]
 
@@ -104,6 +105,10 @@ class MQTTComandos:
       # Comando de disminuir velocidad - formato servidor
       elif topic.endswith("/speed_down"):
         self.handle_speed_down_server(payload)
+
+      # Comando de configuración del incremento de velocidad (para el futuro)
+      elif topic.endswith("/speed_increment"):
+        self.handle_speed_increment_config(payload)
 
       # Comando de intervalos
       elif topic.endswith("/intervalos"):
@@ -248,7 +253,10 @@ class MQTTComandos:
       print(f"❌ Error procesando comando de control: {e}")
 
   def handle_speed_commands(self, payload):
-    """Maneja los comandos de velocidad (increase/decrease) - formato JSON."""
+    """Maneja los comandos de velocidad (increase/decrease) - formato JSON.
+
+    IMPORTANTE: Solo funciona cuando el control longitudinal está activo (crucero activado).
+    """
     try:
       import json
       data = json.loads(payload)
@@ -256,22 +264,24 @@ class MQTTComandos:
       # Aumentar velocidad
       if data.get("speed_increase"):
         try:
-          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_increase
-          adripilot_speed_increase = True
-          print(f"⬆️ Comando SPEED INCREASE activado para {self.DongleID}")
+          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+          speed_module.adripilot_speed_increase = True
+          print(f"⬆️ Comando SPEED INCREASE (JSON) recibido para {self.DongleID}")
+          print(f"   ℹ️ El incremento será de 10 km/h (configurable en el futuro)")
         except ImportError:
           self.params.put_bool("adripilot_speed_increase", True)
-          print(f"⬆️ Comando SPEED INCREASE activado para {self.DongleID} (fallback a Params)")
+          print(f"⬆️ Comando SPEED INCREASE (JSON) recibido para {self.DongleID} (fallback a Params)")
 
       # Reducir velocidad
       if data.get("speed_decrease"):
         try:
-          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_decrease
-          adripilot_speed_decrease = True
-          print(f"⬇️ Comando SPEED DECREASE activado para {self.DongleID}")
+          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+          speed_module.adripilot_speed_decrease = True
+          print(f"⬇️ Comando SPEED DECREASE (JSON) recibido para {self.DongleID}")
+          print(f"   ℹ️ El decremento será de 10 km/h (configurable en el futuro)")
         except ImportError:
           self.params.put_bool("adripilot_speed_decrease", True)
-          print(f"⬇️ Comando SPEED DECREASE activado para {self.DongleID} (fallback a Params)")
+          print(f"⬇️ Comando SPEED DECREASE (JSON) recibido para {self.DongleID} (fallback a Params)")
 
     except json.JSONDecodeError:
       print(f"❌ Error al decodificar comando de velocidad: {payload}")
@@ -279,44 +289,70 @@ class MQTTComandos:
       print(f"❌ Error procesando comando de velocidad: {e}")
 
   def handle_speed_up_server(self, payload):
-    """Maneja el comando de aumentar velocidad - formato servidor."""
+    """Maneja el comando de aumentar velocidad - formato servidor.
+
+    El servidor/envía el comando cuando el usuario pulsa el botón "Aumentar" en la app.
+    IMPORTANTE: Solo funciona cuando el control longitudinal está activo (crucero activado).
+    """
     try:
-      # El servidor puede enviar "+1" o "1" como string
-      if payload in ["+1", "1"]:
-        # Usar variable global del sistema ultra simplificado
-        try:
-          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_increase
-          adripilot_speed_increase = True
-          print(f"⬆️ Comando SPEED UP ({payload}) activado para {self.DongleID}")
-        except ImportError:
-          # Fallback: usar parámetros como respaldo
-          self.params.put_bool("adripilot_speed_increase", True)
-          print(f"⬆️ Comando SPEED UP ({payload}) activado para {self.DongleID} (fallback a Params)")
-      else:
-        print(f"⚠️ Comando SPEED UP no reconocido: {payload}")
+      # El servidor puede enviar "+1", "1", o cualquier string (aceptamos cualquier payload como válido)
+      # Usar el módulo directamente para modificar la variable global
+      try:
+        import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+        speed_module.adripilot_speed_increase = True
+        print(f"⬆️ Comando SPEED UP recibido para {self.DongleID} (payload: {payload})")
+        print(f"   ℹ️ El incremento será de 10 km/h (configurable en el futuro)")
+      except ImportError:
+        # Fallback: usar parámetros como respaldo
+        self.params.put_bool("adripilot_speed_increase", True)
+        print(f"⬆️ Comando SPEED UP recibido para {self.DongleID} (fallback a Params, payload: {payload})")
 
     except Exception as e:
       print(f"❌ Error procesando comando SPEED UP: {e}")
 
   def handle_speed_down_server(self, payload):
-    """Maneja el comando de disminuir velocidad - formato servidor."""
+    """Maneja el comando de disminuir velocidad - formato servidor.
+
+    El servidor envía el comando cuando el usuario pulsa el botón "Disminuir" en la app.
+    IMPORTANTE: Solo funciona cuando el control longitudinal está activo (crucero activado).
+    """
     try:
-      # El servidor puede enviar "-1" o "1" como string
-      if payload in ["-1", "1"]:
-        # Usar variable global del sistema ultra simplificado
-        try:
-          from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_decrease
-          adripilot_speed_decrease = True
-          print(f"⬇️ Comando SPEED DOWN ({payload}) activado para {self.DongleID}")
-        except ImportError:
-          # Fallback: usar parámetros como respaldo
-          self.params.put_bool("adripilot_speed_decrease", True)
-          print(f"⬇️ Comando SPEED DOWN ({payload}) activado para {self.DongleID} (fallback a Params)")
-      else:
-        print(f"⚠️ Comando SPEED DOWN no reconocido: {payload}")
+      # El servidor puede enviar "-1", "1", o cualquier string (aceptamos cualquier payload como válido)
+      # Usar el módulo directamente para modificar la variable global
+      try:
+        import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+        speed_module.adripilot_speed_decrease = True
+        print(f"⬇️ Comando SPEED DOWN recibido para {self.DongleID} (payload: {payload})")
+        print(f"   ℹ️ El decremento será de 10 km/h (configurable en el futuro)")
+      except ImportError:
+        # Fallback: usar parámetros como respaldo
+        self.params.put_bool("adripilot_speed_decrease", True)
+        print(f"⬇️ Comando SPEED DOWN recibido para {self.DongleID} (fallback a Params, payload: {payload})")
 
     except Exception as e:
       print(f"❌ Error procesando comando SPEED DOWN: {e}")
+
+  def handle_speed_increment_config(self, payload):
+    """Maneja la configuración del incremento de velocidad desde la app.
+
+    La app puede enviar el valor del incremento en km/h (ej: "10", "5", "20").
+    Este valor se guarda en Params y será usado por el sistema de control de velocidad.
+
+    Formato esperado: número como string (ej: "10" para 10 km/h)
+    Rango válido: 1-50 km/h
+    """
+    try:
+      increment = float(payload.strip())
+      # Validar rango (1-50 km/h)
+      if 1.0 <= increment <= 50.0:
+        self.params.put("adripilot_speed_increment", str(increment))
+        print(f"✅ Incremento de velocidad configurado: {increment:.1f} km/h para {self.DongleID}")
+      else:
+        print(f"⚠️ Incremento fuera de rango ({increment} km/h). Debe estar entre 1-50 km/h")
+    except ValueError:
+      print(f"⚠️ Valor de incremento inválido: '{payload}'. Debe ser un número")
+    except Exception as e:
+      print(f"❌ Error procesando configuración de incremento: {e}")
 
   def handle_intervalos(self, payload):
     """Maneja el comando de intervalos."""
