@@ -578,13 +578,6 @@ class Controls:
           if CS.cruiseState.enabled and not self.CS_prev.cruiseState.enabled:
             self.v_cruise_helper.initialize_v_cruise(CS, self.experimental_mode, self.is_metric,
                                                      self.dynamic_experimental_control)
-            # AdriPilot: Aumentar la velocidad objetivo en 20 km/h solo cuando se inicializa
-            # Esto permite tener acceso a la velocidad que el software decide para algoritmos de adelantamiento
-            if self.v_cruise_helper.v_cruise_kph != V_CRUISE_UNSET and self.v_cruise_helper.v_cruise_kph > 0:
-              original_speed = self.v_cruise_helper.v_cruise_kph
-              incremented_speed = min(original_speed + 20.0, V_CRUISE_MAX)
-              self.v_cruise_helper.v_cruise_kph = incremented_speed
-              self.v_cruise_helper.v_cruise_cluster_kph = incremented_speed
           # Block resume if cruise never previously enabled
           resume_pressed = any(be.type in (ButtonType.accelCruise, ButtonType.resumeCruise) for be in CS.buttonEvents)
           if not self.CP.pcmCruise and not self.v_cruise_helper.v_cruise_initialized and resume_pressed:
@@ -633,12 +626,6 @@ class Controls:
           if CS.cruiseState.enabled and not self.CS_prev.cruiseState.enabled:
             self.v_cruise_helper.initialize_v_cruise(CS, self.experimental_mode, self.is_metric,
                                                      self.dynamic_experimental_control)
-            # AdriPilot: Aumentar la velocidad objetivo en 20 km/h solo cuando se inicializa
-            if self.v_cruise_helper.v_cruise_kph != V_CRUISE_UNSET and self.v_cruise_helper.v_cruise_kph > 0:
-              original_speed = self.v_cruise_helper.v_cruise_kph
-              incremented_speed = min(original_speed + 20.0, V_CRUISE_MAX)
-              self.v_cruise_helper.v_cruise_kph = incremented_speed
-              self.v_cruise_helper.v_cruise_cluster_kph = incremented_speed
 
     # DISABLED
     elif self.state == State.disabled:
@@ -657,12 +644,6 @@ class Controls:
           if CS.cruiseState.enabled:
             self.v_cruise_helper.initialize_v_cruise(CS, self.experimental_mode, self.is_metric,
                                                      self.dynamic_experimental_control)
-            # AdriPilot: Aumentar la velocidad objetivo en 20 km/h solo cuando se inicializa
-            if self.v_cruise_helper.v_cruise_kph != V_CRUISE_UNSET and self.v_cruise_helper.v_cruise_kph > 0:
-              original_speed = self.v_cruise_helper.v_cruise_kph
-              incremented_speed = min(original_speed + 20.0, V_CRUISE_MAX)
-              self.v_cruise_helper.v_cruise_kph = incremented_speed
-              self.v_cruise_helper.v_cruise_cluster_kph = incremented_speed
 
     # Check if openpilot is engaged and actuators are enabled
     self.enabled = self.state in ENABLED_STATES
