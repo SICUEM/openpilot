@@ -67,16 +67,13 @@ class LongControl:
     while True:
       if self.params.get_bool("intervalos_toggle"):
         self.params.put_bool("DisableLongControl", True)
-        print("⛔ Longitudinal control DESACTIVADO (intervalos_toggle activo)")
         time.sleep(10)
         self.params.put_bool("DisableLongControl", False)
-        print("✅ Longitudinal control ACTIVADO (intervalos_toggle activo)")
         time.sleep(10)
       else:
         # 👉 Forzar que esté activo si se desactiva el toggle
         if self.params.get_bool("DisableLongControl"):
           self.params.put_bool("DisableLongControl", False)
-          print("✅ Longitudinal control ACTIVADO (intervalos_toggle inactivo)")
         time.sleep(1)
 
 
@@ -90,12 +87,7 @@ class LongControl:
 
     # 🔁 Lógica para cortar el control longitudinal cada 10 seg
     if self.params.get_bool("DisableLongControl"):
-      if not self.disable_logged:
-        print(" FRENADO manual por DisableLongControl")
-        self.disable_logged = True
       return -1.0
-    else:
-      self.disable_logged = False
 
     self.long_control_state = long_control_state_trans(self.CP, active, self.long_control_state, CS.vEgo,
                                                        should_stop, CS.brakePressed,

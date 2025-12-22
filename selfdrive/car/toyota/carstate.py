@@ -312,26 +312,26 @@ class CarState(CarStateBase):
     if not has_changed:
       return
 
-    print('---- TRAFFIC SIGNAL UPDATE -----')
-    if tsgn1 is not None and tsgn1 != 0:
-      print(f'TSGN1: {self._traffic_signal_description(tsgn1)}')
-    if spdval1 is not None and spdval1 != 0:
-      print(f'SPDVAL1: {spdval1}')
-    if splsgn1 is not None and splsgn1 != 0:
-      print(f'SPLSGN1: {splsgn1}')
-    if tsgn2 is not None and tsgn2 != 0:
-      print(f'TSGN2: {self._traffic_signal_description(tsgn2)}')
-    if splsgn2 is not None and splsgn2 != 0:
-      print(f'SPLSGN2: {splsgn2}')
-    if tsgn3 is not None and tsgn3 != 0:
-      print(f'TSGN3: {self._traffic_signal_description(tsgn3)}')
-    if splsgn3 is not None and splsgn3 != 0:
-      print(f'SPLSGN3: {splsgn3}')
-    if tsgn4 is not None and tsgn4 != 0:
-      print(f'TSGN4: {self._traffic_signal_description(tsgn4)}')
-    if splsgn4 is not None and splsgn4 != 0:
-      print(f'SPLSGN4: {splsgn4}')
-    print('------------------------')
+    # print('---- TRAFFIC SIGNAL UPDATE -----')  # Comentado para reducir uso de memoria
+    # if tsgn1 is not None and tsgn1 != 0:
+    #   print(f'TSGN1: {self._traffic_signal_description(tsgn1)}')
+    # if spdval1 is not None and spdval1 != 0:
+    #   print(f'SPDVAL1: {spdval1}')
+    # if splsgn1 is not None and splsgn1 != 0:
+    #   print(f'SPLSGN1: {splsgn1}')
+    # if tsgn2 is not None and tsgn2 != 0:
+    #   print(f'TSGN2: {self._traffic_signal_description(tsgn2)}')  # Comentado para reducir uso de memoria
+    # if splsgn2 is not None and splsgn2 != 0:
+    #   print(f'SPLSGN2: {splsgn2}')  # Comentado para reducir uso de memoria
+    # if tsgn3 is not None and tsgn3 != 0:
+    #   print(f'TSGN3: {self._traffic_signal_description(tsgn3)}')  # Comentado para reducir uso de memoria
+    # if splsgn3 is not None and splsgn3 != 0:
+    #   print(f'SPLSGN3: {splsgn3}')  # Comentado para reducir uso de memoria
+    # if tsgn4 is not None and tsgn4 != 0:
+    #   print(f'TSGN4: {self._traffic_signal_description(tsgn4)}')  # Comentado para reducir uso de memoria
+    # if splsgn4 is not None and splsgn4 != 0:
+    #   print(f'SPLSGN4: {splsgn4}')  # Comentado para reducir uso de memoria
+    # print('------------------------')  # Comentado para reducir uso de memoria
 
   def _traffic_signal_description(self, tsgn):
     desc = _TRAFFIC_SINGAL_MAP.get(int(tsgn))

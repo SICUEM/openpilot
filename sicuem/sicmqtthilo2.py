@@ -184,7 +184,7 @@ class SicMqttHilo2:
     def loop_watchdog():
       while not self.stop_event.is_set():
         if not self.conectado or not self.mqttc.is_connected():
-          print("🔁 Watchdog: conexión MQTT inactiva, reintentando...")
+          # print("🔁 Watchdog: conexión MQTT inactiva, reintentando...")  # Comentado para reducir uso de memoria
           try:
             self.mqttc.reconnect()
             try:
@@ -195,10 +195,10 @@ class SicMqttHilo2:
               self.mqttc.subscribe("telemetry_config/+/left", qos=0)
               self.mqttc.subscribe("telemetry_config/+/right", qos=0)
             except Exception as e:
-              print("🔁 Watchdog: error al reconectar suscripciones:", e)
+              pass  # Error silenciado para reducir uso de memoria
 
           except Exception as e:
-            print(f"❌ Watchdog fallo al reconectar: {e}")
+            pass  # Error silenciado para reducir uso de memoria
         time.sleep(intervalo)
 
     Thread(target=loop_watchdog, daemon=True).start()
@@ -216,7 +216,7 @@ class SicMqttHilo2:
         # Forzar el estado del canal a habilitado (enable = 1)
         if item['enable'] != 1:  # Solo actualiza si no está ya habilitado
           self.cambiar_enable_canal(item['canal'], 1)
-          print(f"Canal habilitado: {item['canal']}")
+          # print(f"Canal habilitado: {item['canal']}")  # Comentado para reducir uso de memoria
       except Exception as e:
         print(f"Error al habilitar el canal {item['canal']}: {e}")
 
@@ -288,7 +288,7 @@ class SicMqttHilo2:
       # Verificar conexión nuevamente antes de publicar
       if self.conectado and self.mqttc.is_connected():
         self.mqttc.publish(f"telemetry_mqtt/{self.DongleID}/lider_toggle", estado_mqtt, qos=0)
-        print(f"📡 Estado `lider_toggle` cambiado: {estado_mqtt}")
+        # print(f"📡 Estado `lider_toggle` cambiado: {estado_mqtt}")  # Comentado para reducir uso de memoria
 
       # Actualizar el estado registrado
       self.last_lider_toggle_state = lider_toggle_actual
@@ -305,7 +305,7 @@ class SicMqttHilo2:
     # Verificar conexión nuevamente antes de publicar
     if self.conectado and self.mqttc.is_connected():
       self.mqttc.publish(f"telemetry_mqtt/{self.DongleID}/lider_toggle", estado_mqtt, qos=0)
-      print(f"📡 Estado inicial `lider_toggle` enviado: {estado_mqtt}")
+      # print(f"📡 Estado inicial `lider_toggle` enviado: {estado_mqtt}")  # Comentado para reducir uso de memoria
 
     # Guardar el estado inicial para futuras comparaciones
     self.last_lider_toggle_state = lider_toggle_actual
@@ -374,18 +374,15 @@ class SicMqttHilo2:
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
       self.conectado = True
-      print("Conectado al broker MQTT con éxito.")
 
   def on_disconnect(self, client, userdata, rc):
     """Maneja la desconexión e intenta reconectar automáticamente."""
     self.conectado = False
-    print("Desconectado del broker MQTT. Intentando reconectar...")
 
     # Intentar reconectar automáticamente
     while not self.stop_event.is_set():
       try:
         self.mqttc.reconnect()  # Intenta reconectar sin bloquear el hilo principal
-        print("Reconectado exitosamente.")
         break
       except Exception as e:
         print(f"Fallo en la reconexión: {e}. Reintentando en 5 segundos...")
@@ -416,8 +413,8 @@ class SicMqttHilo2:
 
         #print(f"📌 Velocidades guardadas: C1: {jv}, C2: {nd}, C3: {v3}" + f", C4: {sim}")
 
-      except json.JSONDecodeError as e:
-        print(f"⚠️ Error al decodificar JSON: {e}")
+      except json.JSONDecodeError:
+        pass  # Error silenciado para reducir uso de memoria
 
 
     elif msg.topic.startswith("telemetry_config/") and msg.topic.endswith("/intervalos"):

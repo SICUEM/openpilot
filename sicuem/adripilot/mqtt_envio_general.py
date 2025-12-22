@@ -91,23 +91,19 @@ class MQTTEnvioGeneral:
           self.mqttc.loop_start()
           # Esperar un momento para que se establezca la conexión
           time.sleep(0.5)
-          print(f"✅ Iniciando conexión MQTT a {self.broker_address}:{self.broker_port}")
         break
-      except Exception as e:
-        print(f"❌ Error al conectar MQTT a {self.broker_address}:{self.broker_port}: {e}")
+      except Exception:
+        pass  # Error silenciado para reducir uso de memoria
         time.sleep(5)
 
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
       self.conectado = True
-      print(f"✅ MQTT conectado exitosamente a {self.broker_address}:{self.broker_port}")
     else:
       self.conectado = False
-      print(f"❌ Error conexión MQTT: código {rc}")
 
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
-    print(f"🔌 Desconectado MQTT de {self.broker_address}:{self.broker_port}. Reintentando...")
 
   def start(self):
     threading.Thread(target=self.loop, daemon=True).start()
@@ -121,7 +117,7 @@ class MQTTEnvioGeneral:
     # if hasattr(self, 'camera_sender') and self.camera_sender is not None:
     #   self.camera_sender.stop()
     self.mqttc.disconnect()
-    print("🛑 Sistema MQTT detenido")
+    # print("🛑 Sistema MQTT detenido")  # Comentado para reducir uso de memoria
 
   def loop(self):
     while not self.stop_event.is_set():
@@ -143,8 +139,7 @@ class MQTTEnvioGeneral:
         else:
           self._no_connection_log_counter = 0
 
-        if self._no_connection_log_counter % 50 == 0:
-          print(f"⚠️ Telemetría: Esperando conexión MQTT a {self.broker_address}:{self.broker_port}...")
+        # Log eliminado para reducir uso de memoria
 
         time.sleep(self.velocidadActualizacion)
         continue
@@ -169,7 +164,7 @@ class MQTTEnvioGeneral:
               try:
                 self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
               except Exception as e:
-                print(f"⚠️ Error publicando en {topic}: {e}")
+                pass  # Error silenciado para reducir uso de memoria
                 self.conectado = False
             # Si no hay conexión, simplemente no enviar (no encolar)
 
@@ -190,7 +185,7 @@ class MQTTEnvioGeneral:
               try:
                 self.mqttc.publish(topic_adicional, json.dumps(datos_filtrados), qos=0)
               except Exception as e:
-                print(f"⚠️ Error publicando en {topic_adicional}: {e}")
+                pass  # Error silenciado para reducir uso de memoria
                 self.conectado = False
             # Si no hay conexión, simplemente no enviar (no encolar)
 

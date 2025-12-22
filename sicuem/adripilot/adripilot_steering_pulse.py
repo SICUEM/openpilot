@@ -25,11 +25,6 @@ def set_steering_pulse(direction):
   global adripilot_steering_pulse_start, adripilot_steering_pulse_direction
   adripilot_steering_pulse_start = time.time()
   adripilot_steering_pulse_direction = direction
-  print(f"🔄 AdriPilot: Pulso de giro temporal activado - dirección: {direction}, timestamp: {adripilot_steering_pulse_start}")
-  print(f"🔄 AdriPilot: Fase 1 (0.5s): Giro {direction} → Fase 2 (0.5s): Retorno")
-
-  # Verificar que se guardó correctamente
-  print(f"🔄 AdriPilot: Verificación - start: {adripilot_steering_pulse_start}, direction: {adripilot_steering_pulse_direction}")
 
 def get_steering_pulse():
   """Obtiene el estado actual del pulso de giro.
@@ -53,7 +48,6 @@ def get_steering_pulse():
 
   # Si el pulso ha terminado completamente, limpiar
   if elapsed >= adripilot_steering_pulse_duration:
-    print(f"⏰ AdriPilot: Pulso completado - elapsed: {elapsed:.2f}s, duration: {adripilot_steering_pulse_duration}s")
     adripilot_steering_pulse_start = None
     adripilot_steering_pulse_direction = None
     return None, None, False, None, None

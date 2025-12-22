@@ -46,7 +46,6 @@ class AdriPilotSpeedUltraSimple:
     if not hasattr(car_control, 'longActive') or not car_control.longActive:
       # Si hay comandos pendientes pero el control no está activo, limpiarlos sin procesar
       if adripilot_speed_increase or adripilot_speed_decrease:
-        print("⚠️ Comando de velocidad ignorado: control longitudinal no activo")
         adripilot_speed_increase = False
         adripilot_speed_decrease = False
       return
@@ -55,7 +54,6 @@ class AdriPilotSpeedUltraSimple:
       # Obtener velocidad actual desde v_cruise_helper
       current_speed = v_cruise_helper.v_cruise_kph
       if current_speed == 255:  # V_CRUISE_UNSET
-        print("⚠️ Velocidad de crucero no establecida, usando velocidad actual del vehículo")
         # Intentar obtener desde la velocidad actual del vehículo
         if hasattr(car_state, 'vEgo'):
           current_speed = car_state.vEgo * 3.6  # Convertir m/s a km/h
@@ -68,10 +66,8 @@ class AdriPilotSpeedUltraSimple:
       # Calcular nueva velocidad
       if adripilot_speed_increase:
         new_speed = min(current_speed + speed_increment, 145.0)
-        command_type = "INCREASE"
       else:
         new_speed = max(current_speed - speed_increment, 8.0)
-        command_type = "DECREASE"
 
       # Aplicar cambios directamente al v_cruise_helper
       v_cruise_helper.v_cruise_kph = new_speed
@@ -88,11 +84,6 @@ class AdriPilotSpeedUltraSimple:
       adripilot_speed_decrease = False
 
       self.last_speed_command = current_time
-
-      print(f"🎯 Comando SPEED {command_type} ejecutado: {current_speed:.1f} → {new_speed:.1f} km/h (incremento: {speed_increment:.1f} km/h)")
-      print(f"   📊 v_cruise_helper.v_cruise_kph: {new_speed:.1f} km/h")
-      print(f"   📊 v_cruise_helper.v_cruise_cluster_kph: {new_speed:.1f} km/h")
-      print(f"   ✅ Control longitudinal activo - velocidad de crucero actualizada")
 
 # Instancia global del controlador de velocidad ultra simplificado
 adripilot_speed_ultra_simple = AdriPilotSpeedUltraSimple()

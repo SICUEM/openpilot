@@ -697,8 +697,8 @@ class Controls:
     # Procesar comandos AdriPilot (ultra simplificado)
     try:
       adripilot_control_ultra_simple.process_commands(CC, CS, self.sm)
-    except Exception as e:
-      print(f"❌ Error procesando comandos AdriPilot: {e}")
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
 
     # Procesar comandos de velocidad AdriPilot (ultra simplificado) - MOVIDO DESPUÉS
     # Este código se ejecuta después de la asignación de CC.vCruise para evitar sobrescritura
@@ -938,8 +938,8 @@ class Controls:
     # Procesar comandos de velocidad AdriPilot (ultra simplificado) - DESPUÉS de asignación
     try:
       adripilot_speed_ultra_simple.process_speed_commands(CC, CS, self.v_cruise_helper)
-    except Exception as e:
-      print(f"❌ Error procesando velocidad AdriPilot: {e}")
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
 
     # Re-aplicar la velocidad actualizada después del procesamiento AdriPilot
     CC.vCruise = self.v_cruise_helper.v_cruise_kph

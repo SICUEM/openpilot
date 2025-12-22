@@ -38,16 +38,15 @@ class MQTTComandos:
         if not self.conectado:
           self.mqttc.loop_start()
           self.conectado = True
-          print("✅ MQTT Comandos conectado al broker")
+          # print("✅ MQTT Comandos conectado al broker")  # Comentado para reducir uso de memoria
         break
       except Exception as e:
-        print(f"❌ Error al conectar MQTT Comandos: {e}")
+        # print(f"❌ Error al conectar MQTT Comandos: {e}")  # Comentado para reducir uso de memoria
         time.sleep(5)
 
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
       self.conectado = True
-      print("🔌 MQTT Comandos conectado")
       # Suscribirse a todos los comandos del sistema AdriPilot
       topics = [
         f"telemetry_config/{self.DongleID}/left",           # Cambio carril izquierda
@@ -63,16 +62,9 @@ class MQTTComandos:
       for topic in topics:
         client.subscribe(topic, qos=0)
 
-      print(f"📡 Suscrito a comandos para {self.DongleID}")
-      print(f"📡 Topics suscritos:")
-      for topic in topics:
-        print(f"   - {topic}")
-    else:
-      print(f"🔌 Error conexión MQTT Comandos: {rc}")
-
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
-    print("🔌 MQTT Comandos desconectado. Reintentando...")
+    # print("🔌 MQTT Comandos desconectado. Reintentando...")  # Comentado para reducir uso de memoria
 
   def on_message(self, client, userdata, msg):
     """Callback que maneja los mensajes MQTT de comandos."""
@@ -80,7 +72,7 @@ class MQTTComandos:
       topic = msg.topic
       payload = msg.payload.decode(errors="ignore").strip()
 
-      print(f"📥 MQTT recibido: {topic} -> {payload}")
+      # print(f"📥 MQTT recibido: {topic} -> {payload}")  # Comentado para reducir uso de memoria
 
       # Comando de cambio de carril a la izquierda
       if topic.endswith("/left"):
@@ -114,54 +106,38 @@ class MQTTComandos:
       elif topic.endswith("/intervalos"):
         self.handle_intervalos(payload)
 
-    except Exception as e:
-      print(f"❌ Error procesando comando MQTT: {e}")
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
 
   def handle_lane_change_left(self, payload):
     """Maneja el comando de cambio de carril a la izquierda."""
-    print(f"🚗 Procesando comando cambio carril IZQUIERDA para {self.DongleID}")
-
     # Verificar toggle de seguridad c_carril
     if not self.params.get_bool("c_carril"):
-      print("🛑 Cambio de carril a IZQUIERDA bloqueado por toggle c_carril.")
       return
 
     if payload == "false":
       self.params.put_bool("ForceLaneChangeLeft", False)
       self.params.put_bool("ForceLaneChangeRight", False)
-      print(f"🛑 Cambio de carril cancelado (left=false) para {self.DongleID}")
-
     elif self.params.get_bool("ForceLaneChangeRight"):
-      print("⚠️ No se puede activar IZQ, ya hay cambio a DERECHA")
       self.params.put_bool("ForceLaneChangeLeft", False)
       self.params.put_bool("ForceLaneChangeRight", False)
-      print(f"🛑 Ambos cancelados por conflicto IZQ-DER")
     else:
       self.params.put_bool("ForceLaneChangeLeft", True)
-      print(f"✅ Ejecutando cambio de carril IZQUIERDA para {self.DongleID}")
 
   def handle_lane_change_right(self, payload):
     """Maneja el comando de cambio de carril a la derecha."""
-    print(f"🚗 Procesando comando cambio carril DERECHA para {self.DongleID}")
-
     # Verificar toggle de seguridad c_carril
     if not self.params.get_bool("c_carril"):
-      print("🛑 Cambio de carril a DERECHA bloqueado por toggle c_carril.")
       return
 
     if payload == "false":
       self.params.put_bool("ForceLaneChangeLeft", False)
       self.params.put_bool("ForceLaneChangeRight", False)
-      print(f"🛑 Cambio de carril cancelado (right=false) para {self.DongleID}")
-
     elif self.params.get_bool("ForceLaneChangeLeft"):
-      print("⚠️ No se puede activar DER, ya hay cambio a IZQUIERDA")
       self.params.put_bool("ForceLaneChangeLeft", False)
       self.params.put_bool("ForceLaneChangeRight", False)
-      print(f"🛑 Ambos cancelados por conflicto DER-IZQ")
     else:
       self.params.put_bool("ForceLaneChangeRight", True)
-      print(f"✅ Ejecutando cambio de carril DERECHA para {self.DongleID}")
 
   def handle_control_commands(self, payload):
     """Maneja los comandos de control básico (forward, break, tright, tleft)."""
@@ -177,20 +153,16 @@ class MQTTComandos:
           try:
             from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_forward
             adripilot_forward = True
-            print(f"🚀 Comando FORWARD activado para {self.DongleID}")
           except ImportError:
             self.params.put_bool("adripilot_forward", True)
-            print(f"🚀 Comando FORWARD activado para {self.DongleID} (fallback a Params)")
 
         # Comando Break (Abajo)
         if data.get("break"):
           try:
             from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_break
             adripilot_break = True
-            print(f"🛑 Comando BREAK activado para {self.DongleID}")
           except ImportError:
             self.params.put_bool("adripilot_break", True)
-            print(f"🛑 Comando BREAK activado para {self.DongleID} (fallback a Params)")
 
         # Comando Tright (Derecha) - formato JSON
         if data.get("tright"):
@@ -198,9 +170,8 @@ class MQTTComandos:
           try:
             from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
             set_steering_pulse("right")
-            print(f"↗️ Comando TRIGHT (JSON) activado para {self.DongleID} - giro temporal a la derecha")
           except Exception as e:
-            print(f"❌ Error activando giro temporal TRIGHT: {e}")
+            pass  # Error silenciado para reducir uso de memoria
           # Mantener compatibilidad con código viejo (opcional)
           try:
             from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tright
@@ -214,9 +185,8 @@ class MQTTComandos:
           try:
             from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
             set_steering_pulse("left")
-            print(f"↖️ Comando TLEFT (JSON) activado para {self.DongleID} - giro temporal a la izquierda")
           except Exception as e:
-            print(f"❌ Error activando giro temporal TLEFT: {e}")
+            pass  # Error silenciado para reducir uso de memoria
           # Mantener compatibilidad con código viejo (opcional)
           try:
             from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_tleft
@@ -233,24 +203,19 @@ class MQTTComandos:
           try:
             from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
             set_steering_pulse("right")
-            print(f"↗️ Comando TRIGHT (string) activado para {self.DongleID} - giro temporal a la derecha")
           except Exception as e:
-            print(f"❌ Error activando giro temporal TRIGHT: {e}")
+            pass  # Error silenciado para reducir uso de memoria
 
         elif payload_lower == "tleft":
           # Activar giro temporal a la izquierda usando variables globales
           try:
             from openpilot.sicuem.adripilot.adripilot_steering_pulse import set_steering_pulse
             set_steering_pulse("left")
-            print(f"↖️ Comando TLEFT (string) activado para {self.DongleID} - giro temporal a la izquierda")
           except Exception as e:
-            print(f"❌ Error activando giro temporal TLEFT: {e}")
+            pass  # Error silenciado para reducir uso de memoria
 
-        else:
-          print(f"⚠️ Comando de control no reconocido (string): '{payload}'")
-
-    except Exception as e:
-      print(f"❌ Error procesando comando de control: {e}")
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_commands(self, payload):
     """Maneja los comandos de velocidad (increase/decrease) - formato JSON.
@@ -266,27 +231,21 @@ class MQTTComandos:
         try:
           import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
           speed_module.adripilot_speed_increase = True
-          print(f"⬆️ Comando SPEED INCREASE (JSON) recibido para {self.DongleID}")
-          print(f"   ℹ️ El incremento será de 10 km/h (configurable en el futuro)")
         except ImportError:
           self.params.put_bool("adripilot_speed_increase", True)
-          print(f"⬆️ Comando SPEED INCREASE (JSON) recibido para {self.DongleID} (fallback a Params)")
 
       # Reducir velocidad
       if data.get("speed_decrease"):
         try:
           import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
           speed_module.adripilot_speed_decrease = True
-          print(f"⬇️ Comando SPEED DECREASE (JSON) recibido para {self.DongleID}")
-          print(f"   ℹ️ El decremento será de 10 km/h (configurable en el futuro)")
         except ImportError:
           self.params.put_bool("adripilot_speed_decrease", True)
-          print(f"⬇️ Comando SPEED DECREASE (JSON) recibido para {self.DongleID} (fallback a Params)")
 
     except json.JSONDecodeError:
-      print(f"❌ Error al decodificar comando de velocidad: {payload}")
-    except Exception as e:
-      print(f"❌ Error procesando comando de velocidad: {e}")
+      pass  # Error silenciado para reducir uso de memoria
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_up_server(self, payload):
     """Maneja el comando de aumentar velocidad - formato servidor.
@@ -300,15 +259,12 @@ class MQTTComandos:
       try:
         import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
         speed_module.adripilot_speed_increase = True
-        print(f"⬆️ Comando SPEED UP recibido para {self.DongleID} (payload: {payload})")
-        print(f"   ℹ️ El incremento será de 10 km/h (configurable en el futuro)")
       except ImportError:
         # Fallback: usar parámetros como respaldo
         self.params.put_bool("adripilot_speed_increase", True)
-        print(f"⬆️ Comando SPEED UP recibido para {self.DongleID} (fallback a Params, payload: {payload})")
 
     except Exception as e:
-      print(f"❌ Error procesando comando SPEED UP: {e}")
+      pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_down_server(self, payload):
     """Maneja el comando de disminuir velocidad - formato servidor.
@@ -322,15 +278,12 @@ class MQTTComandos:
       try:
         import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
         speed_module.adripilot_speed_decrease = True
-        print(f"⬇️ Comando SPEED DOWN recibido para {self.DongleID} (payload: {payload})")
-        print(f"   ℹ️ El decremento será de 10 km/h (configurable en el futuro)")
       except ImportError:
         # Fallback: usar parámetros como respaldo
         self.params.put_bool("adripilot_speed_decrease", True)
-        print(f"⬇️ Comando SPEED DOWN recibido para {self.DongleID} (fallback a Params, payload: {payload})")
 
     except Exception as e:
-      print(f"❌ Error procesando comando SPEED DOWN: {e}")
+      pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_increment_config(self, payload):
     """Maneja la configuración del incremento de velocidad desde la app.
@@ -346,13 +299,8 @@ class MQTTComandos:
       # Validar rango (1-50 km/h)
       if 1.0 <= increment <= 50.0:
         self.params.put("adripilot_speed_increment", str(increment))
-        print(f"✅ Incremento de velocidad configurado: {increment:.1f} km/h para {self.DongleID}")
-      else:
-        print(f"⚠️ Incremento fuera de rango ({increment} km/h). Debe estar entre 1-50 km/h")
-    except ValueError:
-      print(f"⚠️ Valor de incremento inválido: '{payload}'. Debe ser un número")
-    except Exception as e:
-      print(f"❌ Error procesando configuración de incremento: {e}")
+    except (ValueError, Exception):
+      pass  # Error silenciado para reducir uso de memoria
 
   def handle_intervalos(self, payload):
     """Maneja el comando de intervalos."""
@@ -362,43 +310,31 @@ class MQTTComandos:
 
       if data.get("intervalos_toggle") == "true":
         self.params.put_bool("intervalos_toggle", True)
-        print(f"✅ intervalos_toggle activado para {self.DongleID}")
       elif data.get("intervalos_toggle") == "false":
         self.params.put_bool("intervalos_toggle", False)
-        print(f"🛑 intervalos_toggle desactivado para {self.DongleID}")
       else:
         # Compatibilidad con formato anterior
         if payload.lower() == "true":
           self.params.put_bool("intervalos_toggle", True)
-          print(f"✅ intervalos_toggle activado para {self.DongleID}")
         elif payload.lower() == "false":
           self.params.put_bool("intervalos_toggle", False)
-          print(f"🛑 intervalos_toggle desactivado para {self.DongleID}")
-        else:
-          print(f"⚠️ Valor no reconocido en intervalos: '{payload}'")
     except json.JSONDecodeError:
       # Fallback para formato simple
       if payload.lower() == "true":
         self.params.put_bool("intervalos_toggle", True)
-        print(f"✅ intervalos_toggle activado para {self.DongleID}")
       elif payload.lower() == "false":
         self.params.put_bool("intervalos_toggle", False)
-        print(f"🛑 intervalos_toggle desactivado para {self.DongleID}")
-      else:
-        print(f"⚠️ Valor no reconocido en intervalos: '{payload}'")
-    except Exception as e:
-      print(f"❌ Error procesando comando de intervalos: {e}")
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
 
   def start(self):
     """Inicia el cliente MQTT de comandos."""
-    print("🚀 Iniciando MQTT Comandos...")
     # El cliente ya se inicia automáticamente en el hilo
 
   def stop(self):
     """Detiene el cliente MQTT de comandos."""
     self.stop_event.set()
     self.mqttc.disconnect()
-    print("🛑 MQTT Comandos detenido")
 
 if __name__ == "__main__":
   comandos = MQTTComandos()
