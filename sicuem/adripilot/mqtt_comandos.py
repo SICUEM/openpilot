@@ -263,7 +263,7 @@ class MQTTComandos:
         # Fallback: usar parámetros como respaldo
         self.params.put_bool("adripilot_speed_increase", True)
 
-    except Exception as e:
+    except Exception:
       pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_down_server(self, payload):
@@ -282,7 +282,7 @@ class MQTTComandos:
         # Fallback: usar parámetros como respaldo
         self.params.put_bool("adripilot_speed_decrease", True)
 
-    except Exception as e:
+    except Exception:
       pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_increment_config(self, payload):
