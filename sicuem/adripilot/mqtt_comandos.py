@@ -15,6 +15,10 @@ class MQTTComandos:
     self.DongleID = self.params.get("DongleId").decode("utf-8") if self.params.get("DongleId") else "DongleID"
     self.conectado = False
     self.stop_event = threading.Event()
+    # Archivo para guardar mensajes MQTT para modo debug
+    self.debug_file = "/tmp/mqtt_debug_messages.txt"
+    self.max_messages = 50  # Máximo de mensajes a guardar
+    self.messages_lock = threading.Lock()
     self.load_config()
     self.init_mqtt()
 
@@ -66,13 +70,58 @@ class MQTTComandos:
     self.conectado = False
     # print("🔌 MQTT Comandos desconectado. Reintentando...")  # Comentado para reducir uso de memoria
 
+  def save_debug_message(self, topic, payload):
+    """Guarda un mensaje MQTT para el modo debug."""
+    try:
+      timestamp = time.strftime("%H:%M:%S", time.localtime())
+      # Truncar payload si es muy largo
+      payload_display = payload[:100] if len(payload) > 100 else payload
+      message = f"[{timestamp}] {topic}\n{payload_display}\n"
+
+      with self.messages_lock:
+        # Leer mensajes existentes
+        messages = []
+        if os.path.exists(self.debug_file):
+          try:
+            with open(self.debug_file, 'r', encoding='utf-8') as f:
+              content = f.read()
+              # Dividir por líneas y mantener solo los últimos max_messages
+              lines = content.split('\n')
+              # Agrupar en mensajes (cada mensaje tiene 2 líneas: timestamp+topic y payload)
+              i = 0
+              while i < len(lines):
+                if lines[i].startswith('['):
+                  if i + 1 < len(lines):
+                    messages.append(lines[i] + '\n' + lines[i + 1])
+                    i += 2
+                  else:
+                    i += 1
+                else:
+                  i += 1
+          except Exception:
+            messages = []
+
+        # Agregar nuevo mensaje
+        messages.append(message.strip())
+
+        # Mantener solo los últimos max_messages
+        if len(messages) > self.max_messages:
+          messages = messages[-self.max_messages:]
+
+        # Escribir de vuelta
+        with open(self.debug_file, 'w', encoding='utf-8') as f:
+          f.write('\n\n'.join(messages))
+    except Exception:
+      pass  # Silenciar errores para no afectar el flujo principal
+
   def on_message(self, client, userdata, msg):
     """Callback que maneja los mensajes MQTT de comandos."""
     try:
       topic = msg.topic
       payload = msg.payload.decode(errors="ignore").strip()
 
-      # print(f"📥 MQTT recibido: {topic} -> {payload}")  # Comentado para reducir uso de memoria
+      # Guardar mensaje para modo debug
+      self.save_debug_message(topic, payload)
 
       # Comando de cambio de carril a la izquierda
       if topic.endswith("/left"):
@@ -248,39 +297,69 @@ class MQTTComandos:
       pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_up_server(self, payload):
-    """Maneja el comando de aumentar velocidad - formato servidor.
+    """Maneja el comando de aumentar velocidad - formato servidor/app.
 
-    El servidor/envía el comando cuando el usuario pulsa el botón "Aumentar" en la app.
+    El servidor/app envía el comando cuando el usuario pulsa el botón "Aumentar".
+    Formatos aceptados:
+    - JSON: {'speed_up': true, 'timestamp': ...} (nuevo formato desde app)
+    - String: "1", "+1", o cualquier string (formato antiguo del servidor)
+
     IMPORTANTE: Solo funciona cuando el control longitudinal está activo (crucero activado).
     """
     try:
-      # El servidor puede enviar "+1", "1", o cualquier string (aceptamos cualquier payload como válido)
-      # Usar el módulo directamente para modificar la variable global
+      # Intentar parsear como JSON primero (nuevo formato desde app)
       try:
-        import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
-        speed_module.adripilot_speed_increase = True
-      except ImportError:
-        # Fallback: usar parámetros como respaldo
-        self.params.put_bool("adripilot_speed_increase", True)
+        data = json.loads(payload)
+        if data.get("speed_up") is True:
+          # Formato nuevo: JSON con speed_up: true
+          try:
+            import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+            speed_module.adripilot_speed_increase = True
+          except ImportError:
+            self.params.put_bool("adripilot_speed_increase", True)
+          return
+      except (json.JSONDecodeError, AttributeError):
+        # No es JSON, tratar como string (formato antiguo del servidor)
+        # Aceptamos cualquier payload como válido para mantener compatibilidad
+        try:
+          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+          speed_module.adripilot_speed_increase = True
+        except ImportError:
+          self.params.put_bool("adripilot_speed_increase", True)
 
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
 
   def handle_speed_down_server(self, payload):
-    """Maneja el comando de disminuir velocidad - formato servidor.
+    """Maneja el comando de disminuir velocidad - formato servidor/app.
 
-    El servidor envía el comando cuando el usuario pulsa el botón "Disminuir" en la app.
+    El servidor/app envía el comando cuando el usuario pulsa el botón "Disminuir".
+    Formatos aceptados:
+    - JSON: {'speed_down': true, 'timestamp': ...} (nuevo formato desde app)
+    - String: "1", "-1", o cualquier string (formato antiguo del servidor)
+
     IMPORTANTE: Solo funciona cuando el control longitudinal está activo (crucero activado).
     """
     try:
-      # El servidor puede enviar "-1", "1", o cualquier string (aceptamos cualquier payload como válido)
-      # Usar el módulo directamente para modificar la variable global
+      # Intentar parsear como JSON primero (nuevo formato desde app)
       try:
-        import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
-        speed_module.adripilot_speed_decrease = True
-      except ImportError:
-        # Fallback: usar parámetros como respaldo
-        self.params.put_bool("adripilot_speed_decrease", True)
+        data = json.loads(payload)
+        if data.get("speed_down") is True:
+          # Formato nuevo: JSON con speed_down: true
+          try:
+            import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+            speed_module.adripilot_speed_decrease = True
+          except ImportError:
+            self.params.put_bool("adripilot_speed_decrease", True)
+          return
+      except (json.JSONDecodeError, AttributeError):
+        # No es JSON, tratar como string (formato antiguo del servidor)
+        # Aceptamos cualquier payload como válido para mantener compatibilidad
+        try:
+          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+          speed_module.adripilot_speed_decrease = True
+        except ImportError:
+          self.params.put_bool("adripilot_speed_decrease", True)
 
     except Exception:
       pass  # Error silenciado para reducir uso de memoria

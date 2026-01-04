@@ -3304,6 +3304,14 @@ This feature must be used along with SLC, and/or V-TSC, and/or M-TSC.</source>
         <source>Configuración</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>MODO DEBUG</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Muestra mensajes MQTT recibidos en la pantalla de conducción.</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

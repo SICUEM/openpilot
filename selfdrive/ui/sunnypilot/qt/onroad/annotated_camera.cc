@@ -42,6 +42,8 @@ Last updated: July 29, 2024
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QFile>
+#include <QTextStream>
+#include <QIODevice>
 
 #include "common/swaglog.h"
 #include "selfdrive/ui/qt/onroad/buttons.h"
@@ -604,6 +606,7 @@ bool mostrar_carril = params.getBool("c_carril");
 bool mostrar_blindspot = params.getBool("show_blindspot");
 bool adelantar_bsm = Params().getBool("sic_adelantar_bsm");
 bool adelantar_nobsm = Params().getBool("sic_adelantar_nobsm");
+modoDebug = params.getBool("modo_debug");
 
 int x1 = rect().right() - 630;   // 🔁 POSICIÓN HORIZONTAL COMÚN PARA TODOS
 int y_base = rect().bottom() - 500;
@@ -1001,6 +1004,43 @@ void AnnotatedCameraWidgetSP::drawCenteredText(QPainter &p, int x, int y, const 
 
   p.setPen(color);
   p.drawText(real_rect, Qt::AlignCenter, text);
+}
+
+void AnnotatedCameraWidgetSP::drawDebugPanel(QPainter &p) {
+  // Panel debug: mitad izquierda de la pantalla con fondo negro
+  int panel_width = width() / 2;
+  int panel_height = height();
+  QRect debug_rect(0, 0, panel_width, panel_height);
+
+  // Fondo negro semi-transparente
+  p.setPen(Qt::NoPen);
+  p.setBrush(QColor(0, 0, 0, 200));
+  p.drawRect(debug_rect);
+
+  // Leer mensajes MQTT desde el archivo
+  QString debug_file = "/tmp/mqtt_debug_messages.txt";
+  QFile file(debug_file);
+  QString messages_text = "";
+
+  if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+    QTextStream in(&file);
+    messages_text = in.readAll();
+    file.close();
+  } else {
+    messages_text = "Esperando mensajes MQTT...";
+  }
+
+  // Título
+  p.setFont(InterFont(50, QFont::Bold));
+  p.setPen(QColor(255, 255, 255, 255));
+  QRect title_rect = debug_rect.adjusted(20, 20, -20, 100);
+  p.drawText(title_rect, Qt::AlignTop | Qt::AlignLeft, "MQTT DEBUG");
+
+  // Mensajes
+  p.setFont(InterFont(32));
+  p.setPen(QColor(255, 255, 255, 255));
+  QRect text_rect = debug_rect.adjusted(20, 100, -20, -20);
+  p.drawText(text_rect, Qt::AlignTop | Qt::AlignLeft | Qt::TextWordWrap, messages_text);
 }
 
 void AnnotatedCameraWidgetSP::drawRoadNameText(QPainter &p, int x, int y, const QString &text, QColor color) {
@@ -1943,6 +1983,10 @@ void AnnotatedCameraWidgetSP::paintGL() {
   drawHud(painter);
   // ✅ Mostrar etiquetas condicionales si los toggles están activados
 
+  // Dibujar panel debug si está activo
+  if (modoDebug) {
+    drawDebugPanel(painter);
+  }
 
   if (left_blinker || right_blinker) {
     blinker_frame++;

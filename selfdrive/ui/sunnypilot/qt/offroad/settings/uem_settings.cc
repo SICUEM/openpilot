@@ -54,6 +54,12 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
   tr("Adelantamiento automático sin usar BSM."),
   "../assets/offroad/icon_blank.png",
 },
+{
+  "modo_debug",
+  tr("MODO DEBUG"),
+  tr("Muestra mensajes MQTT recibidos en la pantalla de conducción."),
+  "../assets/offroad/icon_blank.png",
+},
 
     /**
     {
