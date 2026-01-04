@@ -98,7 +98,6 @@ private:
   void mousePressEvent(QMouseEvent* e) override;
   void drawRoadNameText(QPainter &p, int x, int y, const QString &text, QColor color);
   void drawBlindspotIcons(QPainter &p, int x, int y);
-  void drawDebugPanel(QPainter &p);
 
 
   QVBoxLayout *main_layout;
@@ -230,6 +229,7 @@ private:
   bool forceLaneChangeLeft = false;//adri
 bool forceLaneChangeRight = false;//adri
   bool modoDebug = false;  // Modo debug para mostrar mensajes MQTT
+  class DebugPanel *debug_panel = nullptr;  // Widget del panel debug
 
   bool featureStatusToggle;
 

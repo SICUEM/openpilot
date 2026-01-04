@@ -25,6 +25,7 @@ Last updated: July 29, 2024
 ***/
 
 #include "selfdrive/ui/sunnypilot/qt/onroad/annotated_camera.h"
+#include "selfdrive/ui/sunnypilot/qt/onroad/debug_panel.h"
 
 #include <algorithm>
 #include <QProcess>
@@ -129,12 +130,18 @@ right_button->move(width() - right_button->width() - 20, height() / 2 - right_bu
 //connect(left_button, &QPushButton::clicked, this, &AnnotatedCameraWidgetSP::onLeftButtonClicked);
 //connect(right_button, &QPushButton::clicked, this, &AnnotatedCameraWidgetSP::onRightButtonClicked);
 */
-// Agregar botones al layout
-buttons_layout = new QHBoxLayout();
-buttons_layout->setContentsMargins(0, 0, 10, 20);
-main_layout->addLayout(buttons_layout);
-updateButtonsLayout(false);
+  // Agregar botones al layout
+  buttons_layout = new QHBoxLayout();
+  buttons_layout->setContentsMargins(0, 0, 10, 20);
+  main_layout->addLayout(buttons_layout);
+  updateButtonsLayout(false);
 
+  // Crear panel debug (inicialmente oculto)
+  debug_panel = new DebugPanel(this);
+  debug_panel->setParent(this);
+  debug_panel->hide();
+  debug_panel->move(0, 0);
+  debug_panel->raise();
 
 }
 /*
@@ -397,6 +404,17 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
 
   // update buttons layout
   updateButtonsLayout(rightHandDM);
+
+  // Actualizar panel debug si está activo
+  if (debug_panel && modoDebug) {
+    if (!debug_panel->isVisible()) {
+      debug_panel->show();
+    }
+    debug_panel->updateSize();  // El panel ajusta su tamaño según su estado
+    debug_panel->raise();
+  } else if (debug_panel && !modoDebug) {
+    debug_panel->hide();
+  }
 
   // hide map settings button for alerts and flip for right hand DM
   if (map_settings_btn->isEnabled()) {
@@ -1004,43 +1022,6 @@ void AnnotatedCameraWidgetSP::drawCenteredText(QPainter &p, int x, int y, const 
 
   p.setPen(color);
   p.drawText(real_rect, Qt::AlignCenter, text);
-}
-
-void AnnotatedCameraWidgetSP::drawDebugPanel(QPainter &p) {
-  // Panel debug: mitad izquierda de la pantalla con fondo negro
-  int panel_width = width() / 2;
-  int panel_height = height();
-  QRect debug_rect(0, 0, panel_width, panel_height);
-
-  // Fondo negro semi-transparente
-  p.setPen(Qt::NoPen);
-  p.setBrush(QColor(0, 0, 0, 200));
-  p.drawRect(debug_rect);
-
-  // Leer mensajes MQTT desde el archivo
-  QString debug_file = "/tmp/mqtt_debug_messages.txt";
-  QFile file(debug_file);
-  QString messages_text = "";
-
-  if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    QTextStream in(&file);
-    messages_text = in.readAll();
-    file.close();
-  } else {
-    messages_text = "Esperando mensajes MQTT...";
-  }
-
-  // Título
-  p.setFont(InterFont(50, QFont::Bold));
-  p.setPen(QColor(255, 255, 255, 255));
-  QRect title_rect = debug_rect.adjusted(20, 20, -20, 100);
-  p.drawText(title_rect, Qt::AlignTop | Qt::AlignLeft, "MQTT DEBUG");
-
-  // Mensajes
-  p.setFont(InterFont(32));
-  p.setPen(QColor(255, 255, 255, 255));
-  QRect text_rect = debug_rect.adjusted(20, 100, -20, -20);
-  p.drawText(text_rect, Qt::AlignTop | Qt::AlignLeft | Qt::TextWordWrap, messages_text);
 }
 
 void AnnotatedCameraWidgetSP::drawRoadNameText(QPainter &p, int x, int y, const QString &text, QColor color) {
@@ -1983,9 +1964,13 @@ void AnnotatedCameraWidgetSP::paintGL() {
   drawHud(painter);
   // ✅ Mostrar etiquetas condicionales si los toggles están activados
 
-  // Dibujar panel debug si está activo
-  if (modoDebug) {
-    drawDebugPanel(painter);
+  // Mostrar/ocultar panel debug según el toggle
+  if (debug_panel && modoDebug) {
+    debug_panel->show();
+    debug_panel->raise();
+    // El panel se ajusta automáticamente según su estado interno (oculto/abierto)
+  } else if (debug_panel) {
+    debug_panel->hide();
   }
 
   if (left_blinker || right_blinker) {

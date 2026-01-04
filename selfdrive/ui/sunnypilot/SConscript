@@ -61,6 +61,7 @@ qt_src = [
   "sunnypilot/qt/onroad/onroad_home.cc",
   "sunnypilot/qt/onroad/onroad_settings.cc",
   "sunnypilot/qt/onroad/annotated_camera.cc",
+  "sunnypilot/qt/onroad/debug_panel.cc",
   "sunnypilot/qt/onroad/onroad_settings_panel.cc",
   "sunnypilot/qt/onroad/developer_ui/developer_ui.cc",
 ]
