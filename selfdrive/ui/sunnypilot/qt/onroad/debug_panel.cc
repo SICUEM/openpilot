@@ -158,7 +158,8 @@ void DebugPanel::loadMessages() {
       messages_html = "<span style='color: #888888;'>Esperando mensajes MQTT...</span>";
     } else {
       // Dividir por doble salto de línea (separador de mensajes)
-      QStringList messages = content.split("\n\n", Qt::SkipEmptyParts);
+      // Usamos QString::SkipEmptyParts para compatibilidad con la versión de Qt del comma
+      QStringList messages = content.split("\n\n", QString::SkipEmptyParts);
 
       // Mostrar los últimos 50 mensajes
       int start = messages.size() > 50 ? messages.size() - 50 : 0;

@@ -34,7 +34,7 @@ class AdriPilotSpeedUltraSimple:
         return max(1.0, min(50.0, increment))
     except (ValueError, TypeError):
       # Si hay un error al leer el incremento, usamos el valor por defecto sin log de debug
-    return self.speed_increment_default
+      return self.speed_increment_default
 
   def process_speed_commands(self, car_control, car_state, v_cruise_helper):
     """Procesa comandos de velocidad usando variables globales.
