@@ -7,6 +7,13 @@ import paho.mqtt.client as mqtt
 from openpilot.common.params import Params
 import os
 
+# Importar el módulo de velocidad una sola vez al inicio para evitar problemas de importación
+try:
+  import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+  SPEED_MODULE_AVAILABLE = True
+except ImportError:
+  SPEED_MODULE_AVAILABLE = False
+
 class MQTTComandos:
   def __init__(self):
     self.base_path = os.path.dirname(os.path.abspath(__file__))
@@ -277,18 +284,16 @@ class MQTTComandos:
 
       # Aumentar velocidad
       if data.get("speed_increase"):
-        try:
-          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+        if SPEED_MODULE_AVAILABLE:
           speed_module.adripilot_speed_increase = True
-        except ImportError:
+        else:
           self.params.put_bool("adripilot_speed_increase", True)
 
       # Reducir velocidad
       if data.get("speed_decrease"):
-        try:
-          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+        if SPEED_MODULE_AVAILABLE:
           speed_module.adripilot_speed_decrease = True
-        except ImportError:
+        else:
           self.params.put_bool("adripilot_speed_decrease", True)
 
     except json.JSONDecodeError:
@@ -312,19 +317,17 @@ class MQTTComandos:
         data = json.loads(payload)
         if data.get("speed_up") is True:
           # Formato nuevo: JSON con speed_up: true
-          try:
-            import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+          if SPEED_MODULE_AVAILABLE:
             speed_module.adripilot_speed_increase = True
-          except ImportError:
+          else:
             self.params.put_bool("adripilot_speed_increase", True)
           return
       except (json.JSONDecodeError, AttributeError):
         # No es JSON, tratar como string (formato antiguo del servidor)
         # Aceptamos cualquier payload como válido para mantener compatibilidad
-        try:
-          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+        if SPEED_MODULE_AVAILABLE:
           speed_module.adripilot_speed_increase = True
-        except ImportError:
+        else:
           self.params.put_bool("adripilot_speed_increase", True)
 
     except Exception:
@@ -346,19 +349,17 @@ class MQTTComandos:
         data = json.loads(payload)
         if data.get("speed_down") is True:
           # Formato nuevo: JSON con speed_down: true
-          try:
-            import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+          if SPEED_MODULE_AVAILABLE:
             speed_module.adripilot_speed_decrease = True
-          except ImportError:
+          else:
             self.params.put_bool("adripilot_speed_decrease", True)
           return
       except (json.JSONDecodeError, AttributeError):
         # No es JSON, tratar como string (formato antiguo del servidor)
         # Aceptamos cualquier payload como válido para mantener compatibilidad
-        try:
-          import openpilot.sicuem.adripilot.adripilot_speed_ultra_simple as speed_module
+        if SPEED_MODULE_AVAILABLE:
           speed_module.adripilot_speed_decrease = True
-        except ImportError:
+        else:
           self.params.put_bool("adripilot_speed_decrease", True)
 
     except Exception:

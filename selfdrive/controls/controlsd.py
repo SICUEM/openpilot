@@ -548,6 +548,28 @@ class Controls:
     self.v_cruise_helper.update_v_cruise(CS, self.enabled_long, self.is_metric, self.reverse_acc_change,
                                          self.sm['longitudinalPlanSP'])
 
+    # Procesar comandos de velocidad AdriPilot DESPUÉS de update_v_cruise
+    # Esto permite que los cambios de AdriPilot se apliquen antes de que se use el valor en state_control
+    # IMPORTANTE: Si el coche tiene pcmCruise y pcmCruiseSpeed, update_v_cruise sobrescribe v_cruise_kph
+    # desde CS.cruiseState.speed. Por eso procesamos los comandos de AdriPilot DESPUÉS para que
+    # los cambios se apliquen correctamente.
+    # Pasamos enabled_long para que pueda verificar si el control longitudinal está activo
+    try:
+      # Crear un objeto temporal con enabled_long para pasar a process_speed_commands
+      class TempCarControl:
+        def __init__(self, enabled_long):
+          self.enabled_long = enabled_long
+      temp_cc = TempCarControl(self.enabled_long)
+      adripilot_speed_ultra_simple.process_speed_commands(temp_cc, CS, self.v_cruise_helper)
+    except Exception as e:
+      # Log del error de forma muy limitada para no saturar
+      if hasattr(self, '_adripilot_error_count'):
+        self._adripilot_error_count += 1
+      else:
+        self._adripilot_error_count = 1
+      if self._adripilot_error_count % 100 == 0:  # Log cada 100 errores
+        cloudlog.error(f"❌ AdriPilot Speed: Error en state_transition: {e}")
+
     # AdriPilot: Aumentar la velocidad objetivo en 20 km/h solo cuando se inicializa
     # Esto permite tener acceso a la velocidad que el software decide para algoritmos de adelantamiento
     # Se aplica solo cuando se inicializa la velocidad de crucero, no en cada iteración
@@ -930,19 +952,10 @@ class Controls:
     if self.params.get_bool("sic_adelantar_nobsm"):
       self.v_cruise_helper.v_cruise_kph = vel_adel
 
-    # Forzar tanto el control como el HUD a usar la velocidad actualizada
+    # Los comandos de velocidad AdriPilot ya se procesaron en state_transition()
+    # después de update_v_cruise(), así que aquí solo aplicamos el valor final
     CC.vCruise = self.v_cruise_helper.v_cruise_kph
     hudControl = CC.hudControl
-    hudControl.setSpeed = float(self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
-
-    # Procesar comandos de velocidad AdriPilot (ultra simplificado) - DESPUÉS de asignación
-    try:
-      adripilot_speed_ultra_simple.process_speed_commands(CC, CS, self.v_cruise_helper)
-    except Exception:
-      pass  # Error silenciado para reducir uso de memoria
-
-    # Re-aplicar la velocidad actualizada después del procesamiento AdriPilot
-    CC.vCruise = self.v_cruise_helper.v_cruise_kph
     hudControl.setSpeed = float(self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
 
     hudControl.speedVisible = self.enabled_long

@@ -26,11 +26,14 @@ class AdriPilotSpeedUltraSimple:
     try:
       increment_str = self.params.get("adripilot_speed_increment")
       if increment_str:
+        # Si es bytes, decodificar a string
+        if isinstance(increment_str, bytes):
+          increment_str = increment_str.decode('utf-8')
         increment = float(increment_str)
         # Validar que esté en un rango razonable (1-50 km/h)
         return max(1.0, min(50.0, increment))
     except (ValueError, TypeError):
-      pass
+      # Si hay un error al leer el incremento, usamos el valor por defecto sin log de debug
     return self.speed_increment_default
 
   def process_speed_commands(self, car_control, car_state, v_cruise_helper):
@@ -40,11 +43,33 @@ class AdriPilotSpeedUltraSimple:
     Esto significa que el usuario debe haber activado el control de crucero con el botón del volante.
     """
     global adripilot_speed_increase, adripilot_speed_decrease
+
+    # Usamos directamente las variables globales; ya están compartidas con mqtt_comandos
     current_time = time.time()
 
-    # Verificar que el control longitudinal esté activo
-    if not hasattr(car_control, 'longActive') or not car_control.longActive:
-      # Si hay comandos pendientes pero el control no está activo, limpiarlos sin procesar
+    # Verificar que el control de crucero esté activo
+    # Verificamos tanto cruiseState.enabled como que v_cruise_kph esté inicializado
+    # También verificamos si el control longitudinal está activo (enabled_long)
+    cruise_enabled = False
+    if hasattr(car_state, 'cruiseState'):
+      cruise_enabled = getattr(car_state.cruiseState, 'enabled', False)
+
+    # Verificar si el control longitudinal está activo (más flexible para simulador)
+    long_active = False
+    if car_control is not None and hasattr(car_control, 'enabled_long'):
+      long_active = car_control.enabled_long
+    elif hasattr(car_control, 'longActive'):
+      long_active = car_control.longActive
+
+    # También verificamos que v_cruise_kph esté inicializado (no sea V_CRUISE_UNSET = 255)
+    v_cruise_initialized = v_cruise_helper.v_cruise_kph != 255 and v_cruise_helper.v_cruise_kph > 0
+
+    # Aceptamos si el crucero está habilitado O si el control longitudinal está activo
+    # (esto es más flexible para simuladores y diferentes configuraciones de coches)
+    cruise_or_long_active = cruise_enabled or long_active
+
+    if not cruise_or_long_active or not v_cruise_initialized:
+      # Si hay comandos pendientes pero el crucero no está activo, limpiarlos sin procesar
       if adripilot_speed_increase or adripilot_speed_decrease:
         adripilot_speed_increase = False
         adripilot_speed_decrease = False
@@ -53,6 +78,7 @@ class AdriPilotSpeedUltraSimple:
     if adripilot_speed_increase or adripilot_speed_decrease:
       # Obtener velocidad actual desde v_cruise_helper
       current_speed = v_cruise_helper.v_cruise_kph
+
       if current_speed == 255:  # V_CRUISE_UNSET
         # Intentar obtener desde la velocidad actual del vehículo
         if hasattr(car_state, 'vEgo'):
@@ -61,7 +87,10 @@ class AdriPilotSpeedUltraSimple:
           current_speed = 40.0  # Velocidad por defecto
 
       # Obtener incremento configurable (por ahora 10 km/h por defecto)
-      speed_increment = self.get_speed_increment()
+      try:
+        speed_increment = self.get_speed_increment()
+      except Exception:
+        speed_increment = 10.0
 
       # Calcular nueva velocidad
       if adripilot_speed_increase:
@@ -74,12 +103,12 @@ class AdriPilotSpeedUltraSimple:
       v_cruise_helper.v_cruise_cluster_kph = new_speed
 
       # También modificar car_control si es posible
-      if hasattr(car_control, 'hudControl'):
+      if car_control is not None and hasattr(car_control, 'hudControl'):
         car_control.hudControl.setSpeed = new_speed / 3.6  # Convertir a m/s
-      if hasattr(car_control, 'vCruise'):
+      if car_control is not None and hasattr(car_control, 'vCruise'):
         car_control.vCruise = new_speed
 
-      # Limpiar comandos
+      # Limpiar las variables globales de comando
       adripilot_speed_increase = False
       adripilot_speed_decrease = False
 
