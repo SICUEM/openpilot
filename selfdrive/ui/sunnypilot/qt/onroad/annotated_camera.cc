@@ -611,6 +611,97 @@ void AnnotatedCameraWidgetSP::drawBlindspotIcons(QPainter &p, int x, int y) {
   }
 }
 
+void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
+  // Verificar si el adelantamiento está activado
+  bool adelantar = Params().getBool("sic_adelantar");
+  if (!adelantar) {
+    return;
+  }
+
+  // Guardar el estado del painter para restaurarlo después
+  p.save();
+
+  // Obtener el estado del adelantamiento
+  QString estado = QString::fromStdString(Params().get("overtakeStatus", false));
+  if (estado.isEmpty()) {
+    estado = "ESPERANDO";
+  }
+
+  // Texto completo en una sola línea: emoji + "ADELANTAMIENTO" + ":" + estado
+  QString texto_completo = QString("🚗 ADELANTAMIENTO: %1").arg(estado);
+
+  // Configurar fuente
+  p.setFont(InterFont(40, QFont::Bold));
+
+  // Calcular el ancho del texto para centrarlo
+  QFontMetrics fm(p.font());
+  int texto_width = fm.horizontalAdvance(texto_completo);
+  int texto_height = fm.height();
+
+  // Posición: centro de la pantalla, pegado arriba
+  int badge_x = (rect().width() - texto_width) / 2 - 20;  // Centrado con padding
+  int badge_y = 20;  // Pegado arriba
+  int badge_width = texto_width + 40;  // Padding a los lados
+  int badge_height = texto_height + 20;  // Padding arriba/abajo
+  int corner_radius = 15;
+
+  // Colores según el estado - Flujo completo de adelantamiento
+  QColor bg_color;
+  QColor text_color = Qt::white;
+  QColor border_color;
+
+  if (estado == "ESPERANDO") {
+    // Amarillo: Esperando condiciones para iniciar (lead detectado, distancia OK, velocidad OK)
+    bg_color = QColor(255, 200, 0, 220);  // Amarillo con transparencia
+    border_color = QColor(255, 255, 0, 255);  // Amarillo brillante
+  } else if (estado == "CAMBIANDO_IZQ") {
+    // Azul/Cian: Cambiando a carril izquierdo
+    bg_color = QColor(0, 150, 255, 220);  // Azul con transparencia
+    border_color = QColor(0, 200, 255, 255);  // Azul brillante
+  } else if (estado == "ADELANTANDO") {
+    // Verde: Ya en carril izquierdo, velocidad aumentada, adelantando
+    bg_color = QColor(0, 200, 0, 220);  // Verde con transparencia
+    border_color = QColor(0, 255, 0, 255);  // Verde brillante
+  } else if (estado == "ESPERANDO_RETORNO") {
+    // Naranja: Esperando para volver al carril derecho (más de la mitad del tiempo)
+    bg_color = QColor(255, 150, 0, 220);  // Naranja con transparencia
+    border_color = QColor(255, 180, 0, 255);  // Naranja brillante
+  } else if (estado == "VOLVIENDO") {
+    // Azul: Volviendo al carril derecho
+    bg_color = QColor(0, 150, 255, 220);  // Azul con transparencia
+    border_color = QColor(0, 200, 255, 255);  // Azul brillante
+  } else if (estado == "FINALIZADO") {
+    // Gris/Blanco: Adelantamiento completado
+    bg_color = QColor(200, 200, 200, 220);  // Gris con transparencia
+    border_color = QColor(255, 255, 255, 255);  // Blanco
+  } else if (estado == "BLOQUEADO") {
+    // Rojo: Bloqueado por blindspot
+    bg_color = QColor(200, 0, 0, 220);  // Rojo con transparencia
+    border_color = QColor(255, 0, 0, 255);  // Rojo brillante
+  } else {
+    // Por defecto: Amarillo (ESPERANDO)
+    bg_color = QColor(255, 200, 0, 220);  // Amarillo con transparencia
+    border_color = QColor(255, 255, 0, 255);  // Amarillo brillante
+  }
+
+  // Dibujar fondo del badge con bordes redondeados
+  QPainterPath path;
+  path.addRoundedRect(badge_x, badge_y, badge_width, badge_height, corner_radius, corner_radius);
+
+  p.setPen(QPen(border_color, 3));
+  p.setBrush(bg_color);
+  p.drawPath(path);
+
+  // Dibujar texto centrado
+  p.setPen(text_color);
+  int text_x = badge_x + 20;  // Padding izquierdo
+  int text_y = badge_y + texto_height + 5;  // Centrado verticalmente
+  p.drawText(text_x, text_y, texto_completo);
+
+  // Restaurar el estado del painter
+  p.restore();
+}
+
 
 
 
@@ -622,8 +713,7 @@ p.save();
 bool mostrar_intervalos = params.getBool("intervalos_toggle");
 bool mostrar_carril = params.getBool("c_carril");
 bool mostrar_blindspot = params.getBool("show_blindspot");
-bool adelantar_bsm = Params().getBool("sic_adelantar_bsm");
-bool adelantar_nobsm = Params().getBool("sic_adelantar_nobsm");
+bool adelantar = Params().getBool("sic_adelantar");
 modoDebug = params.getBool("modo_debug");
 
 int x1 = rect().right() - 630;   // 🔁 POSICIÓN HORIZONTAL COMÚN PARA TODOS
@@ -716,11 +806,9 @@ if (mostrar_blindspot) {
 }
 
 // === Adelantar ===
-if (adelantar_bsm || adelantar_nobsm) {
+if (adelantar) {
   int y4 = y_base + y_offset;
-  QString label4 = "Adelantar ";
-  if (adelantar_bsm) label4 += "(BSM): ";
-  else if (adelantar_nobsm) label4 += "(no BSM): ";
+  QString label4 = "Adelantar: ";
 
   QString estado4 = QString::fromStdString(Params().get("overtakeStatus", false));
   if (estado4.isEmpty()) estado4 = "ESPERANDO";
@@ -804,15 +892,7 @@ if (adelantar_bsm || adelantar_nobsm) {
 
     y_offset += 45;
   }
-
-
 }
-
-
-
-p.restore();
-
-
 
   // Header gradient
   QLinearGradient bg(0, UI_HEADER_HEIGHT - (UI_HEADER_HEIGHT / 2.5), 0, UI_HEADER_HEIGHT);
@@ -1963,6 +2043,9 @@ void AnnotatedCameraWidgetSP::paintGL() {
 
   drawHud(painter);
   // ✅ Mostrar etiquetas condicionales si los toggles están activados
+
+  // Mostrar indicador visual de adelantamiento automático
+  drawOvertakeIndicator(painter);
 
   // Mostrar/ocultar panel debug según el toggle
   if (debug_panel && modoDebug) {

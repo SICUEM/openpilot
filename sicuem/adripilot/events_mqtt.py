@@ -284,6 +284,6 @@ def send_alert(alert) -> None:
       alert_type=alert_type
     )
 
-  except Exception as e:
-    print(f"❌ AdriPilot: Error en send_alert: {e}")
+  except Exception:
     # No re-lanzar para no afectar el loop de control
+    pass

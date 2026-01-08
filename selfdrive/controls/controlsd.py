@@ -949,8 +949,18 @@ class Controls:
       vel_adel = 120.0
 
     # Si estamos en adelantamiento, sobreescribe el valor real del crucero
-    if self.params.get_bool("sic_adelantar_nobsm"):
-      self.v_cruise_helper.v_cruise_kph = vel_adel
+    # (solo para modo sin BSM, el modo con BSM usa OverrideCruiseSpeed)
+    if self.params.get_bool("sic_adelantar"):
+      # Verificar si estamos usando modo sin BSM (usa vel_adel)
+      # El modo con BSM usa OverrideCruiseSpeed, así que no necesitamos ajustar aquí
+      try:
+        # Solo ajustar si no hay OverrideCruiseSpeed (modo sin BSM)
+        override_speed = self.params.get("OverrideCruiseSpeed", encoding="utf8")
+        if not override_speed:
+          self.v_cruise_helper.v_cruise_kph = vel_adel
+      except Exception:
+        # Si hay error, usar vel_adel (modo sin BSM)
+        self.v_cruise_helper.v_cruise_kph = vel_adel
 
     # Los comandos de velocidad AdriPilot ya se procesaron en state_transition()
     # después de update_v_cruise(), así que aquí solo aplicamos el valor final

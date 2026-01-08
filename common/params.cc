@@ -161,8 +161,10 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"ActivateEvent",PERSISTENT},//Adrian Cañadas Gallardo
     {"telemetria_uem",PERSISTENT},//Adrian Cañadas Gallardo
     {"c_carril",PERSISTENT},//Adrian Cañadas Gallardo
-    {"sic_adelantar_bsm", PERSISTENT | CLEAR_ON_MANAGER_START},
-    {"sic_adelantar_nobsm", PERSISTENT | CLEAR_ON_MANAGER_START},
+    {"sic_adelantar", PERSISTENT | CLEAR_ON_MANAGER_START},  // Adelantamiento automático unificado (detecta BSM automáticamente)
+    {"sic_adelantar_bsm", PERSISTENT | CLEAR_ON_MANAGER_START},  // Mantener por compatibilidad (deprecated)
+    {"sic_adelantar_nobsm", PERSISTENT | CLEAR_ON_MANAGER_START},  // Mantener por compatibilidad (deprecated)
+    {"overtakeStatus", CLEAR_ON_MANAGER_START},  // Estado del adelantamiento para UI (ESPERANDO, ADELANTANDO, FINALIZADO, BLOQUEADO, DESACTIVADO)
     {"overtakingActive", PERSISTENT},          // Estado de adelantamiento activo (Adrián)
     {"waitingToReturn", PERSISTENT},           // Esperando volver a carril derecho (Adrián)
     {"returningRight", PERSISTENT},            // Ya iniciando retorno a carril derecho (Adrián)

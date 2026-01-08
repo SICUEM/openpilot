@@ -98,6 +98,7 @@ private:
   void mousePressEvent(QMouseEvent* e) override;
   void drawRoadNameText(QPainter &p, int x, int y, const QString &text, QColor color);
   void drawBlindspotIcons(QPainter &p, int x, int y);
+  void drawOvertakeIndicator(QPainter &p);
 
 
   QVBoxLayout *main_layout;

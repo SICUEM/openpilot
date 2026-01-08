@@ -67,7 +67,8 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/speed_up",       # Comando aumentar velocidad (formato servidor)
         f"telemetry_config/{self.DongleID}/speed_down",     # Comando disminuir velocidad (formato servidor)
         f"telemetry_config/{self.DongleID}/speed_increment", # Configuración del incremento de velocidad (futuro)
-        f"telemetry_config/{self.DongleID}/intervalos"      # Configuración intervalos
+        f"telemetry_config/{self.DongleID}/intervalos",      # Configuración intervalos
+        f"telemetry_config/{self.DongleID}/overtake"         # Adelantamiento automático (detecta BSM automáticamente)
       ]
 
       for topic in topics:
@@ -161,6 +162,10 @@ class MQTTComandos:
       # Comando de intervalos
       elif topic.endswith("/intervalos"):
         self.handle_intervalos(payload)
+
+      # Comando de adelantamiento automático (unificado, detecta BSM automáticamente)
+      elif topic.endswith("/overtake"):
+        self.handle_overtake(payload)
 
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
@@ -404,6 +409,33 @@ class MQTTComandos:
         self.params.put_bool("intervalos_toggle", True)
       elif payload.lower() == "false":
         self.params.put_bool("intervalos_toggle", False)
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
+
+  def handle_overtake(self, payload):
+    """Maneja el comando de activar/desactivar adelantamiento automático.
+
+    El sistema detecta automáticamente si el coche tiene BSM disponible.
+    Si tiene BSM, lo usa. Si no, funciona sin BSM.
+
+    Formatos aceptados:
+    - JSON: {'enabled': true, 'timestamp': ...} (formato desde app)
+    - String: "true" o "false" (formato simple)
+    """
+    try:
+      # Intentar parsear como JSON primero (formato desde app)
+      try:
+        data = json.loads(payload)
+        if data.get("enabled") is True:
+          self.params.put_bool("sic_adelantar", True)
+        elif data.get("enabled") is False:
+          self.params.put_bool("sic_adelantar", False)
+      except (json.JSONDecodeError, AttributeError):
+        # No es JSON, tratar como string simple (compatibilidad)
+        if payload.lower() == "true":
+          self.params.put_bool("sic_adelantar", True)
+        elif payload.lower() == "false":
+          self.params.put_bool("sic_adelantar", False)
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
 

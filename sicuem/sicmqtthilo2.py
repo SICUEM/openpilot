@@ -218,6 +218,7 @@ class SicMqttHilo2:
           self.cambiar_enable_canal(item['canal'], 1)
           # print(f"Canal habilitado: {item['canal']}")  # Comentado para reducir uso de memoria
       except Exception as e:
+        pass  # Error silenciado para reducir uso de memoria
 
   def setup_mqtt_connection(self):
     """Configura la conexión MQTT con manejo de reconexión."""
@@ -641,7 +642,6 @@ class SicMqttHilo2:
       self.params.put("turn_distance", "-1")
       self.params.put("off_road_distance", "-1")
       self.params.put("on_road_distance", "-1")
-      print("Archivo Mapbox no encontrado. Todas las distancias configuradas a -1.")
 
   def calculate_distance(self, lat1, lon1, lat2, lon2):
     """Calcula la distancia entre dos puntos geográficos usando la fórmula de Haversine."""
@@ -696,6 +696,7 @@ class SicMqttHilo2:
           #print(f"✅ Publicación MQTT result: {resultado}")
         # Si no hay conexión, simplemente no enviar (no encolar)
       except Exception as e:
+        pass  # Error silenciado para reducir uso de memoria
 
 
 def imprimir_setspeed_y_vego(canal, datos):

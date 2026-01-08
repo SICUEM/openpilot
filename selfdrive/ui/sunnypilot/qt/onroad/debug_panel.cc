@@ -31,15 +31,15 @@ void DebugPanel::setupUI() {
 
   // Header con título y botones
   header_layout = new QHBoxLayout();
-  header_layout->setContentsMargins(20, 15, 20, 15);
-  header_layout->setSpacing(15);
+  header_layout->setContentsMargins(25, 20, 25, 20);
+  header_layout->setSpacing(20);
 
   // Título
   title_label = new QLabel("MQTT DEBUG", this);
   title_label->setStyleSheet(
     "QLabel {"
     "  color: #FFFFFF;"
-    "  font-size: 48px;"
+    "  font-size: 72px;"
     "  font-weight: bold;"
     "  background: transparent;"
     "}"
@@ -49,14 +49,14 @@ void DebugPanel::setupUI() {
 
   // Botón limpiar (papelera)
   clear_btn = new QPushButton(this);
-  clear_btn->setFixedSize(60, 60);
+  clear_btn->setFixedSize(100, 100);
   clear_btn->setStyleSheet(
     "QPushButton {"
     "  background-color: rgba(255, 0, 0, 150);"
-    "  border: 2px solid rgba(255, 255, 255, 200);"
-    "  border-radius: 30px;"
+    "  border: 3px solid rgba(255, 255, 255, 200);"
+    "  border-radius: 50px;"
     "  color: white;"
-    "  font-size: 32px;"
+    "  font-size: 56px;"
     "  font-weight: bold;"
     "}"
     "QPushButton:pressed {"
@@ -69,14 +69,14 @@ void DebugPanel::setupUI() {
 
   // Botón ocultar/mostrar
   toggle_btn = new QPushButton(this);
-  toggle_btn->setFixedSize(60, 60);
+  toggle_btn->setFixedSize(100, 100);
   toggle_btn->setStyleSheet(
     "QPushButton {"
     "  background-color: rgba(0, 150, 255, 150);"
-    "  border: 2px solid rgba(255, 255, 255, 200);"
-    "  border-radius: 30px;"
+    "  border: 3px solid rgba(255, 255, 255, 200);"
+    "  border-radius: 50px;"
     "  color: white;"
-    "  font-size: 32px;"
+    "  font-size: 56px;"
     "  font-weight: bold;"
     "}"
     "QPushButton:pressed {"
@@ -102,13 +102,13 @@ void DebugPanel::setupUI() {
     "}"
     "QScrollBar:vertical {"
     "  background-color: rgba(50, 50, 50, 200);"
-    "  width: 20px;"
-    "  border-radius: 10px;"
+    "  width: 35px;"
+    "  border-radius: 17px;"
     "}"
     "QScrollBar::handle:vertical {"
     "  background-color: rgba(150, 150, 150, 200);"
-    "  min-height: 30px;"
-    "  border-radius: 10px;"
+    "  min-height: 50px;"
+    "  border-radius: 17px;"
     "}"
     "QScrollBar::handle:vertical:hover {"
     "  background-color: rgba(200, 200, 200, 255);"
@@ -127,10 +127,10 @@ void DebugPanel::setupUI() {
   messages_label->setStyleSheet(
     "QLabel {"
     "  color: #FFFFFF;"
-    "  font-size: 28px;"
+    "  font-size: 40px;"
     "  font-family: 'Courier New', monospace;"
     "  background-color: transparent;"
-    "  padding: 10px;"
+    "  padding: 15px;"
     "}"
   );
   messages_label->setWordWrap(true);
@@ -237,8 +237,8 @@ void DebugPanel::updateMessages() {
 void DebugPanel::updateSize() {
   if (is_hidden) {
     // Cuando está oculto: card pequeño pegado al borde izquierdo
-    int panel_width = 70;
-    int panel_height = 80;
+    int panel_width = 120;
+    int panel_height = 120;
     setFixedSize(panel_width, panel_height);
 
     if (parentWidget()) {
@@ -299,7 +299,7 @@ void DebugPanel::onToggleClicked() {
     toggle_btn->setText("▶");
 
     // Centrar el botón en el card pequeño
-    header_layout->setContentsMargins(5, 10, 5, 10);
+    header_layout->setContentsMargins(8, 15, 8, 15);
 
     // Actualizar tamaño y posición
     updateSize();
@@ -314,7 +314,7 @@ void DebugPanel::onToggleClicked() {
     toggle_btn->setText("◀");
 
     // Restaurar el layout del header
-    header_layout->setContentsMargins(20, 15, 20, 15);
+    header_layout->setContentsMargins(25, 20, 25, 20);
 
     // Actualizar tamaño y posición
     updateSize();

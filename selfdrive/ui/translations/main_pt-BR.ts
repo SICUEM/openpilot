@@ -3289,22 +3289,6 @@ This feature must be used along with SLC, and/or V-TSC, and/or M-TSC.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>ACTIVAR ADELANTAR (con BSM)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Usar BSM para adelantar automáticamente.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>ACTIVAR ADELANTAR (sin BSM)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Adelantamiento automático sin usar BSM.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>Conf. IP Servidores</source>
         <translation type="unfinished"></translation>
     </message>

@@ -43,18 +43,6 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
   "../assets/offroad/icon_blank.png",
     },
   {
-  "sic_adelantar_bsm",
-  tr("ACTIVAR ADELANTAR (con BSM)"),
-  tr("Usar BSM para adelantar automáticamente."),
-  "../assets/offroad/icon_blank.png",
-},
-{
-  "sic_adelantar_nobsm",
-  tr("ACTIVAR ADELANTAR (sin BSM)"),
-  tr("Adelantamiento automático sin usar BSM."),
-  "../assets/offroad/icon_blank.png",
-},
-{
   "modo_debug",
   tr("MODO DEBUG"),
   tr("Muestra mensajes MQTT recibidos en la pantalla de conducción."),
@@ -195,29 +183,6 @@ SubPanelButton *madsSettings3 = new SubPanelButton(tr("Sender UEM"));
     auto toggle = new ParamControlSP(param, title, desc, icon, this);
     list->addItem(toggle);
     toggles[param.toStdString()] = toggle;
-
-
-  if (param == "sic_adelantar_bsm") {
-  connect(toggle, &ToggleControlSP::toggleFlipped, [=](bool state) {
-    if (state) {
-      toggles["sic_adelantar_nobsm"]->setEnabled(false);
-      toggles["sic_adelantar_nobsm"]->setValue("0");  // ✅ usar QString
-    } else {
-      toggles["sic_adelantar_nobsm"]->setEnabled(true);
-    }
-  });
-}
-
-    if (param == "sic_adelantar_nobsm") {
-      connect(toggle, &ToggleControlSP::toggleFlipped, [=](bool state) {
-        if (state) {
-          toggles["sic_adelantar_bsm"]->setEnabled(false);
-          toggles["sic_adelantar_bsm"]->setValue("0");  // ✅ usar QString
-        } else {
-          toggles["sic_adelantar_bsm"]->setEnabled(true);
-        }
-      });
-    }
 
 
 
