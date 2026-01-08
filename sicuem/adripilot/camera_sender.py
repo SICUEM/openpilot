@@ -49,8 +49,7 @@ class CameraSender:
         config = json.load(f)
         self.broker = config.get("broker", "localhost")
         self.port = config.get("broker_port", 1883)
-    except Exception as e:
-      print(f"⚠️ Error cargando config MQTT: {e}, usando valores por defecto")
+    except Exception:
       self.broker = "localhost"
       self.port = 1883
 
@@ -101,8 +100,7 @@ class CameraSender:
       v = np.array(uv_data[1::2], dtype=np.uint8).reshape((-1, buf.stride//2))[:buf.height//2, :buf.width//2]
 
       return self.yuv_to_rgb(y, u, v)
-    except Exception as e:
-      print(f"❌ Error extrayendo imagen: {e}")
+    except Exception:
       return None
 
   def rgb_to_jpeg(self, rgb_array):
@@ -117,8 +115,7 @@ class CameraSender:
       img_bytes = io.BytesIO()
       img.save(img_bytes, format='JPEG', quality=self.quality, optimize=True)
       return img_bytes.getvalue()
-    except Exception as e:
-      print(f"❌ Error convirtiendo a JPEG: {e}")
+    except Exception:
       return None
 
   def send_image(self, jpeg_data, frame_id, timestamp):
@@ -154,24 +151,18 @@ class CameraSender:
       )
 
       self.frame_count += 1
-      if self.frame_count % 10 == 0:  # Log cada 10 frames
-        print(f"📷 {self.camera_type}: {self.frame_count} imágenes enviadas (última: {len(jpeg_data)} bytes)")
-
       return True
-    except Exception as e:
+    except Exception:
       self.error_count += 1
-      if self.error_count % 10 == 0:  # Log errores cada 10
-        print(f"❌ Error enviando imagen {self.camera_type}: {e}")
       return False
 
   def run(self):
     """Loop principal de captura y envío."""
     # Verificar si estamos en simulador
     if SIMULATION:
-      print(f"ℹ️ CameraSender ({self.camera_type}): Modo SIMULADOR detectado - las cámaras pueden no estar disponibles")
-      print(f"   Las imágenes solo se enviarán en dispositivos Comma reales, no en simulador")
       # Intentar conectar de todas formas por si el simulador tiene cámaras
       # pero con un timeout más corto
+      pass
 
     msg_name, stream_type = self.stream_map[self.camera_type]
 
@@ -189,21 +180,14 @@ class CameraSender:
       time.sleep(0.1)
 
     if sm[msg_name].frameId == 0:
-      if SIMULATION:
-        print(f"ℹ️ CameraSender ({self.camera_type}): Cámaras no disponibles en SIMULADOR (normal)")
-        print(f"   El envío de imágenes funcionará en dispositivos Comma reales")
-      else:
-        print(f"⚠️ {self.camera_type}: camerad no disponible después de {wait_timeout}s")
       return
 
     # Conectar VisionIPC
     try:
       vipc_client.connect(True)
-    except Exception as e:
-      print(f"❌ {self.camera_type}: Error conectando VisionIPC: {e}")
+    except Exception:
       return
 
-    print(f"📷 CameraSender iniciado: {self.camera_type} ({self.thumbnail_size[0]}x{self.thumbnail_size[1]}, calidad {self.quality}%, cada {self.interval_seconds}s)")
 
     # Loop de captura
     while not self.stop_event.is_set():
@@ -236,10 +220,8 @@ class CameraSender:
 
         self.last_sent = current_time
 
-      except Exception as e:
+      except Exception:
         self.error_count += 1
-        if self.error_count % 20 == 0:  # Log errores cada 20
-          print(f"❌ {self.camera_type}: Error en loop de captura: {e}")
         time.sleep(0.5)
 
   def start(self):
@@ -255,5 +237,4 @@ class CameraSender:
     self.stop_event.set()
     if hasattr(self, 'thread'):
       self.thread.join(timeout=5)
-    print(f"🛑 CameraSender detenido: {self.camera_type} (total: {self.frame_count} frames, errores: {self.error_count})")
 

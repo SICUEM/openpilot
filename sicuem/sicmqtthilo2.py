@@ -218,7 +218,6 @@ class SicMqttHilo2:
           self.cambiar_enable_canal(item['canal'], 1)
           # print(f"Canal habilitado: {item['canal']}")  # Comentado para reducir uso de memoria
       except Exception as e:
-        print(f"Error al habilitar el canal {item['canal']}: {e}")
 
   def setup_mqtt_connection(self):
     """Configura la conexión MQTT con manejo de reconexión."""
@@ -235,11 +234,8 @@ class SicMqttHilo2:
         if not self.conectado:
           self.mqttc.loop_start()
           self.conectado = True
-          print("Conectado al broker MQTT con éxito.")
         break
       except Exception as e:
-        print(f"Error al conectar con el broker MQTT: {e}")
-        print("Reintentando conexión en 5 segundos...")
         time.sleep(5)
 
   def signal_handler(self, sig, frame):
@@ -385,7 +381,6 @@ class SicMqttHilo2:
         self.mqttc.reconnect()  # Intenta reconectar sin bloquear el hilo principal
         break
       except Exception as e:
-        print(f"Fallo en la reconexión: {e}. Reintentando en 5 segundos...")
         time.sleep(5)
 
   def on_message(self, client, userdata, msg):
@@ -423,17 +418,10 @@ class SicMqttHilo2:
         id_coma = partes[1]
         if id_coma == self.DongleID:
           payload = msg.payload.decode(errors="ignore").strip().lower()
-          print(f"🎯 Coincidencia de ID: {id_coma}")
           if payload == "true":
             self.params.put_bool("intervalos_toggle", True)
-            print("✅ intervalos_toggle activado")
           elif payload == "false":
             self.params.put_bool("intervalos_toggle", False)
-            print("🛑 intervalos_toggle desactivado")
-          else:
-            print(f"⚠️ Valor no reconocido en telemetry_config/{id_coma}/intervalos: '{payload}'")
-        else:
-          print(f"🚫 ID no coincide (esperado: {self.DongleID}, recibido: {id_coma})")
 
     elif msg.topic.startswith("telemetry_config/") and msg.topic.endswith("/left"):
       partes = msg.topic.split("/")
@@ -442,22 +430,17 @@ class SicMqttHilo2:
 
         # Verificar toggle de seguridad c_carril
         if not self.params.get_bool("c_carril"):
-          print("🛑 Cambio de carril a IZQUIERDA bloqueado por toggle c_carril.")
           return
 
         if payload == "false":
           self.params.put_bool("ForceLaneChangeLeft", False)
           self.params.put_bool("ForceLaneChangeRight", False)
-          print(f"🛑 Cancelado (left=false)")
 
         elif self.params.get_bool("ForceLaneChangeRight"):
-          print("⚠️ No se puede activar IZQ, ya hay cambio a DERECHA")
           self.params.put_bool("ForceLaneChangeLeft", False)
           self.params.put_bool("ForceLaneChangeRight", False)
-          print(f"🛑 Ambos cancelados por conflicto IZQ-DER")
         else:
           self.params.put_bool("ForceLaneChangeLeft", True)
-          print("✅ IZQUIERDA activado")
 
 
     elif msg.topic.startswith("telemetry_config/") and msg.topic.endswith("/right"):
@@ -467,22 +450,18 @@ class SicMqttHilo2:
 
         # Verificar toggle de seguridad c_carril
         if not self.params.get_bool("c_carril"):
-          print("🛑 Cambio de carril a DERECHA bloqueado por toggle c_carril.")
           return
 
         if payload == "false":
           self.params.put_bool("ForceLaneChangeLeft", False)
           self.params.put_bool("ForceLaneChangeRight", False)
-          print(f"🛑 Cambio de carril cancelado (right=false) para ID {self.DongleID}")
 
         elif self.params.get_bool("ForceLaneChangeLeft"):
           self.params.put_bool("ForceLaneChangeLeft", False)
           self.params.put_bool("ForceLaneChangeRight", False)
-          print(f"⚠️ Ignorado right: había cambio a IZQUIERDA activo → ambos cancelados")
 
         else:
           self.params.put_bool("ForceLaneChangeRight", True)
-          print(f"✅ Cambio de carril forzado a la DERECHA para ID {self.DongleID}")
 
   def cambiar_enable_canal(self, canal, estado):
     """
@@ -717,9 +696,6 @@ class SicMqttHilo2:
           #print(f"✅ Publicación MQTT result: {resultado}")
         # Si no hay conexión, simplemente no enviar (no encolar)
       except Exception as e:
-        print(f"❌ Error al publicar en MQTT: {e}")
-    else:
-      print(f"🚫 Publicación denegada por configuración para canal: {canal}")
 
 
 def imprimir_setspeed_y_vego(canal, datos):
@@ -729,8 +705,6 @@ def imprimir_setspeed_y_vego(canal, datos):
     if 'carControl' in canal:
       set_speed = datos.get("hudControl", {}).get("setSpeed", None)
 
-    print("🧾 Velocidades clave:")
-    print(f"   🔸 setSpeed (HUD): {set_speed:.2f} m/s  ≈ {set_speed * 3.6:.1f} km/h" if set_speed is not None else "   ❌ setSpeed no encontrado")
 
     # Ruta al nuevo archivo JSON
     ruta_base = os.path.dirname(os.path.abspath(__file__))
@@ -743,7 +717,6 @@ def imprimir_setspeed_y_vego(canal, datos):
         try:
           datos_json = json.load(f)
         except json.JSONDecodeError:
-          print("❌ lead_info1.json está corrupto o vacío. Se sobreescribirá.")
           datos_json = {}
 
     # Guardar solo el setSpeed si está presente
@@ -753,5 +726,5 @@ def imprimir_setspeed_y_vego(canal, datos):
         json.dump(datos_json, f, indent=2)
         #print("✅ setSpeed guardado correctamente en lead_info1.json")
 
-  except Exception as e:
-    print(f"❌ Error al imprimir o guardar setSpeed: {e}")
+  except Exception:
+    pass
