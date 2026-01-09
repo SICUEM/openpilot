@@ -98,12 +98,9 @@ class DesireHelper:
     if controls_state_bytes:
       controls_state = log.ControlsState.from_bytes(controls_state_bytes)
       self.v_cruise_helper.v_cruise_kph = controls_state.vCruise
-      # --- NUEVO: inicializar vel_adel con el mismo valor que el setSpeed ---
-      self.params.put("vel_adel", str(controls_state.vCruise))  # Guardar en km/h
     else:
       # Si no existe, ponemos un valor seguro por defecto (ej. 30 km/h)
       self.v_cruise_helper.v_cruise_kph = 30
-      self.params.put("vel_adel", "30.0")
 
   def read_param(self):
     self.edge_toggle = self.param_s.get_bool("RoadEdge")
@@ -173,21 +170,24 @@ class DesireHelper:
 
 
   def auto_overtake(self, carstate, d_rel, v_rel, set_speed, lead_status):
-    """Adelantamiento automático unificado que detecta BSM automáticamente.
+    """Adelantamiento automático simplificado (sin BSM).
 
-    Si el coche tiene BSM disponible, lo usa para verificar ángulo muerto.
-    Si no tiene BSM, funciona sin verificación de ángulo muerto.
-    Todas las referencias a BSM están protegidas con try/except para evitar errores.
+    Algoritmo:
+    1. Detecta coche delante a menos de 50m
+    2. Cambia de carril a la izquierda
+    3. Aumenta velocidad en +15 km/h usando v_cruise_helper (igual que MQTT)
+    4. Espera 15 segundos
+    5. Vuelve al carril derecho
+    6. Restaura velocidad original
     """
     try:
-      # Verificar si el coche tiene BSM disponible
-      has_bsm = self._has_bsm(carstate)
-
       # Inicializar variables si no existen
       if not hasattr(self, "overtake_start_time"):
         self.overtake_start_time = 0
       if not hasattr(self, "speed_increased"):
         self.speed_increased = False
+      if not hasattr(self, "original_v_cruise_kph"):
+        self.original_v_cruise_kph = None
 
       params = Params()
       params.put_bool("overtakingActive", self.overtake_active)
@@ -196,89 +196,46 @@ class DesireHelper:
       estado_anterior = params.get("overtakeStatus", encoding="utf8")
       if estado_anterior == "FINALIZADO" and not self.overtake_active:
         # Mantener FINALIZADO hasta que se reinicie el proceso (nuevo lead o reactivación)
-        # Solo cambiar a ESPERANDO si hay un lead detectado (se reinicia el proceso)
         if not lead_status:
           params.put("overtakeStatus", "FINALIZADO")
           return  # Salir temprano para mantener el estado FINALIZADO
 
       # Actualizar estado del adelantamiento para el indicador visual
-      # Determinar el estado actual basado en el flujo de adelantamiento
       if not self.overtake_active:
-        # No está activo: esperando condiciones
         params.put("overtakeStatus", "ESPERANDO")
       elif self.lane_change_direction == LaneChangeDirection.left:
-        # Cambiando a carril izquierdo
-        if self.lane_change_state == LaneChangeState.laneChangeStarting:
-          params.put("overtakeStatus", "CAMBIANDO_IZQ")
-        elif self.lane_change_state == LaneChangeState.laneChangeFinishing:
+        # Cambiando a carril izquierdo o ya en carril izquierdo
+        if self.lane_change_state in (LaneChangeState.laneChangeStarting, LaneChangeState.laneChangeFinishing):
           params.put("overtakeStatus", "CAMBIANDO_IZQ")
         else:
           # Ya en carril izquierdo, verificando si aumentó velocidad
-          if self.speed_increased:
-            # Verificar si está esperando para volver
-            elapsed = time.time() - self.overtake_start_time
-            return_time = 10.0 if has_bsm else 15.0
-            if elapsed >= return_time * 0.5:  # Más de la mitad del tiempo
-              params.put("overtakeStatus", "ESPERANDO_RETORNO")
-            else:
-              params.put("overtakeStatus", "ADELANTANDO")
+          elapsed = time.time() - self.overtake_start_time
+          return_time = 15.0  # Tiempo fijo de 15 segundos
+          if elapsed >= return_time * 0.5:  # Más de la mitad del tiempo
+            params.put("overtakeStatus", "ESPERANDO_RETORNO")
           else:
             params.put("overtakeStatus", "ADELANTANDO")
       elif self.lane_change_direction == LaneChangeDirection.right:
         # Volviendo al carril derecho
-        if self.lane_change_state == LaneChangeState.laneChangeStarting:
-          params.put("overtakeStatus", "VOLVIENDO")
-        elif self.lane_change_state == LaneChangeState.laneChangeFinishing:
+        if self.lane_change_state in (LaneChangeState.laneChangeStarting, LaneChangeState.laneChangeFinishing):
           params.put("overtakeStatus", "VOLVIENDO")
         else:
           params.put("overtakeStatus", "ADELANTANDO")
       else:
-        # Estado por defecto cuando está activo
         params.put("overtakeStatus", "ADELANTANDO")
-
-      # Actualizar parámetros de estado (protegido para BSM)
-      try:
-        right_blindspot = self._get_blindspot(carstate, LaneChangeDirection.right)
-        params.put_bool("waitingToReturn", self.overtake_active and self.overtake_timer > 5.0 and not right_blindspot)
-        params.put_bool("returningRight", self.overtake_timer > 10.0 and not right_blindspot)
-      except Exception:
-        # Si hay error accediendo a BSM, asumir que no hay blindspot
-        params.put_bool("waitingToReturn", self.overtake_active and self.overtake_timer > 5.0)
-        params.put_bool("returningRight", self.overtake_timer > 10.0)
 
       # --- INICIAR ADELANTAMIENTO ---
       if not self.overtake_active and lead_status:
+        # Condiciones para iniciar: coche delante a menos de 50m y diferencia de velocidad > 15 km/h
         distancia_ok = d_rel < 50.0
-
-        # Si tiene BSM, usar umbral más alto (36 km/h). Si no, usar umbral más bajo (15 km/h)
-        if has_bsm:
-          velocidad_ok = (carstate.cruiseSpeed - carstate.vEgo) > 10.0  # 36 km/h
-          speed_delta = 10.0  # m/s ≈ +36 km/h
-          return_time = 10.0  # segundos
-        else:
-          velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h
-          speed_delta = 4.166  # m/s ≈ +15 km/h
-          return_time = 15.0  # segundos
+        velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
 
         if distancia_ok and velocidad_ok:
-          # Verificar blindspot izquierdo si hay BSM disponible
-          try:
-            left_blindspot = self._get_blindspot(carstate, LaneChangeDirection.left)
-            if has_bsm and left_blindspot:
-              # Hay blindspot, no iniciar adelantamiento
-              params.put("overtakeStatus", "BLOQUEADO")
-              return
-          except Exception:
-            # Si hay error, continuar sin verificación
-            pass
-
-          # Guardar velocidad inicial
-          if has_bsm:
-            self.overtake_v_cruise_last = carstate.cruiseSpeed
-            params.put("OverrideCruiseSpeed", str(self.overtake_v_cruise_last + speed_delta))
-          else:
-            self.original_set_speed = set_speed
-            self.params.put("vel_adel", str(self.original_set_speed * 3.6))  # Guardar en km/h
+          # Guardar velocidad original antes de aumentar
+          self.original_v_cruise_kph = self.v_cruise_helper.v_cruise_kph
+          if self.original_v_cruise_kph is None or self.original_v_cruise_kph <= 0:
+            # Si no hay velocidad guardada, usar la actual
+            self.original_v_cruise_kph = set_speed * 3.6  # Convertir m/s a km/h
 
           # Iniciar adelantamiento → cambio a la izquierda
           self.lane_change_direction = LaneChangeDirection.left
@@ -290,59 +247,46 @@ class DesireHelper:
           self.overtake_start_time = time.time()
           self.speed_increased = False
 
-          bsm_text = "con BSM" if has_bsm else "sin BSM"
-          cloudlog.info(f"🟢 Adelantamiento automático ({bsm_text}) activado")
+          cloudlog.info(f"🟢 Adelantamiento automático activado (velocidad original: {self.original_v_cruise_kph:.1f} km/h)")
 
       # --- MIENTRAS ADELANTA ---
       elif self.overtake_active:
         self.overtake_timer += DT_MDL
         elapsed = time.time() - self.overtake_start_time
 
-        # Aumentar velocidad solo una vez
-        if not self.speed_increased:
-          if has_bsm:
-            # Ya se configuró en OverrideCruiseSpeed al iniciar
-            self.speed_increased = True
-          else:
-            # Aumentar velocidad usando vel_adel
-            new_speed = (self.original_set_speed * 3.6) + 15
-            self.params.put("vel_adel", str(new_speed))
+        # Aumentar velocidad solo una vez cuando ya estamos en el carril izquierdo
+        # Esperamos a que el cambio de carril esté completado (no en proceso)
+        if not self.speed_increased and self.lane_change_state not in (LaneChangeState.laneChangeStarting, LaneChangeState.laneChangeFinishing):
+          # Aumentar velocidad en +15 km/h usando el mismo mecanismo que MQTT
+          if self.original_v_cruise_kph is not None:
+            new_speed = min(self.original_v_cruise_kph + 15.0, 145.0)  # Máximo 145 km/h
             self.v_cruise_helper.v_cruise_kph = new_speed
+            self.v_cruise_helper.v_cruise_cluster_kph = new_speed
             self.speed_increased = True
-            cloudlog.info(f"⬆️ Velocidad incrementada +15 km/h: {new_speed:.1f} km/h")
+            cloudlog.info(f"⬆️ Velocidad incrementada +15 km/h: {self.original_v_cruise_kph:.1f} → {new_speed:.1f} km/h")
 
-        # Determinar tiempo de retorno según si hay BSM
-        return_time = 10.0 if has_bsm else 15.0
+        # Tiempo de retorno fijo: 15 segundos
+        return_time = 15.0
 
         # Verificar si es momento de volver al carril derecho
         if elapsed >= return_time:
-          # Si tiene BSM, verificar blindspot derecho antes de volver
-          can_return = True
-          if has_bsm:
-            try:
-              right_blindspot = self._get_blindspot(carstate, LaneChangeDirection.right)
-              can_return = not right_blindspot
-            except Exception:
-              # Si hay error, permitir retorno
-              can_return = True
+          # Cambiar de carril a la derecha
+          self.lane_change_direction = LaneChangeDirection.right
+          self.lane_change_state = LaneChangeState.laneChangeStarting
+          self.lane_change_ll_prob = 1.0
+          self.lane_change_wait_timer = 0
+          self.overtake_active = False
+          self.speed_increased = False
 
-          if can_return:
-            self.lane_change_direction = LaneChangeDirection.right
-            self.lane_change_state = LaneChangeState.laneChangeStarting
-            self.lane_change_ll_prob = 1.0
-            self.lane_change_wait_timer = 0
-            self.overtake_active = False
+          # Restaurar velocidad original usando el mismo mecanismo que MQTT
+          if self.original_v_cruise_kph is not None:
+            self.v_cruise_helper.v_cruise_kph = self.original_v_cruise_kph
+            self.v_cruise_helper.v_cruise_cluster_kph = self.original_v_cruise_kph
+            cloudlog.info(f"⬇️ Velocidad restaurada: {self.original_v_cruise_kph:.1f} km/h")
 
-            # Restaurar velocidad original
-            if has_bsm:
-              if self.overtake_v_cruise_last is not None:
-                params.put("OverrideCruiseSpeed", str(self.overtake_v_cruise_last))
-            else:
-              self.params.put("vel_adel", str(self.original_set_speed * 3.6))
-              self.v_cruise_helper.v_cruise_kph = self.original_set_speed * 3.6
-
-            params.put("overtakeStatus", "FINALIZADO")
-            cloudlog.info("🔵 Adelantamiento completado: retorno al carril derecho")
+          params.put("overtakeStatus", "FINALIZADO")
+          cloudlog.info("🔵 Adelantamiento completado: retorno al carril derecho")
+          self.original_v_cruise_kph = None  # Limpiar para el próximo adelantamiento
 
     except Exception as e:
       cloudlog.error(f"❌ Error en lógica de adelantamiento: {e}")
@@ -359,11 +303,7 @@ class DesireHelper:
     except Exception as e:
       d_rel, v_rel, lead_status = 0.0, 0.0, False
 
-    # Obtener datos de carControl-----------------------------------------------------------------------------------------------
-
-    # cambia el set speed
-    #self.params.put("vel_adel", str(40))
-
+    # Obtener datos de carControl
     try:
       if self.sm.updated['carControl']:
         car_control = self.sm['carControl']
@@ -372,23 +312,6 @@ class DesireHelper:
         set_speed = 0.1
     except Exception as e:
       set_speed = 0.1
-
-    # --- Sincronizar vel_adel si no estamos adelantando ---
-    if not self.overtake_active and not self.speed_increased:
-      try:
-        # Guardar vel_adel como el set_speed actual en km/h
-        self.params.put("vel_adel", str(set_speed * 3.6))
-      except Exception as e:
-        cloudlog.error(f"Error al sincronizar vel_adel: {e}")
-
-    # 👇 Si estamos en adelantamiento, usa el valor de vel_adel en lugar del HUD
-    if self.overtake_active or self.speed_increased:
-      try:
-        vel_adel_str = self.params.get("vel_adel", encoding="utf8")
-        if vel_adel_str:
-          set_speed = float(vel_adel_str) / 3.6  # lo pasamos a m/s
-      except (ValueError, TypeError) as e:
-        cloudlog.error(f"Valor inválido en vel_adel: {vel_adel_str}, usando set_speed actual")
 
     # 📤 Imprimir todos los datos juntos
     '''

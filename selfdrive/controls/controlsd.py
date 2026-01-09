@@ -446,8 +446,17 @@ class Controls:
         self.events.add(EventName.posenetInvalid)
       if not self.sm['liveLocationKalman'].deviceStable:
         self.events.add(EventName.deviceFalling)
+      # Filtro temporal para locationdTemporaryError: solo activar si inputsOK está False durante al menos 2 segundos
+      # Esto evita activaciones demasiado rápidas que pueden causar desactivaciones inmediatas
       if not self.sm['liveLocationKalman'].inputsOK:
-        self.events.add(EventName.locationdTemporaryError)
+        if not hasattr(self, 'locationd_error_start_time') or self.locationd_error_start_time is None:
+          self.locationd_error_start_time = self.sm.frame
+        elif (self.sm.frame - self.locationd_error_start_time) * DT_CTRL >= 2.0:  # 2 segundos de tolerancia
+          self.events.add(EventName.locationdTemporaryError)
+      else:
+        # Resetear el contador si inputsOK vuelve a ser True
+        if hasattr(self, 'locationd_error_start_time'):
+          self.locationd_error_start_time = None
       if not self.sm['liveParameters'].valid and not TESTING_CLOSET and (not SIMULATION or REPLAY):
         self.events.add(EventName.paramsdTemporaryError)
 
@@ -941,26 +950,8 @@ class Controls:
     if len(speeds):
       CC.cruiseControl.resume = self.enabled_long and CS.cruiseState.standstill and speeds[-1] > 0.1
 
-    vel_adel_str = self.params.get("vel_adel")
-    try:
-      vel_adel = float(vel_adel_str)
-    except (ValueError, TypeError):
-      cloudlog.error(f"Valor inválido en vel_adel: {vel_adel_str}, usando 20.0")
-      vel_adel = 120.0
-
-    # Si estamos en adelantamiento, sobreescribe el valor real del crucero
-    # (solo para modo sin BSM, el modo con BSM usa OverrideCruiseSpeed)
-    if self.params.get_bool("sic_adelantar"):
-      # Verificar si estamos usando modo sin BSM (usa vel_adel)
-      # El modo con BSM usa OverrideCruiseSpeed, así que no necesitamos ajustar aquí
-      try:
-        # Solo ajustar si no hay OverrideCruiseSpeed (modo sin BSM)
-        override_speed = self.params.get("OverrideCruiseSpeed", encoding="utf8")
-        if not override_speed:
-          self.v_cruise_helper.v_cruise_kph = vel_adel
-      except Exception:
-        # Si hay error, usar vel_adel (modo sin BSM)
-        self.v_cruise_helper.v_cruise_kph = vel_adel
+    # El adelantamiento ahora modifica directamente v_cruise_helper.v_cruise_kph
+    # (igual que los comandos MQTT), así que no necesitamos hacer nada aquí
 
     # Los comandos de velocidad AdriPilot ya se procesaron en state_transition()
     # después de update_v_cruise(), así que aquí solo aplicamos el valor final
