@@ -254,16 +254,16 @@ class DesireHelper:
         self.overtake_timer += DT_MDL
         elapsed = time.time() - self.overtake_start_time
 
-        # Aumentar velocidad solo una vez cuando ya estamos en el carril izquierdo
-        # Esperamos a que el cambio de carril esté completado (no en proceso)
-        if not self.speed_increased and self.lane_change_state not in (LaneChangeState.laneChangeStarting, LaneChangeState.laneChangeFinishing):
+        # Aumentar velocidad automáticamente cuando inicia el cambio al carril izquierdo
+        # (igual que cuando llega la orden por MQTT, pero automáticamente)
+        if not self.speed_increased and self.lane_change_direction == LaneChangeDirection.left:
           # Aumentar velocidad en +15 km/h usando el mismo mecanismo que MQTT
           if self.original_v_cruise_kph is not None:
             new_speed = min(self.original_v_cruise_kph + 15.0, 145.0)  # Máximo 145 km/h
             self.v_cruise_helper.v_cruise_kph = new_speed
             self.v_cruise_helper.v_cruise_cluster_kph = new_speed
             self.speed_increased = True
-            cloudlog.info(f"⬆️ Velocidad incrementada +15 km/h: {self.original_v_cruise_kph:.1f} → {new_speed:.1f} km/h")
+            cloudlog.info(f"⬆️ Velocidad incrementada automáticamente +15 km/h: {self.original_v_cruise_kph:.1f} → {new_speed:.1f} km/h (al cambiar al carril izquierdo)")
 
         # Tiempo de retorno fijo: 15 segundos
         return_time = 15.0
