@@ -3332,6 +3332,14 @@ This feature must be used along with SLC, and/or V-TSC, and/or M-TSC.</source>
         <source>Muestra mensajes MQTT recibidos en la pantalla de conducción.</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>PRUEBA ADELANTAMIENTO (SIMULADOR)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Ejecuta rutina de prueba de adelantamiento automático en simulador (sin coches).</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>Updater</name>

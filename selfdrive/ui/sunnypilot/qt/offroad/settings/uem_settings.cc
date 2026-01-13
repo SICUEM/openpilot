@@ -48,6 +48,12 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
   tr("Muestra mensajes MQTT recibidos en la pantalla de conducción."),
   "../assets/offroad/icon_blank.png",
 },
+  {
+  "test_overtake_simulador",
+  tr("PRUEBA ADELANTAMIENTO (SIMULADOR)"),
+  tr("Ejecuta rutina de prueba de adelantamiento automático en simulador (sin coches)."),
+  "../assets/offroad/icon_blank.png",
+},
 
     /**
     {

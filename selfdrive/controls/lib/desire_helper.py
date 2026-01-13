@@ -86,6 +86,7 @@ class DesireHelper:
     self.overtake_v_cruise_last = None
     self.params = Params()
     self.original_set_speed=0
+    self.last_d_rel = None  # Guardar distancia anterior para detectar transición
 
     self.CP = messaging.log_from_bytes(self.params.get("CarParams", block=True), car.CarParams)
 
@@ -169,6 +170,101 @@ class DesireHelper:
 
 
 
+  def test_overtake_routine(self, carstate, set_speed):
+    """Rutina de prueba de adelantamiento para simulador (sin depender de coches).
+
+    Ejecuta automáticamente:
+    1. Cambio a carril izquierdo
+    2. Aumento de velocidad +15 km/h
+    3. Espera 15 segundos
+    4. Cambio a carril derecho
+    5. Restauración de velocidad original
+    """
+    try:
+      params = Params()
+
+      # Inicializar variables si no existen
+      if not hasattr(self, "test_overtake_start_time"):
+        self.test_overtake_start_time = None
+        self.test_overtake_original_speed = None
+        self.test_overtake_state = "INICIO"  # INICIO, CAMBIANDO_IZQ, ADELANTANDO, CAMBIANDO_DER, FINALIZADO
+
+      current_time = time.time()
+
+      # Estado INICIO: Preparar y comenzar
+      if self.test_overtake_state == "INICIO":
+        # Guardar velocidad original
+        self.test_overtake_original_speed = self.v_cruise_helper.v_cruise_kph
+        if self.test_overtake_original_speed is None or self.test_overtake_original_speed <= 0:
+          self.test_overtake_original_speed = set_speed * 3.6  # Convertir m/s a km/h
+
+        # 1) Primero subir la velocidad (como en la orden MQTT)
+        if self.test_overtake_original_speed is not None:
+          new_speed = min(self.test_overtake_original_speed + 15.0, 145.0)
+          try:
+            params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
+            cloudlog.info(
+              f"🧪 TEST: Velocidad aumentada +15 km/h (antes del cambio de carril): "
+              f"{self.test_overtake_original_speed:.1f} → {new_speed:.1f} km/h"
+            )
+          except Exception as e:
+            cloudlog.error(f"❌ TEST: Error al aumentar velocidad en INICIO: {e}")
+
+        # 2) Después iniciar cambio a carril izquierdo
+        self.lane_change_direction = LaneChangeDirection.left
+        self.lane_change_state = LaneChangeState.laneChangeStarting
+        self.lane_change_ll_prob = 1.0
+        self.lane_change_wait_timer = 0
+        self.test_overtake_start_time = current_time
+        self.test_overtake_state = "ADELANTANDO"
+        params.put("overtakeStatus", "ADELANTANDO")
+        cloudlog.info(
+          f"🧪 TEST: Iniciando rutina de prueba de adelantamiento (cambio a carril izquierdo, velocidad original: "
+          f"{self.test_overtake_original_speed:.1f} km/h)"
+        )
+
+      # Estado ADELANTANDO: esperar 15 segundos antes de volver al carril derecho
+      elif self.test_overtake_state == "ADELANTANDO":
+        elapsed = current_time - self.test_overtake_start_time
+        if elapsed >= 15.0:
+          # Tiempo cumplido, cambiar a carril derecho
+          self.lane_change_direction = LaneChangeDirection.right
+          self.lane_change_state = LaneChangeState.laneChangeStarting
+          self.lane_change_ll_prob = 1.0
+          self.lane_change_wait_timer = 0
+          self.test_overtake_start_time = current_time  # Resetear para el cambio derecho
+          self.test_overtake_state = "CAMBIANDO_DER"
+          params.put("overtakeStatus", "VOLVIENDO")
+          cloudlog.info("🧪 TEST: Cambiando a carril derecho")
+
+      # Estado CAMBIANDO_DER: Esperar a que termine el cambio de carril
+      elif self.test_overtake_state == "CAMBIANDO_DER":
+        # Verificar si el cambio de carril ha terminado
+        if self.lane_change_state not in (LaneChangeState.laneChangeStarting, LaneChangeState.laneChangeFinishing):
+          # Cambio completado, restaurar velocidad y finalizar
+          if self.test_overtake_original_speed is not None:
+            try:
+              params.put("OvertakeTargetSpeedKph", f"{self.test_overtake_original_speed:.1f}")
+              cloudlog.info(f"🧪 TEST: Velocidad restaurada: {self.test_overtake_original_speed:.1f} km/h")
+            except Exception as e:
+              cloudlog.error(f"❌ TEST: Error al restaurar velocidad: {e}")
+
+          self.test_overtake_state = "FINALIZADO"
+          params.put("overtakeStatus", "FINALIZADO")
+          cloudlog.info("🧪 TEST: Rutina de prueba completada")
+
+      # Estado FINALIZADO: Mantener estado hasta que se desactive el toggle
+      elif self.test_overtake_state == "FINALIZADO":
+        params.put("overtakeStatus", "FINALIZADO")
+        # Si se desactiva el toggle, resetear para permitir nueva ejecución
+        if not self.param_s.get_bool("test_overtake_simulador"):
+          self.test_overtake_state = "INICIO"
+          self.test_overtake_start_time = None
+          self.test_overtake_original_speed = None
+
+    except Exception as e:
+      cloudlog.error(f"❌ TEST: Error en rutina de prueba de adelantamiento: {e}")
+
   def auto_overtake(self, carstate, d_rel, v_rel, set_speed, lead_status):
     """Adelantamiento automático simplificado (sin BSM).
 
@@ -226,18 +322,38 @@ class DesireHelper:
 
       # --- INICIAR ADELANTAMIENTO ---
       if not self.overtake_active and lead_status:
-        # Condiciones para iniciar: coche delante a menos de 50m y diferencia de velocidad > 15 km/h
-        distancia_ok = d_rel < 50.0
-        velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
+        # Condición: solo iniciar si pasamos de >50m a <50m (transición)
+        # Si ya estábamos <50m desde el principio, NO iniciar
 
-        if distancia_ok and velocidad_ok:
+        # Inicializar last_d_rel si es la primera vez
+        if self.last_d_rel is None:
+          self.last_d_rel = d_rel
+
+        # Verificar transición: distancia anterior >50m y actual <50m
+        distancia_anterior_ok = self.last_d_rel > 50.0
+        distancia_actual_ok = d_rel < 50.0
+
+        # Condición de velocidad comentada temporalmente
+        # velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
+
+        if distancia_anterior_ok and distancia_actual_ok:
           # Guardar velocidad original antes de aumentar
           self.original_v_cruise_kph = self.v_cruise_helper.v_cruise_kph
           if self.original_v_cruise_kph is None or self.original_v_cruise_kph <= 0:
             # Si no hay velocidad guardada, usar la actual
             self.original_v_cruise_kph = set_speed * 3.6  # Convertir m/s a km/h
 
-          # Iniciar adelantamiento → cambio a la izquierda
+          # PRIMERO: Aumentar velocidad (igual que en la rutina de simulador)
+          if self.original_v_cruise_kph is not None:
+            new_speed = min(self.original_v_cruise_kph + 15.0, 145.0)  # Máximo 145 km/h
+            try:
+              params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
+              self.speed_increased = True
+              cloudlog.info(f"⬆️ Velocidad aumentada +15 km/h: {self.original_v_cruise_kph:.1f} → {new_speed:.1f} km/h")
+            except Exception as e:
+              cloudlog.error(f"❌ Error al aumentar velocidad: {e}")
+
+          # SEGUNDO: Iniciar adelantamiento → cambio a la izquierda
           self.lane_change_direction = LaneChangeDirection.left
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_ll_prob = 1.0
@@ -245,25 +361,19 @@ class DesireHelper:
           self.overtake_active = True
           self.overtake_timer = 0.0
           self.overtake_start_time = time.time()
-          self.speed_increased = False
 
-          cloudlog.info(f"🟢 Adelantamiento automático activado (velocidad original: {self.original_v_cruise_kph:.1f} km/h)")
+          cloudlog.info(f"🟢 Adelantamiento automático activado (transición de {self.last_d_rel:.1f}m a {d_rel:.1f}m, velocidad original: {self.original_v_cruise_kph:.1f} km/h)")
+
+        # Actualizar distancia anterior para la próxima iteración
+        self.last_d_rel = d_rel
 
       # --- MIENTRAS ADELANTA ---
       elif self.overtake_active:
         self.overtake_timer += DT_MDL
         elapsed = time.time() - self.overtake_start_time
 
-        # Aumentar velocidad automáticamente cuando inicia el cambio al carril izquierdo
-        # (igual que cuando llega la orden por MQTT, pero automáticamente)
-        if not self.speed_increased and self.lane_change_direction == LaneChangeDirection.left:
-          # Aumentar velocidad en +15 km/h usando el mismo mecanismo que MQTT
-          if self.original_v_cruise_kph is not None:
-            new_speed = min(self.original_v_cruise_kph + 15.0, 145.0)  # Máximo 145 km/h
-            self.v_cruise_helper.v_cruise_kph = new_speed
-            self.v_cruise_helper.v_cruise_cluster_kph = new_speed
-            self.speed_increased = True
-            cloudlog.info(f"⬆️ Velocidad incrementada automáticamente +15 km/h: {self.original_v_cruise_kph:.1f} → {new_speed:.1f} km/h (al cambiar al carril izquierdo)")
+        # La velocidad ya se aumentó al iniciar el adelantamiento (antes del cambio de carril)
+        # Aquí solo mantenemos el estado mientras adelanta
 
         # Tiempo de retorno fijo: 15 segundos
         return_time = 15.0
@@ -278,15 +388,18 @@ class DesireHelper:
           self.overtake_active = False
           self.speed_increased = False
 
-          # Restaurar velocidad original usando el mismo mecanismo que MQTT
+          # Restaurar velocidad original escribiendo de nuevo el objetivo en Params
           if self.original_v_cruise_kph is not None:
-            self.v_cruise_helper.v_cruise_kph = self.original_v_cruise_kph
-            self.v_cruise_helper.v_cruise_cluster_kph = self.original_v_cruise_kph
-            cloudlog.info(f"⬇️ Velocidad restaurada: {self.original_v_cruise_kph:.1f} km/h")
+            try:
+              params.put("OvertakeTargetSpeedKph", f"{self.original_v_cruise_kph:.1f}")
+              cloudlog.info(f"⬇️ Velocidad restaurada tras adelantamiento: {self.original_v_cruise_kph:.1f} km/h")
+            except Exception as e:
+              cloudlog.error(f"❌ Error al restaurar OvertakeTargetSpeedKph: {e}")
 
           params.put("overtakeStatus", "FINALIZADO")
           cloudlog.info("🔵 Adelantamiento completado: retorno al carril derecho")
           self.original_v_cruise_kph = None  # Limpiar para el próximo adelantamiento
+          self.last_d_rel = None  # Resetear distancia anterior para permitir nuevo ciclo
 
     except Exception as e:
       cloudlog.error(f"❌ Error en lógica de adelantamiento: {e}")
@@ -333,7 +446,13 @@ class DesireHelper:
     v_ego = carstate.vEgo
     one_blinker = carstate.leftBlinker != carstate.rightBlinker
 
-    if self.param_s.get_bool("sic_adelantar"):
+    # Verificar si está activado el modo de prueba para simulador
+    test_overtake_mode = self.param_s.get_bool("test_overtake_simulador")
+
+    if test_overtake_mode:
+      # Modo de prueba para simulador: ejecutar rutina sin depender de coches
+      self.test_overtake_routine(carstate, set_speed)
+    elif self.param_s.get_bool("sic_adelantar"):
       # Adelantamiento automático unificado (detecta BSM automáticamente)
       self.auto_overtake(carstate, d_rel, v_rel, set_speed, lead_status)
     else:

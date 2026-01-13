@@ -165,6 +165,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"sic_adelantar_bsm", PERSISTENT | CLEAR_ON_MANAGER_START},  // Mantener por compatibilidad (deprecated)
     {"sic_adelantar_nobsm", PERSISTENT | CLEAR_ON_MANAGER_START},  // Mantener por compatibilidad (deprecated)
     {"overtakeStatus", CLEAR_ON_MANAGER_START},  // Estado del adelantamiento para UI (ESPERANDO, ADELANTANDO, FINALIZADO, BLOQUEADO, DESACTIVADO)
+    {"test_overtake_simulador", CLEAR_ON_MANAGER_START},  // Modo de prueba de adelantamiento para simulador (sin depender de coches)
+    {"OvertakeTargetSpeedKph", CLEAR_ON_MANAGER_START},  // Velocidad objetivo de adelantamiento (km/h), usada por DesireHelper + controlsd
     {"overtakingActive", PERSISTENT},          // Estado de adelantamiento activo (Adrián)
     {"waitingToReturn", PERSISTENT},           // Esperando volver a carril derecho (Adrián)
     {"returningRight", PERSISTENT},            // Ya iniciando retorno a carril derecho (Adrián)

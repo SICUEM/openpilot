@@ -579,11 +579,22 @@ class Controls:
       if self._adripilot_error_count % 100 == 0:  # Log cada 100 errores
         cloudlog.error(f"❌ AdriPilot Speed: Error en state_transition: {e}")
 
-    # AdriPilot: Aumentar la velocidad objetivo en 20 km/h solo cuando se inicializa
-    # Esto permite tener acceso a la velocidad que el software decide para algoritmos de adelantamiento
-    # Se aplica solo cuando se inicializa la velocidad de crucero, no en cada iteración
-    # para permitir que el usuario pueda cambiar la velocidad con los botones del volante
+    # Adelantamiento automático: aplicar objetivo de velocidad si está definido
+    # Esto permite que desire_helper ajuste el setSpeed de forma centralizada, igual que los comandos MQTT.
+    try:
+      overtake_target = self.params.get("OvertakeTargetSpeedKph")
+      if overtake_target:
+        try:
+          target_kph = float(overtake_target.decode("utf-8") if isinstance(overtake_target, bytes) else overtake_target)
+        except Exception:
+          target_kph = 0.0
 
+        # Aplicar solo valores válidos y cuando el control longitudinal/crucero está activo
+        if target_kph > 0:
+          self.v_cruise_helper.v_cruise_kph = target_kph
+          self.v_cruise_helper.v_cruise_cluster_kph = target_kph
+    except Exception:
+      pass
 
     # decrement the soft disable timer at every step, as it's reset on
     # entrance in SOFT_DISABLING state

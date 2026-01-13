@@ -627,8 +627,11 @@ void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
     estado = "ESPERANDO";
   }
 
-  // Texto completo en una sola línea: emoji + "ADELANTAMIENTO" + ":" + estado
-  QString texto_completo = QString("🚗 ADELANTAMIENTO: %1").arg(estado);
+  // Obtener distancia del lead (disponible como variable de clase)
+  QString distancia_str = QString::number(lead_d_rel, 'f', 1);
+
+  // Texto completo en una sola línea: "Dis: (distancia) 🚗 ADELANTAMIENTO: (estado)"
+  QString texto_completo = QString("Dis: %1 🚗 ADELANTAMIENTO: %2").arg(distancia_str, estado);
 
   // Configurar fuente
   p.setFont(InterFont(40, QFont::Bold));
@@ -806,92 +809,9 @@ if (mostrar_blindspot) {
 }
 
 // === Adelantar ===
+// Ocultar datos cuando el adelantamiento está activado (se muestran en el indicador superior)
 if (adelantar) {
-  int y4 = y_base + y_offset;
-  QString label4 = "Adelantar: ";
-
-  QString estado4 = QString::fromStdString(Params().get("overtakeStatus", false));
-  if (estado4.isEmpty()) estado4 = "ESPERANDO";
-
-  QColor color4 = QColor(255, 255, 0);
-  if (estado4 == "ADELANTANDO") color4 = QColor(0, 255, 0);
-  else if (estado4 == "FINALIZADO") color4 = QColor(255, 255, 255);
-
-  p.setFont(InterFont(36, QFont::Bold));
-  p.setPen(Qt::white);
-  p.drawText(x1, y4, label4);
-  int w4 = p.fontMetrics().horizontalAdvance(label4);
-  p.setFont(InterFont(44, QFont::Black));
-  p.setPen(color4);
-  p.drawText(x1 + w4 + 4, y4, estado4);
-
-  y_offset += 55;
-
-    // === Datos del coche delantero ===
-  //if (lead_status) {
-  if (true) {
-
-    int y5 = y_base + y_offset;
-    p.setFont(InterFont(36, QFont::Bold));
-    p.setPen(Qt::white);
-   QString label5 = "Lead: ";
-    QString estado5 = lead_status ? "true" : "false";
-    QColor color5 = lead_status ? QColor(0, 255, 0) : QColor(255, 0, 0);
-
-    p.setFont(InterFont(36, QFont::Bold));
-    p.setPen(Qt::white);
-    p.drawText(x1, y5, label5);
-    int w5 = p.fontMetrics().horizontalAdvance(label5);
-    p.setFont(InterFont(36, QFont::Black));
-    p.setPen(color5);
-    p.drawText(x1 + w5 + 4, y5, estado5);
-
-
-    y_offset += 45;
-
-    // Distancia
-    QString dist_label = "Distancia: ";
-
-
-    QString dist_val = QString::number(lead_d_rel, 'f', 1) + " m";
-    p.setFont(InterFont(28, QFont::Bold));
-    p.setPen(Qt::white);
-    p.drawText(x1, y_base + y_offset, dist_label);
-    int w_dist = p.fontMetrics().horizontalAdvance(dist_label);
-    p.setFont(InterFont(36, QFont::Black));
-    p.setPen(QColor(0, 255, 0));
-    p.drawText(x1 + w_dist + 4, y_base + y_offset, dist_val);
-
-    y_offset += 40;
-
-    // Velocidad del lead
-    QString vel_label = "Velocidad: ";
-    float lead_speed = (vEgo + lead_v_rel) * (is_metric ? MS_TO_KPH : MS_TO_MPH);
-    QString vel_val = QString::number(std::max(0.f, lead_speed), 'f', 0) + (is_metric ? " km/h" : " mph");
-    p.setFont(InterFont(28, QFont::Bold));
-    p.setPen(Qt::white);
-    p.drawText(x1, y_base + y_offset, vel_label);
-    int w_vel = p.fontMetrics().horizontalAdvance(vel_label);
-    p.setFont(InterFont(36, QFont::Black));
-    p.setPen(QColor(0, 180, 255));
-    p.drawText(x1 + w_vel + 4, y_base + y_offset, vel_val);
-
-    y_offset += 40;
-
-    // TTC
-    QString ttc_label = "TTC: ";
-    float ttc = (lead_d_rel > 0 && vEgo > 0) ? std::max(0.f, lead_d_rel / vEgo) : 0.0f;
-    QString ttc_val = (ttc > 0 && ttc < 99) ? QString::number(ttc, 'f', 1) + " s" : "---";
-    p.setFont(InterFont(28, QFont::Bold));
-    p.setPen(Qt::white);
-    p.drawText(x1, y_base + y_offset, ttc_label);
-    int w_ttc = p.fontMetrics().horizontalAdvance(ttc_label);
-    p.setFont(InterFont(36, QFont::Black));
-    p.setPen(QColor(255, 255, 0));
-    p.drawText(x1 + w_ttc + 4, y_base + y_offset, ttc_val);
-
-    y_offset += 45;
-  }
+  // No mostrar nada aquí, todo se muestra en drawOvertakeIndicator
 }
 
   // Header gradient
