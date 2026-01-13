@@ -6,6 +6,13 @@
 
 DebugPanel::DebugPanel(QWidget *parent) : QWidget(parent), is_hidden(false) {
   debug_file = "/tmp/mqtt_debug_messages.txt";
+
+  // Limpiar mensajes anteriores al arrancar
+  QFile file(debug_file);
+  if (file.exists()) {
+    file.remove();
+  }
+
   setupUI();
 
   // Timer para actualizar mensajes cada 500ms
@@ -34,12 +41,33 @@ void DebugPanel::setupUI() {
   header_layout->setContentsMargins(25, 20, 25, 20);
   header_layout->setSpacing(20);
 
+  // Botón ocultar/mostrar (ahora a la izquierda del header)
+  toggle_btn = new QPushButton(this);
+  toggle_btn->setFixedSize(120, 120);  // Botones un poco más pequeños
+  toggle_btn->setStyleSheet(
+    "QPushButton {"
+    "  background-color: rgba(0, 150, 255, 150);"
+    "  border: 4px solid rgba(255, 255, 255, 200);"
+    "  border-radius: 60px;"
+    "  color: white;"
+    "  font-size: 70px;"
+    "  font-weight: bold;"
+    "}"
+    "QPushButton:pressed {"
+    "  background-color: rgba(0, 120, 200, 200);"
+    "}"
+  );
+  // Estado inicial: abierto, así que la flecha apunta a la derecha (▶ para ocultar hacia la derecha)
+  toggle_btn->setText("▶");
+  connect(toggle_btn, &QPushButton::clicked, this, &DebugPanel::onToggleClicked);
+  header_layout->addWidget(toggle_btn);
+
   // Título
   title_label = new QLabel("MQTT DEBUG", this);
   title_label->setStyleSheet(
     "QLabel {"
     "  color: #FFFFFF;"
-    "  font-size: 72px;"
+    "  font-size: 64px;"  // Título más pequeño
     "  font-weight: bold;"
     "  background: transparent;"
     "}"
@@ -49,14 +77,14 @@ void DebugPanel::setupUI() {
 
   // Botón limpiar (papelera)
   clear_btn = new QPushButton(this);
-  clear_btn->setFixedSize(100, 100);
+  clear_btn->setFixedSize(120, 120);  // Botones un poco más pequeños
   clear_btn->setStyleSheet(
     "QPushButton {"
     "  background-color: rgba(255, 0, 0, 150);"
-    "  border: 3px solid rgba(255, 255, 255, 200);"
-    "  border-radius: 50px;"
+    "  border: 4px solid rgba(255, 255, 255, 200);"
+    "  border-radius: 60px;"
     "  color: white;"
-    "  font-size: 56px;"
+    "  font-size: 70px;"
     "  font-weight: bold;"
     "}"
     "QPushButton:pressed {"
@@ -66,27 +94,6 @@ void DebugPanel::setupUI() {
   clear_btn->setText("🗑");
   connect(clear_btn, &QPushButton::clicked, this, &DebugPanel::onClearClicked);
   header_layout->addWidget(clear_btn);
-
-  // Botón ocultar/mostrar
-  toggle_btn = new QPushButton(this);
-  toggle_btn->setFixedSize(100, 100);
-  toggle_btn->setStyleSheet(
-    "QPushButton {"
-    "  background-color: rgba(0, 150, 255, 150);"
-    "  border: 3px solid rgba(255, 255, 255, 200);"
-    "  border-radius: 50px;"
-    "  color: white;"
-    "  font-size: 56px;"
-    "  font-weight: bold;"
-    "}"
-    "QPushButton:pressed {"
-    "  background-color: rgba(0, 120, 200, 200);"
-    "}"
-  );
-  // Estado inicial: abierto, así que la flecha apunta a la izquierda (para ocultar)
-  toggle_btn->setText("◀");
-  connect(toggle_btn, &QPushButton::clicked, this, &DebugPanel::onToggleClicked);
-  header_layout->addWidget(toggle_btn);
 
   main_layout->addLayout(header_layout);
 
@@ -127,10 +134,10 @@ void DebugPanel::setupUI() {
   messages_label->setStyleSheet(
     "QLabel {"
     "  color: #FFFFFF;"
-    "  font-size: 40px;"
+    "  font-size: 72px;"  // Texto más grande
     "  font-family: 'Courier New', monospace;"
     "  background-color: transparent;"
-    "  padding: 15px;"
+    "  padding: 20px;"
     "}"
   );
   messages_label->setWordWrap(true);
@@ -166,14 +173,8 @@ void DebugPanel::loadMessages() {
       for (int i = start; i < messages.size(); i++) {
         QString message = messages[i].trimmed();
         if (!message.isEmpty()) {
-          // Dividir en líneas para formatear
-          QStringList lines = message.split('\n');
-          for (const QString &line : lines) {
-            if (!line.trimmed().isEmpty()) {
-              messages_html += formatMessage(line.trimmed()) + "<br>";
-            }
-          }
-          messages_html += "<br>"; // Separador entre mensajes
+          // Formatear el mensaje completo (hora, topic y mensaje)
+          messages_html += formatMessage(message) + "<br><br>"; // Separador entre mensajes
         }
       }
     }
@@ -194,38 +195,92 @@ void DebugPanel::loadMessages() {
   }
 }
 
-QString DebugPanel::formatMessage(const QString &line) {
-  QString formatted = line;
+QString DebugPanel::formatMessage(const QString &message) {
+  // Formato: hora (salto de línea) topic (1 palabra) (salto de línea) mensaje (solo valor)
+  // Formato esperado: "[HH:MM:SS] topic\npayload"
+  QString hora = "";
+  QString topic = "";
+  QString mensaje = "";
 
-  // Colorear timestamp
-  if (formatted.startsWith("[")) {
-    int end_bracket = formatted.indexOf("]");
-    if (end_bracket > 0) {
-      QString timestamp = formatted.left(end_bracket + 1);
-      QString rest = formatted.mid(end_bracket + 1);
-      formatted = QString("<span style='color: #00FF00; font-weight: bold;'>%1</span>%2")
-                  .arg(timestamp, rest);
+  QStringList lines = message.split('\n');
+  if (lines.size() >= 1) {
+    QString first_line = lines[0].trimmed();
+
+    // Extraer hora (formato [HH:MM:SS])
+    if (first_line.startsWith("[")) {
+      int end_bracket = first_line.indexOf("]");
+      if (end_bracket > 0) {
+        hora = first_line.left(end_bracket + 1);
+        first_line = first_line.mid(end_bracket + 1).trimmed();
+      }
+    }
+
+    // Extraer solo la última palabra del topic (después del último /)
+    // Ejemplo: "telemetry_config/DongleID/left" -> "left"
+    if (first_line.contains("/")) {
+      int last_slash = first_line.lastIndexOf("/");
+      if (last_slash >= 0) {
+        topic = first_line.mid(last_slash + 1).trimmed();
+        // Eliminar espacios adicionales si los hay
+        int space_pos = topic.indexOf(" ");
+        if (space_pos > 0) {
+          topic = topic.left(space_pos);
+        }
+      }
     }
   }
 
-  // Colorear topics
-  if (formatted.contains("telemetry_config/")) {
-    int topic_start = formatted.indexOf("telemetry_config/");
-    int topic_end = formatted.indexOf(" ", topic_start);
-    if (topic_end == -1) topic_end = formatted.length();
+  // El payload está en la segunda línea (si existe)
+  if (lines.size() >= 2) {
+    QString payload = lines[1].trimmed();
 
-    QString topic = formatted.mid(topic_start, topic_end - topic_start);
-    formatted = formatted.replace(topic,
-      QString("<span style='color: #00BFFF; font-weight: bold;'>%1</span>").arg(topic));
+    // Extraer solo el valor del payload
+    // Si es JSON, extraer el valor (ej: {"enabled": true} -> true)
+    if (payload.startsWith("{") && payload.contains(":")) {
+      // Intentar extraer el valor del JSON
+      // Buscar patrones como: "enabled": true, "speed_increase": true, etc.
+      QRegExp json_value_regex(":\"?(true|false|-?\\d+)\"?");
+      if (json_value_regex.indexIn(payload) >= 0) {
+        mensaje = json_value_regex.cap(1);
+      } else {
+        // Si no coincide, intentar extraer cualquier valor después de ":"
+        int colon_pos = payload.indexOf(":");
+        if (colon_pos >= 0) {
+          QString value_part = payload.mid(colon_pos + 1).trimmed();
+          // Eliminar comillas y llaves
+          value_part = value_part.remove("\"").remove("}").remove("{").trimmed();
+          if (!value_part.isEmpty()) {
+            mensaje = value_part;
+          }
+        }
+      }
+    } else {
+      // Si no es JSON, usar el payload directamente (puede ser "true", "false", "1", "-1", etc.)
+      mensaje = payload;
+    }
   }
 
-  // Colorear payloads JSON
-  if (formatted.contains("{") || formatted.contains("true") || formatted.contains("false")) {
-    formatted = formatted.replace(QRegExp("(\\{[^}]*\\}|true|false)"),
-      "<span style='color: #FFD700;'>\\1</span>");
+  // Formatear: cada elemento en su propia línea
+  QString result = "";
+  if (!hora.isEmpty()) {
+    result += QString("<span style='color: #00FF00; font-weight: bold;'>%1</span><br>").arg(hora);
+  }
+  if (!topic.isEmpty()) {
+    result += QString("<span style='color: #00BFFF; font-weight: bold;'>%1</span><br>").arg(topic);
+  }
+  if (!mensaje.isEmpty()) {
+    // Colorear valores: true en verde, false en rojo
+    if (mensaje == "true") {
+      mensaje = QString("<span style='color: #00FF00; font-weight: bold;'>%1</span>").arg(mensaje);
+    } else if (mensaje == "false") {
+      mensaje = QString("<span style='color: #FF0000; font-weight: bold;'>%1</span>").arg(mensaje);
+    } else if (mensaje == "1" || mensaje == "-1") {
+      mensaje = QString("<span style='color: #FFD700;'>%1</span>").arg(mensaje);
+    }
+    result += mensaje;
   }
 
-  return formatted;
+  return result.isEmpty() ? message : result;
 }
 
 void DebugPanel::updateMessages() {
@@ -236,15 +291,17 @@ void DebugPanel::updateMessages() {
 
 void DebugPanel::updateSize() {
   if (is_hidden) {
-    // Cuando está oculto: card pequeño pegado al borde izquierdo
-    int panel_width = 120;
-    int panel_height = 120;
+    // Cuando está oculto: card pequeño pegado al borde derecho que cubre bien el botón
+    int panel_width = 150;  // Más ancho para cubrir bien el botón de 120x120
+    int panel_height = 150;  // Más alto para cubrir bien el botón
     setFixedSize(panel_width, panel_height);
 
     if (parentWidget()) {
+      int parent_width = parentWidget()->width();
       int parent_height = parentWidget()->height();
+      int x_pos = parent_width - panel_width;  // Pegado al borde derecho
       int y_pos = (parent_height - panel_height) / 2;
-      move(0, y_pos);  // x=0 para estar literalmente pegado al borde izquierdo
+      move(x_pos, y_pos);
     } else {
       move(0, 0);
     }
@@ -254,7 +311,9 @@ void DebugPanel::updateSize() {
     int panel_height = parentWidget() ? parentWidget()->height() : 1080;
     setFixedSize(panel_width, panel_height);
     if (parentWidget()) {
-      move(0, 0);
+      int parent_width = parentWidget()->width();
+      int x_pos = parent_width - panel_width;  // Pegado al borde derecho
+      move(x_pos, 0);
     }
   }
 }
@@ -270,12 +329,12 @@ void DebugPanel::onClearClicked() {
 
 void DebugPanel::updatePanelStyle() {
   if (is_hidden) {
-    // Cuando está oculto: fondo negro tipo card pequeño alrededor de la flecha
+    // Cuando está oculto: fondo negro tipo card pequeño alrededor de la flecha (borde izquierdo ahora)
     setStyleSheet(
       "DebugPanel {"
-      "  background-color: rgba(0, 0, 0, 200);"
-      "  border-top-right-radius: 15px;"
-      "  border-bottom-right-radius: 15px;"
+      "  background-color: rgba(0, 0, 0, 220);"
+      "  border-top-left-radius: 20px;"
+      "  border-bottom-left-radius: 20px;"
       "}"
     );
   } else {
@@ -292,11 +351,11 @@ void DebugPanel::onToggleClicked() {
   is_hidden = !is_hidden;
 
   if (is_hidden) {
-    // Ocultar: solo mostrar una flecha pegada al borde izquierdo
+    // Ocultar: solo mostrar una flecha pegada al borde derecho
     scroll_area->hide();
     title_label->hide();
     clear_btn->hide();
-    toggle_btn->setText("▶");
+    toggle_btn->setText("◀");  // Flecha apunta a la izquierda (para abrir hacia la izquierda)
 
     // Centrar el botón en el card pequeño
     header_layout->setContentsMargins(8, 15, 8, 15);
@@ -307,11 +366,11 @@ void DebugPanel::onToggleClicked() {
     // Actualizar estilo: fondo negro tipo card pequeño
     updatePanelStyle();
   } else {
-    // Mostrar: restaurar tamaño completo (mitad de pantalla)
+    // Mostrar: restaurar tamaño completo (1/3 de pantalla)
     scroll_area->show();
     title_label->show();
     clear_btn->show();
-    toggle_btn->setText("◀");
+    toggle_btn->setText("▶");  // Flecha apunta a la derecha (para ocultar hacia la derecha)
 
     // Restaurar el layout del header
     header_layout->setContentsMargins(25, 20, 25, 20);

@@ -140,7 +140,7 @@ right_button->move(width() - right_button->width() - 20, height() / 2 - right_bu
   debug_panel = new DebugPanel(this);
   debug_panel->setParent(this);
   debug_panel->hide();
-  debug_panel->move(0, 0);
+  // Posición inicial: se ajustará dinámicamente en updateSize() (ahora a la derecha)
   debug_panel->raise();
 
 }
