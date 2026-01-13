@@ -20,6 +20,7 @@ TAKE_CONTROL_COOLDOWN_SECONDS = 30  # 30 segundos para eventos de "TAKE CONTROL"
 
 # Diccionario para trackear último envío de cada evento (basado en alert_type)
 _event_last_sent: Dict[str, float] = {}  # alert_type -> timestamp último envío
+_MAX_EVENT_HISTORY = 50  # Máximo de eventos en el historial para evitar crecimiento indefinido
 
 # Cliente MQTT persistente
 _mqtt_client: Optional[mqtt.Client] = None
@@ -169,6 +170,14 @@ def _should_send_event(alert_type: str, title: Optional[str] = None) -> bool:
   # Si nunca se ha enviado o ha pasado el cooldown, permitir envío
   if last_sent == 0 or (current_time - last_sent) >= cooldown_seconds:
     _event_last_sent[alert_type] = current_time
+
+    # Limpiar eventos antiguos para evitar crecimiento indefinido de memoria
+    if len(_event_last_sent) > _MAX_EVENT_HISTORY:
+      # Eliminar los eventos más antiguos (más de 1 hora)
+      cutoff_time = current_time - 3600
+      keys_to_remove = [k for k, v in _event_last_sent.items() if v < cutoff_time]
+      for k in keys_to_remove:
+        del _event_last_sent[k]
     return True
 
   return False

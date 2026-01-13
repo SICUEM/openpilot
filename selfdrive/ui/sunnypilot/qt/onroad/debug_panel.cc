@@ -158,7 +158,8 @@ void DebugPanel::loadMessages() {
 
   if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
     QTextStream in(&file);
-    QString content = in.readAll();
+    // Limitar el tamaño del archivo leído para evitar problemas de memoria (máximo 100KB)
+    QString content = in.read(100000);  // Leer máximo 100KB
     file.close();
 
     if (content.trimmed().isEmpty()) {
@@ -168,8 +169,8 @@ void DebugPanel::loadMessages() {
       // Usamos QString::SkipEmptyParts para compatibilidad con la versión de Qt del comma
       QStringList messages = content.split("\n\n", QString::SkipEmptyParts);
 
-      // Mostrar los últimos 50 mensajes
-      int start = messages.size() > 50 ? messages.size() - 50 : 0;
+      // Mostrar los últimos 30 mensajes (reducido para ahorrar memoria)
+      int start = messages.size() > 30 ? messages.size() - 30 : 0;
       for (int i = start; i < messages.size(); i++) {
         QString message = messages[i].trimmed();
         if (!message.isEmpty()) {

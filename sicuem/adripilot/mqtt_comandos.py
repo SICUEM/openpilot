@@ -24,8 +24,9 @@ class MQTTComandos:
     self.stop_event = threading.Event()
     # Archivo para guardar mensajes MQTT para modo debug
     self.debug_file = "/tmp/mqtt_debug_messages.txt"
-    self.max_messages = 50  # Máximo de mensajes a guardar
+    self.max_messages = 30  # Máximo de mensajes a guardar (reducido para ahorrar memoria)
     self.messages_lock = threading.Lock()
+    self.debug_enabled = False  # Solo guardar si el modo debug está activo
     self.load_config()
     self.init_mqtt()
 
@@ -79,33 +80,48 @@ class MQTTComandos:
     # print("🔌 MQTT Comandos desconectado. Reintentando...")  # Comentado para reducir uso de memoria
 
   def save_debug_message(self, topic, payload):
-    """Guarda un mensaje MQTT para el modo debug."""
+    """Guarda un mensaje MQTT para el modo debug. Optimizado para reducir uso de memoria."""
+    # Solo guardar si el modo debug está activo
+    try:
+      if not self.debug_enabled:
+        # Verificar si el modo debug está activo (solo una vez cada 10 segundos para no saturar)
+        if not hasattr(self, '_last_debug_check') or time.time() - self._last_debug_check > 10:
+          self.debug_enabled = self.params.get_bool("modo_debug")
+          self._last_debug_check = time.time()
+
+        if not self.debug_enabled:
+          return  # No guardar si el modo debug no está activo
+    except Exception:
+      return  # Si hay error, no guardar
+
     try:
       timestamp = time.strftime("%H:%M:%S", time.localtime())
-      # Truncar payload si es muy largo
-      payload_display = payload[:100] if len(payload) > 100 else payload
+      # Truncar payload si es muy largo (reducido a 50 caracteres para ahorrar memoria)
+      payload_display = payload[:50] if len(payload) > 50 else payload
       message = f"[{timestamp}] {topic}\n{payload_display}\n"
 
       with self.messages_lock:
-        # Leer mensajes existentes
+        # Método optimizado: leer solo las últimas líneas necesarias
         messages = []
         if os.path.exists(self.debug_file):
           try:
+            # Leer el archivo de forma más eficiente
             with open(self.debug_file, 'r', encoding='utf-8') as f:
-              content = f.read()
-              # Dividir por líneas y mantener solo los últimos max_messages
-              lines = content.split('\n')
-              # Agrupar en mensajes (cada mensaje tiene 2 líneas: timestamp+topic y payload)
-              i = 0
-              while i < len(lines):
-                if lines[i].startswith('['):
-                  if i + 1 < len(lines):
-                    messages.append(lines[i] + '\n' + lines[i + 1])
-                    i += 2
+              # Leer solo las últimas líneas (aproximadamente max_messages * 3 líneas)
+              lines = f.readlines()
+              # Procesar desde el final hacia atrás
+              i = len(lines) - 1
+              temp_messages = []
+              while i >= 0 and len(temp_messages) < self.max_messages:
+                if lines[i].strip().startswith('['):
+                  if i > 0:
+                    temp_messages.insert(0, (lines[i-1].strip() + '\n' + lines[i].strip()).strip())
+                    i -= 2
                   else:
-                    i += 1
+                    i -= 1
                 else:
-                  i += 1
+                  i -= 1
+              messages = temp_messages
           except Exception:
             messages = []
 
@@ -116,9 +132,10 @@ class MQTTComandos:
         if len(messages) > self.max_messages:
           messages = messages[-self.max_messages:]
 
-        # Escribir de vuelta
-        with open(self.debug_file, 'w', encoding='utf-8') as f:
-          f.write('\n\n'.join(messages))
+        # Escribir de vuelta (solo si hay mensajes)
+        if messages:
+          with open(self.debug_file, 'w', encoding='utf-8') as f:
+            f.write('\n\n'.join(messages))
     except Exception:
       pass  # Silenciar errores para no afectar el flujo principal
 
