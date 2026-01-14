@@ -105,23 +105,32 @@ class MQTTComandos:
         messages = []
         if os.path.exists(self.debug_file):
           try:
-            # Leer el archivo de forma más eficiente
-            with open(self.debug_file, 'r', encoding='utf-8') as f:
-              # Leer solo las últimas líneas (aproximadamente max_messages * 3 líneas)
-              lines = f.readlines()
-              # Procesar desde el final hacia atrás
-              i = len(lines) - 1
-              temp_messages = []
-              while i >= 0 and len(temp_messages) < self.max_messages:
-                if lines[i].strip().startswith('['):
-                  if i > 0:
-                    temp_messages.insert(0, (lines[i-1].strip() + '\n' + lines[i].strip()).strip())
-                    i -= 2
-                  else:
-                    i -= 1
+            # Leer el archivo de forma más eficiente con límite de tamaño
+            file_size = os.path.getsize(self.debug_file)
+            # Si el archivo es muy grande (>100KB), truncarlo
+            if file_size > 100 * 1024:
+              # Leer solo las últimas líneas sin cargar todo el archivo
+              with open(self.debug_file, 'rb') as f:
+                f.seek(max(0, file_size - 50 * 1024))  # Leer solo los últimos 50KB
+                content = f.read().decode('utf-8', errors='ignore')
+                lines = content.split('\n')
+            else:
+              with open(self.debug_file, 'r', encoding='utf-8') as f:
+                lines = f.readlines()
+
+            # Procesar desde el final hacia atrás
+            i = len(lines) - 1
+            temp_messages = []
+            while i >= 0 and len(temp_messages) < self.max_messages:
+              if lines[i].strip().startswith('['):
+                if i > 0:
+                  temp_messages.insert(0, (lines[i-1].strip() + '\n' + lines[i].strip()).strip())
+                  i -= 2
                 else:
                   i -= 1
-              messages = temp_messages
+              else:
+                i -= 1
+            messages = temp_messages
           except Exception:
             messages = []
 
@@ -134,8 +143,17 @@ class MQTTComandos:
 
         # Escribir de vuelta (solo si hay mensajes)
         if messages:
-          with open(self.debug_file, 'w', encoding='utf-8') as f:
-            f.write('\n\n'.join(messages))
+          try:
+            with open(self.debug_file, 'w', encoding='utf-8') as f:
+              f.write('\n\n'.join(messages))
+          except Exception:
+            # Si falla la escritura, intentar crear el directorio si no existe
+            try:
+              os.makedirs(os.path.dirname(self.debug_file), exist_ok=True)
+              with open(self.debug_file, 'w', encoding='utf-8') as f:
+                f.write('\n\n'.join(messages))
+            except Exception:
+              pass  # Si sigue fallando, ignorar silenciosamente
     except Exception:
       pass  # Silenciar errores para no afectar el flujo principal
 

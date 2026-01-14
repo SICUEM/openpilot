@@ -5,6 +5,8 @@
 #include "selfdrive/ui/qt/util.h"
 
 DebugPanel::DebugPanel(QWidget *parent) : QWidget(parent), is_hidden(false) {
+  // Usar la misma ruta que mqtt_comandos.py para compatibilidad con todos los dispositivos
+  // En dispositivos reales, /tmp puede no ser persistente, pero mqtt_comandos.py ya maneja esto
   debug_file = "/tmp/mqtt_debug_messages.txt";
 
   // Limpiar mensajes anteriores al arrancar
@@ -156,31 +158,39 @@ void DebugPanel::loadMessages() {
   QFile file(debug_file);
   QString messages_html = "";
 
-  if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text)) {
-    QTextStream in(&file);
-    // Limitar el tamaño del archivo leído para evitar problemas de memoria (máximo 100KB)
-    QString content = in.read(100000);  // Leer máximo 100KB
-    file.close();
+  // Verificar si el archivo existe y es legible
+  // Intentar abrir el archivo con permisos de lectura
+  if (file.exists()) {
+    if (file.open(QIODevice::ReadOnly | QIODevice::Text)) {
+      QTextStream in(&file);
+      // Limitar el tamaño del archivo leído para evitar problemas de memoria (máximo 50KB)
+      QString content = in.read(50000);  // Leer máximo 50KB (reducido para ahorrar memoria)
+      file.close();
 
-    if (content.trimmed().isEmpty()) {
-      messages_html = "<span style='color: #888888;'>Esperando mensajes MQTT...</span>";
-    } else {
-      // Dividir por doble salto de línea (separador de mensajes)
-      // Usamos QString::SkipEmptyParts para compatibilidad con la versión de Qt del comma
-      QStringList messages = content.split("\n\n", QString::SkipEmptyParts);
+      if (content.trimmed().isEmpty()) {
+        messages_html = "<span style='color: #888888;'>Esperando mensajes MQTT...</span>";
+      } else {
+        // Dividir por doble salto de línea (separador de mensajes)
+        // Usamos QString::SkipEmptyParts para compatibilidad con la versión de Qt del comma
+        QStringList messages = content.split("\n\n", QString::SkipEmptyParts);
 
-      // Mostrar los últimos 30 mensajes (reducido para ahorrar memoria)
-      int start = messages.size() > 30 ? messages.size() - 30 : 0;
-      for (int i = start; i < messages.size(); i++) {
-        QString message = messages[i].trimmed();
-        if (!message.isEmpty()) {
-          // Formatear el mensaje completo (hora, topic y mensaje)
-          messages_html += formatMessage(message) + "<br><br>"; // Separador entre mensajes
+        // Mostrar los últimos 30 mensajes (reducido para ahorrar memoria)
+        int start = messages.size() > 30 ? messages.size() - 30 : 0;
+        for (int i = start; i < messages.size(); i++) {
+          QString message = messages[i].trimmed();
+          if (!message.isEmpty()) {
+            // Formatear el mensaje completo (hora, topic y mensaje)
+            messages_html += formatMessage(message) + "<br><br>"; // Separador entre mensajes
+          }
         }
       }
+    } else {
+      // Archivo existe pero no se puede abrir (posible problema de permisos)
+      messages_html = "<span style='color: #ff6666;'>Error: No se puede leer el archivo de debug</span>";
     }
   } else {
-    messages_html = "<span style='color: #888888;'>Esperando mensajes MQTT...</span>";
+    // Archivo no existe aún (normal al inicio o si el modo debug no está activo)
+    messages_html = "<span style='color: #888888;'>Esperando mensajes MQTT...<br>(Activa el modo debug para ver mensajes)</span>";
   }
 
   messages_label->setText(messages_html);

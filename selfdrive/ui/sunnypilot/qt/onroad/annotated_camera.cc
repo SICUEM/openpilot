@@ -633,8 +633,8 @@ void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
   // Texto completo en una sola línea: "Dis: (distancia) 🚗 ADELANTAMIENTO: (estado)"
   QString texto_completo = QString("Dis: %1 🚗 ADELANTAMIENTO: %2").arg(distancia_str, estado);
 
-  // Configurar fuente
-  p.setFont(InterFont(40, QFont::Bold));
+  // Configurar fuente más grande
+  p.setFont(InterFont(50, QFont::Bold));
 
   // Calcular el ancho del texto para centrarlo
   QFontMetrics fm(p.font());
@@ -650,41 +650,49 @@ void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
 
   // Colores según el estado - Flujo completo de adelantamiento
   QColor bg_color;
-  QColor text_color = Qt::white;
+  QColor text_color = Qt::black;  // Negro por defecto para mejor visibilidad
   QColor border_color;
 
   if (estado == "ESPERANDO") {
     // Amarillo: Esperando condiciones para iniciar (lead detectado, distancia OK, velocidad OK)
     bg_color = QColor(255, 200, 0, 220);  // Amarillo con transparencia
     border_color = QColor(255, 255, 0, 255);  // Amarillo brillante
+    text_color = Qt::black;  // Negro para mejor visibilidad sobre amarillo
   } else if (estado == "CAMBIANDO_IZQ") {
     // Azul/Cian: Cambiando a carril izquierdo
     bg_color = QColor(0, 150, 255, 220);  // Azul con transparencia
     border_color = QColor(0, 200, 255, 255);  // Azul brillante
+    text_color = Qt::white;  // Blanco sobre azul
   } else if (estado == "ADELANTANDO") {
     // Verde: Ya en carril izquierdo, velocidad aumentada, adelantando
     bg_color = QColor(0, 200, 0, 220);  // Verde con transparencia
     border_color = QColor(0, 255, 0, 255);  // Verde brillante
+    text_color = Qt::white;  // Blanco sobre verde
   } else if (estado == "ESPERANDO_RETORNO") {
     // Naranja: Esperando para volver al carril derecho (más de la mitad del tiempo)
     bg_color = QColor(255, 150, 0, 220);  // Naranja con transparencia
     border_color = QColor(255, 180, 0, 255);  // Naranja brillante
+    text_color = Qt::black;  // Negro sobre naranja
   } else if (estado == "VOLVIENDO") {
     // Azul: Volviendo al carril derecho
     bg_color = QColor(0, 150, 255, 220);  // Azul con transparencia
     border_color = QColor(0, 200, 255, 255);  // Azul brillante
+    text_color = Qt::white;  // Blanco sobre azul
   } else if (estado == "FINALIZADO") {
     // Gris/Blanco: Adelantamiento completado
     bg_color = QColor(200, 200, 200, 220);  // Gris con transparencia
     border_color = QColor(255, 255, 255, 255);  // Blanco
+    text_color = Qt::black;  // Negro sobre gris
   } else if (estado == "BLOQUEADO") {
     // Rojo: Bloqueado por blindspot
     bg_color = QColor(200, 0, 0, 220);  // Rojo con transparencia
     border_color = QColor(255, 0, 0, 255);  // Rojo brillante
+    text_color = Qt::white;  // Blanco sobre rojo
   } else {
     // Por defecto: Amarillo (ESPERANDO)
     bg_color = QColor(255, 200, 0, 220);  // Amarillo con transparencia
     border_color = QColor(255, 255, 0, 255);  // Amarillo brillante
+    text_color = Qt::black;  // Negro sobre amarillo
   }
 
   // Dibujar fondo del badge con bordes redondeados

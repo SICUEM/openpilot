@@ -337,11 +337,12 @@ class DesireHelper:
         # velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
 
         if distancia_anterior_ok and distancia_actual_ok:
-          # Guardar velocidad original antes de aumentar
-          self.original_v_cruise_kph = self.v_cruise_helper.v_cruise_kph
+          # Guardar velocidad original REAL desde set_speed (que viene de controlsd)
+          # set_speed está en m/s, convertir a km/h
+          self.original_v_cruise_kph = set_speed * 3.6
           if self.original_v_cruise_kph is None or self.original_v_cruise_kph <= 0:
-            # Si no hay velocidad guardada, usar la actual
-            self.original_v_cruise_kph = set_speed * 3.6  # Convertir m/s a km/h
+            # Fallback: usar velocidad del v_cruise_helper si set_speed no es válido
+            self.original_v_cruise_kph = self.v_cruise_helper.v_cruise_kph if self.v_cruise_helper.v_cruise_kph > 0 else 30.0
 
           # PRIMERO: Aumentar velocidad (igual que en la rutina de simulador)
           if self.original_v_cruise_kph is not None:
@@ -393,6 +394,17 @@ class DesireHelper:
             try:
               params.put("OvertakeTargetSpeedKph", f"{self.original_v_cruise_kph:.1f}")
               cloudlog.info(f"⬇️ Velocidad restaurada tras adelantamiento: {self.original_v_cruise_kph:.1f} km/h")
+              # IMPORTANTE: Limpiar el parámetro después de un breve delay para permitir que controlsd lo aplique
+              # Esto evita que se quede bloqueado
+              import threading
+              def clear_overtake_target():
+                time.sleep(0.5)  # Esperar 500ms para que controlsd aplique el valor
+                try:
+                  params.remove("OvertakeTargetSpeedKph")
+                  cloudlog.info("✅ OvertakeTargetSpeedKph limpiado después de restaurar velocidad")
+                except Exception as e:
+                  cloudlog.error(f"❌ Error al limpiar OvertakeTargetSpeedKph: {e}")
+              threading.Thread(target=clear_overtake_target, daemon=True).start()
             except Exception as e:
               cloudlog.error(f"❌ Error al restaurar OvertakeTargetSpeedKph: {e}")
 

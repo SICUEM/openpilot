@@ -581,18 +581,28 @@ class Controls:
 
     # Adelantamiento automático: aplicar objetivo de velocidad si está definido
     # Esto permite que desire_helper ajuste el setSpeed de forma centralizada, igual que los comandos MQTT.
+    # IMPORTANTE: Solo aplicar cuando el adelantamiento está activo para evitar bloqueos
     try:
-      overtake_target = self.params.get("OvertakeTargetSpeedKph")
-      if overtake_target:
-        try:
-          target_kph = float(overtake_target.decode("utf-8") if isinstance(overtake_target, bytes) else overtake_target)
-        except Exception:
-          target_kph = 0.0
+      overtake_active = self.params.get_bool("overtakingActive", False)
+      if overtake_active:
+        overtake_target = self.params.get("OvertakeTargetSpeedKph")
+        if overtake_target:
+          try:
+            target_kph = float(overtake_target.decode("utf-8") if isinstance(overtake_target, bytes) else overtake_target)
+          except Exception:
+            target_kph = 0.0
 
-        # Aplicar solo valores válidos y cuando el control longitudinal/crucero está activo
-        if target_kph > 0:
-          self.v_cruise_helper.v_cruise_kph = target_kph
-          self.v_cruise_helper.v_cruise_cluster_kph = target_kph
+          # Aplicar solo valores válidos y cuando el control longitudinal/crucero está activo
+          if target_kph > 0:
+            self.v_cruise_helper.v_cruise_kph = target_kph
+            self.v_cruise_helper.v_cruise_cluster_kph = target_kph
+      else:
+        # Si el adelantamiento no está activo, limpiar el parámetro para evitar bloqueos
+        try:
+          if self.params.get("OvertakeTargetSpeedKph"):
+            self.params.remove("OvertakeTargetSpeedKph")
+        except Exception:
+          pass
     except Exception:
       pass
 
