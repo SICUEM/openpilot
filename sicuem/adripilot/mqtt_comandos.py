@@ -26,7 +26,9 @@ class MQTTComandos:
     self.debug_file = "/tmp/mqtt_debug_messages.txt"
     self.max_messages = 30  # Máximo de mensajes a guardar (reducido para ahorrar memoria)
     self.messages_lock = threading.Lock()
-    self.debug_enabled = False  # Solo guardar si el modo debug está activo
+    # Inicializar debug_enabled leyendo el parámetro al inicio
+    self.debug_enabled = self.params.get_bool("modo_debug")
+    self._last_debug_check = time.time()  # Inicializar timestamp para la primera verificación
     self.load_config()
     self.init_mqtt()
 
@@ -69,7 +71,8 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/speed_down",     # Comando disminuir velocidad (formato servidor)
         f"telemetry_config/{self.DongleID}/speed_increment", # Configuración del incremento de velocidad (futuro)
         f"telemetry_config/{self.DongleID}/intervalos",      # Configuración intervalos
-        f"telemetry_config/{self.DongleID}/overtake"         # Adelantamiento automático (detecta BSM automáticamente)
+        f"telemetry_config/{self.DongleID}/overtake",        # Adelantamiento automático (detecta BSM automáticamente)
+        f"telemetry_config/{self.DongleID}/brutebreak"       # Frenado de emergencia brusco
       ]
 
       for topic in topics:
@@ -83,14 +86,14 @@ class MQTTComandos:
     """Guarda un mensaje MQTT para el modo debug. Optimizado para reducir uso de memoria."""
     # Solo guardar si el modo debug está activo
     try:
-      if not self.debug_enabled:
-        # Verificar si el modo debug está activo (solo una vez cada 10 segundos para no saturar)
-        if not hasattr(self, '_last_debug_check') or time.time() - self._last_debug_check > 10:
-          self.debug_enabled = self.params.get_bool("modo_debug")
-          self._last_debug_check = time.time()
+      # Verificar el estado del modo debug (cada 2 segundos para respuesta más rápida)
+      current_time = time.time()
+      if not hasattr(self, '_last_debug_check') or current_time - self._last_debug_check > 2.0:
+        self.debug_enabled = self.params.get_bool("modo_debug")
+        self._last_debug_check = current_time
 
-        if not self.debug_enabled:
-          return  # No guardar si el modo debug no está activo
+      if not self.debug_enabled:
+        return  # No guardar si el modo debug no está activo
     except Exception:
       return  # Si hay error, no guardar
 
@@ -98,7 +101,10 @@ class MQTTComandos:
       timestamp = time.strftime("%H:%M:%S", time.localtime())
       # Truncar payload si es muy largo (reducido a 50 caracteres para ahorrar memoria)
       payload_display = payload[:50] if len(payload) > 50 else payload
-      message = f"[{timestamp}] {topic}\n{payload_display}\n"
+      # Formato: [timestamp] topic\npayload
+      # El panel espera este formato exacto: primera línea con timestamp y topic, segunda línea con payload
+      # Los mensajes se separan con \n\n cuando se escriben al archivo
+      message = f"[{timestamp}] {topic}\n{payload_display}"
 
       with self.messages_lock:
         # Método optimizado: leer solo las últimas líneas necesarias
@@ -201,6 +207,10 @@ class MQTTComandos:
       # Comando de adelantamiento automático (unificado, detecta BSM automáticamente)
       elif topic.endswith("/overtake"):
         self.handle_overtake(payload)
+
+      # Comando de frenado de emergencia brusco
+      elif topic.endswith("/brutebreak"):
+        self.handle_brutebreak(payload)
 
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
@@ -471,6 +481,34 @@ class MQTTComandos:
           self.params.put_bool("sic_adelantar", True)
         elif payload.lower() == "false":
           self.params.put_bool("sic_adelantar", False)
+    except Exception:
+      pass  # Error silenciado para reducir uso de memoria
+
+  def handle_brutebreak(self, payload):
+    """Maneja el comando de frenado de emergencia brusco.
+
+    Cuando se recibe este comando, el coche frenará lo más bruscamente posible.
+    El frenado se mantiene activo durante un tiempo limitado para seguridad.
+
+    Formatos aceptados:
+    - JSON: {'enabled': true, 'timestamp': ...} (formato desde app)
+    - String: "true" o "1" para activar, "false" o "0" para desactivar
+    """
+    try:
+      # Intentar parsear como JSON primero (formato desde app)
+      try:
+        data = json.loads(payload)
+        if data.get("enabled") is True or data.get("brutebreak") is True:
+          self.params.put_bool("brutebreak_active", True)
+        elif data.get("enabled") is False or data.get("brutebreak") is False:
+          self.params.put_bool("brutebreak_active", False)
+      except (json.JSONDecodeError, AttributeError):
+        # No es JSON, tratar como string simple
+        payload_lower = payload.lower().strip()
+        if payload_lower in ("true", "1", "on"):
+          self.params.put_bool("brutebreak_active", True)
+        elif payload_lower in ("false", "0", "off"):
+          self.params.put_bool("brutebreak_active", False)
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
 

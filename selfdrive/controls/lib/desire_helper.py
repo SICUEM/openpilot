@@ -203,12 +203,9 @@ class DesireHelper:
           new_speed = min(self.test_overtake_original_speed + 15.0, 145.0)
           try:
             params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
-            cloudlog.info(
-              f"🧪 TEST: Velocidad aumentada +15 km/h (antes del cambio de carril): "
-              f"{self.test_overtake_original_speed:.1f} → {new_speed:.1f} km/h"
-            )
-          except Exception as e:
-            cloudlog.error(f"❌ TEST: Error al aumentar velocidad en INICIO: {e}")
+            # Log reducido para evitar problemas de memoria
+          except Exception:
+            pass  # Error silencioso para reducir uso de memoria
 
         # 2) Después iniciar cambio a carril izquierdo
         self.lane_change_direction = LaneChangeDirection.left
@@ -218,10 +215,7 @@ class DesireHelper:
         self.test_overtake_start_time = current_time
         self.test_overtake_state = "ADELANTANDO"
         params.put("overtakeStatus", "ADELANTANDO")
-        cloudlog.info(
-          f"🧪 TEST: Iniciando rutina de prueba de adelantamiento (cambio a carril izquierdo, velocidad original: "
-          f"{self.test_overtake_original_speed:.1f} km/h)"
-        )
+        # Log eliminado para reducir uso de memoria
 
       # Estado ADELANTANDO: esperar 15 segundos antes de volver al carril derecho
       elif self.test_overtake_state == "ADELANTANDO":
@@ -235,7 +229,7 @@ class DesireHelper:
           self.test_overtake_start_time = current_time  # Resetear para el cambio derecho
           self.test_overtake_state = "CAMBIANDO_DER"
           params.put("overtakeStatus", "VOLVIENDO")
-          cloudlog.info("🧪 TEST: Cambiando a carril derecho")
+          # Log eliminado para reducir uso de memoria
 
       # Estado CAMBIANDO_DER: Esperar a que termine el cambio de carril
       elif self.test_overtake_state == "CAMBIANDO_DER":
@@ -245,13 +239,13 @@ class DesireHelper:
           if self.test_overtake_original_speed is not None:
             try:
               params.put("OvertakeTargetSpeedKph", f"{self.test_overtake_original_speed:.1f}")
-              cloudlog.info(f"🧪 TEST: Velocidad restaurada: {self.test_overtake_original_speed:.1f} km/h")
-            except Exception as e:
-              cloudlog.error(f"❌ TEST: Error al restaurar velocidad: {e}")
+              # Log eliminado para reducir uso de memoria
+            except Exception:
+              pass  # Error silencioso para reducir uso de memoria
 
           self.test_overtake_state = "FINALIZADO"
           params.put("overtakeStatus", "FINALIZADO")
-          cloudlog.info("🧪 TEST: Rutina de prueba completada")
+          # Log eliminado para reducir uso de memoria
 
       # Estado FINALIZADO: Mantener estado hasta que se desactive el toggle
       elif self.test_overtake_state == "FINALIZADO":
@@ -262,8 +256,8 @@ class DesireHelper:
           self.test_overtake_start_time = None
           self.test_overtake_original_speed = None
 
-    except Exception as e:
-      cloudlog.error(f"❌ TEST: Error en rutina de prueba de adelantamiento: {e}")
+    except Exception:
+      pass  # Error silencioso para reducir uso de memoria
 
   def auto_overtake(self, carstate, d_rel, v_rel, set_speed, lead_status):
     """Adelantamiento automático simplificado (sin BSM).
@@ -286,7 +280,8 @@ class DesireHelper:
         self.original_v_cruise_kph = None
 
       params = Params()
-      params.put_bool("overtakingActive", self.overtake_active)
+      # NOTA: overtakingActive se escribe más abajo, justo cuando cambia de estado
+      # para evitar race conditions con controlsd
 
       # Verificar si el estado anterior era "FINALIZADO" para mantenerlo
       estado_anterior = params.get("overtakeStatus", encoding="utf8")
@@ -299,6 +294,7 @@ class DesireHelper:
       # Actualizar estado del adelantamiento para el indicador visual
       if not self.overtake_active:
         params.put("overtakeStatus", "ESPERANDO")
+        params.put_bool("overtakingActive", False)
       elif self.lane_change_direction == LaneChangeDirection.left:
         # Cambiando a carril izquierdo o ya en carril izquierdo
         if self.lane_change_state in (LaneChangeState.laneChangeStarting, LaneChangeState.laneChangeFinishing):
@@ -344,26 +340,29 @@ class DesireHelper:
             # Fallback: usar velocidad del v_cruise_helper si set_speed no es válido
             self.original_v_cruise_kph = self.v_cruise_helper.v_cruise_kph if self.v_cruise_helper.v_cruise_kph > 0 else 30.0
 
-          # PRIMERO: Aumentar velocidad (igual que en la rutina de simulador)
+          # PRIMERO: Activar el adelantamiento y escribir el parámetro ANTES de OvertakeTargetSpeedKph
+          # Esto evita que controlsd limpie el parámetro antes de usarlo
+          self.overtake_active = True
+          params.put_bool("overtakingActive", True)
+
+          # SEGUNDO: Aumentar velocidad (igual que en la rutina de simulador)
           if self.original_v_cruise_kph is not None:
             new_speed = min(self.original_v_cruise_kph + 15.0, 145.0)  # Máximo 145 km/h
             try:
               params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
               self.speed_increased = True
-              cloudlog.info(f"⬆️ Velocidad aumentada +15 km/h: {self.original_v_cruise_kph:.1f} → {new_speed:.1f} km/h")
-            except Exception as e:
-              cloudlog.error(f"❌ Error al aumentar velocidad: {e}")
+              # Log reducido para evitar problemas de memoria
+            except Exception:
+              pass  # Error silencioso para reducir uso de memoria
 
-          # SEGUNDO: Iniciar adelantamiento → cambio a la izquierda
+          # TERCERO: Iniciar adelantamiento → cambio a la izquierda
           self.lane_change_direction = LaneChangeDirection.left
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
-          self.overtake_active = True
           self.overtake_timer = 0.0
           self.overtake_start_time = time.time()
-
-          cloudlog.info(f"🟢 Adelantamiento automático activado (transición de {self.last_d_rel:.1f}m a {d_rel:.1f}m, velocidad original: {self.original_v_cruise_kph:.1f} km/h)")
+          # Log de inicio eliminado para reducir uso de memoria
 
         # Actualizar distancia anterior para la próxima iteración
         self.last_d_rel = d_rel
@@ -387,34 +386,24 @@ class DesireHelper:
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
           self.overtake_active = False
+          params.put_bool("overtakingActive", False)
           self.speed_increased = False
 
           # Restaurar velocidad original escribiendo de nuevo el objetivo en Params
           if self.original_v_cruise_kph is not None:
             try:
               params.put("OvertakeTargetSpeedKph", f"{self.original_v_cruise_kph:.1f}")
-              cloudlog.info(f"⬇️ Velocidad restaurada tras adelantamiento: {self.original_v_cruise_kph:.1f} km/h")
-              # IMPORTANTE: Limpiar el parámetro después de un breve delay para permitir que controlsd lo aplique
-              # Esto evita que se quede bloqueado
-              import threading
-              def clear_overtake_target():
-                time.sleep(0.5)  # Esperar 500ms para que controlsd aplique el valor
-                try:
-                  params.remove("OvertakeTargetSpeedKph")
-                  cloudlog.info("✅ OvertakeTargetSpeedKph limpiado después de restaurar velocidad")
-                except Exception as e:
-                  cloudlog.error(f"❌ Error al limpiar OvertakeTargetSpeedKph: {e}")
-              threading.Thread(target=clear_overtake_target, daemon=True).start()
-            except Exception as e:
-              cloudlog.error(f"❌ Error al restaurar OvertakeTargetSpeedKph: {e}")
+              # El parámetro se limpiará automáticamente en controlsd cuando overtakingActive sea False
+            except Exception:
+              pass  # Error silencioso para reducir uso de memoria
 
           params.put("overtakeStatus", "FINALIZADO")
-          cloudlog.info("🔵 Adelantamiento completado: retorno al carril derecho")
+          # Log eliminado para reducir uso de memoria
           self.original_v_cruise_kph = None  # Limpiar para el próximo adelantamiento
           self.last_d_rel = None  # Resetear distancia anterior para permitir nuevo ciclo
 
-    except Exception as e:
-      cloudlog.error(f"❌ Error en lógica de adelantamiento: {e}")
+    except Exception:
+      pass  # Error silencioso para reducir uso de memoria
 
   def update(self, carstate, lateral_active, lane_change_prob, model_data=None, lat_plan_sp=None, desire_override=None,
              radar_state=None):

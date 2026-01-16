@@ -788,6 +788,21 @@ class Controls:
                                                       self.v_cruise_helper.v_cruise_kph * CV.KPH_TO_MS)
       actuators.accel = self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits)
 
+      # Brutebreak: Frenado de emergencia brusco por comando MQTT
+      # Si está activo, aplica el frenado máximo posible
+      # El frenado se mantiene hasta que se desactive o el coche se detenga
+      try:
+        if self.params.get_bool("brutebreak_active"):
+          # Aplicar frenado máximo (el límite inferior de pid_accel_limits)
+          # pid_accel_limits es una tupla (min_accel, max_accel)
+          # min_accel es negativo (frenado), típicamente alrededor de -3.5 m/s²
+          actuators.accel = pid_accel_limits[0]  # Frenado máximo permitido
+          # Auto-desactivar si el coche se ha detenido (vEgo < 0.5 m/s)
+          if CS.vEgo < 0.5:
+            self.params.put_bool("brutebreak_active", False)
+      except Exception:
+        pass  # Error silencioso para no afectar el loop de control
+
       # Steering PID loop and lateral MPC
       # Si se usa el planificador lateral (lateral planner), se calcula la curvatura deseada ajustada
       # considerando el retardo del sistema. Esto se basa en la velocidad del vehículo (vEgo) y la
@@ -843,25 +858,20 @@ class Controls:
             # También ajustar curvatura para consistencia
             self.desired_curvature -= 0.008
 
-          # Log con información de la fase
-          angle_str = f"{actuators.steeringAngleDeg:.2f}°"
-          phase_str = "INICIAL" if phase == "initial" else "RETORNO"
-          cloudlog.info(f"🔄 AdriPilot: Giro {phase_str} {effective_direction} ({elapsed:.2f}s/{adripilot_steering_pulse_duration}s) - angle: {angle_str}")
+          # Log eliminado para reducir uso de memoria - el giro se aplica silenciosamente
+          pass
         elif is_active and not CC.latActive:
-          # Pulso activo pero control lateral no activo
-          if self.sm.frame % 50 == 0:
-            cloudlog.warning("⚠️ AdriPilot: Pulso activo pero latActive=False - esperando activación")
+          # Pulso activo pero control lateral no activo - log eliminado para reducir memoria
+          pass
         elif pulse_start is not None:
-          # Hay un pulso pero no está activo (ya expiró o hay error)
-          if self.sm.frame % 50 == 0:
-            cloudlog.warning(f"⚠️ AdriPilot: Pulso detectado pero no activo - start: {pulse_start}, direction: {original_direction}, active: {is_active}")
-      except ImportError as e:
-        # Módulo no disponible, log para debug
-        if self.sm.frame % 200 == 0:
-          cloudlog.error(f"❌ AdriPilot: Error importando módulo de giro temporal: {e}")
-      except Exception as e:
-        # Error inesperado, log siempre para debug
-        cloudlog.error(f"❌ AdriPilot: Error en giro temporal: {e}")
+          # Hay un pulso pero no está activo - log eliminado para reducir memoria
+          pass
+      except ImportError:
+        # Módulo no disponible - silencioso para reducir memoria
+        pass
+      except Exception:
+        # Error inesperado - silencioso para reducir memoria
+        pass
 
       if self.model_use_lateral_planner:
         actuators.curvature = self.desired_curvature
@@ -1027,9 +1037,8 @@ class Controls:
     try:
       from openpilot.sicuem.adripilot import events_mqtt
 
-      # Debug: Log cada 100 frames para no saturar logs
-      if self.sm.frame % 100 == 0:
-        cloudlog.info(f"🔍 AdriPilot: Frame {self.sm.frame}, eventos activos: {len(self.events)}, alertas creadas: {len(alerts)}")
+      # Debug: Log eliminado para reducir uso de memoria
+      # Los eventos se procesan silenciosamente para evitar saturación
 
       # Procesar cada alerta - el sistema de cooldown está dentro de send_alert
       for a in alerts:

@@ -21,6 +21,11 @@ class SicMqttHilo2:
     self.initialize_mqtt_client()
     self.load_configuration()
     self.start_mqtt_thread()
+    # Archivo de debug compartido con mqtt_comandos.py
+    self.debug_file = "/tmp/mqtt_debug_messages.txt"
+    self.max_messages = 30
+    self.debug_enabled = False
+    self._last_debug_check = 0
 
   def initialize_variables(self):
     """
@@ -384,11 +389,72 @@ class SicMqttHilo2:
       except Exception as e:
         time.sleep(5)
 
+  def save_debug_message(self, topic, payload):
+    """Guarda un mensaje MQTT para el modo debug."""
+    try:
+      if not self.debug_enabled:
+        if time.time() - self._last_debug_check > 10:
+          self.debug_enabled = self.params.get_bool("modo_debug")
+          self._last_debug_check = time.time()
+        if not self.debug_enabled:
+          return
+    except Exception:
+      return
+
+    try:
+      timestamp = time.strftime("%H:%M:%S", time.localtime())
+      payload_display = payload[:50] if len(payload) > 50 else payload
+      message = f"[{timestamp}] {topic}\n{payload_display}\n"
+
+      messages = []
+      if os.path.exists(self.debug_file):
+        try:
+          file_size = os.path.getsize(self.debug_file)
+          if file_size > 100 * 1024:
+            with open(self.debug_file, 'rb') as f:
+              f.seek(max(0, file_size - 50 * 1024))
+              content = f.read().decode('utf-8', errors='ignore')
+              lines = content.split('\n')
+          else:
+            with open(self.debug_file, 'r', encoding='utf-8') as f:
+              lines = f.readlines()
+
+          i = len(lines) - 1
+          temp_messages = []
+          while i >= 0 and len(temp_messages) < self.max_messages:
+            if lines[i].strip().startswith('['):
+              if i > 0:
+                temp_messages.insert(0, (lines[i-1].strip() + '\n' + lines[i].strip()).strip())
+                i -= 2
+              else:
+                i -= 1
+            else:
+              i -= 1
+          messages = temp_messages
+        except Exception:
+          messages = []
+
+      messages.append(message.strip())
+      if len(messages) > self.max_messages:
+        messages = messages[-self.max_messages:]
+
+      if messages:
+        try:
+          with open(self.debug_file, 'w', encoding='utf-8') as f:
+            f.write('\n\n'.join(messages))
+        except Exception:
+          pass
+    except Exception:
+      pass
+
   def on_message(self, client, userdata, msg):
     """Callback que maneja los mensajes MQTT."""
-
-    #print(f"📡 Mensaje recibido en el topic: {msg.topic}")  # 🟢 Verifica que se recibe el mensaje
-    #print(f"📩 Payload recibido: {msg.payload.decode()}")  # 🟢 Verifica el contenido del mensaje
+    # Guardar mensaje para modo debug
+    try:
+      payload_str = msg.payload.decode(errors="ignore").strip()
+      self.save_debug_message(msg.topic, payload_str)
+    except Exception:
+      pass
 
     if msg.topic == "telemetry_publish/vego":
       try:

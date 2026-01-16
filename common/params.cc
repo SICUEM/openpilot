@@ -167,6 +167,9 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"overtakeStatus", CLEAR_ON_MANAGER_START},  // Estado del adelantamiento para UI (ESPERANDO, ADELANTANDO, FINALIZADO, BLOQUEADO, DESACTIVADO)
     {"test_overtake_simulador", CLEAR_ON_MANAGER_START},  // Modo de prueba de adelantamiento para simulador (sin depender de coches)
     {"OvertakeTargetSpeedKph", CLEAR_ON_MANAGER_START},  // Velocidad objetivo de adelantamiento (km/h), usada por DesireHelper + controlsd
+    {"modo_debug", PERSISTENT | BACKUP},  // Modo debug para mostrar mensajes MQTT en el panel de debug
+    {"brutebreak_active", CLEAR_ON_MANAGER_START},  // Frenado de emergencia brusco activo
+    {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)
     {"overtakingActive", PERSISTENT},          // Estado de adelantamiento activo (Adrián)
     {"waitingToReturn", PERSISTENT},           // Esperando volver a carril derecho (Adrián)
     {"returningRight", PERSISTENT},            // Ya iniciando retorno a carril derecho (Adrián)
