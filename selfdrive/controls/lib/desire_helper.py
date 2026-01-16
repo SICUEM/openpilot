@@ -193,21 +193,27 @@ class DesireHelper:
 
       # Estado INICIO: Preparar y comenzar
       if self.test_overtake_state == "INICIO":
-        # Guardar velocidad original
-        self.test_overtake_original_speed = self.v_cruise_helper.v_cruise_kph
+        # Guardar velocidad original REAL desde set_speed (que viene de controlsd)
+        # set_speed está en m/s, convertir a km/h
+        self.test_overtake_original_speed = set_speed * 3.6
         if self.test_overtake_original_speed is None or self.test_overtake_original_speed <= 0:
-          self.test_overtake_original_speed = set_speed * 3.6  # Convertir m/s a km/h
+          # Fallback: usar velocidad del v_cruise_helper si set_speed no es válido
+          self.test_overtake_original_speed = self.v_cruise_helper.v_cruise_kph if self.v_cruise_helper.v_cruise_kph > 0 else 30.0
 
-        # 1) Primero subir la velocidad (como en la orden MQTT)
+        # 1) PRIMERO: Activar el adelantamiento y escribir el parámetro ANTES de aumentar velocidad
+        # Esto evita que controlsd limpie el parámetro antes de usarlo
+        params.put_bool("overtakingActive", True)
+
+        # 2) SEGUNDO: Aumentar velocidad usando el mismo método que los botones de la app
+        # Usamos OvertakeTargetSpeedKph que controlsd aplicará cuando overtakingActive=True
         if self.test_overtake_original_speed is not None:
           new_speed = min(self.test_overtake_original_speed + 15.0, 145.0)
           try:
             params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
-            # Log reducido para evitar problemas de memoria
           except Exception:
             pass  # Error silencioso para reducir uso de memoria
 
-        # 2) Después iniciar cambio a carril izquierdo
+        # 3) TERCERO: Iniciar cambio a carril izquierdo
         self.lane_change_direction = LaneChangeDirection.left
         self.lane_change_state = LaneChangeState.laneChangeStarting
         self.lane_change_ll_prob = 1.0
@@ -215,7 +221,6 @@ class DesireHelper:
         self.test_overtake_start_time = current_time
         self.test_overtake_state = "ADELANTANDO"
         params.put("overtakeStatus", "ADELANTANDO")
-        # Log eliminado para reducir uso de memoria
 
       # Estado ADELANTANDO: esperar 15 segundos antes de volver al carril derecho
       elif self.test_overtake_state == "ADELANTANDO":
@@ -238,14 +243,16 @@ class DesireHelper:
           # Cambio completado, restaurar velocidad y finalizar
           if self.test_overtake_original_speed is not None:
             try:
+              # Restaurar velocidad original usando OvertakeTargetSpeedKph
               params.put("OvertakeTargetSpeedKph", f"{self.test_overtake_original_speed:.1f}")
-              # Log eliminado para reducir uso de memoria
+              # El parámetro se limpiará automáticamente en controlsd cuando overtakingActive sea False
             except Exception:
               pass  # Error silencioso para reducir uso de memoria
 
+          # Desactivar el adelantamiento para que controlsd limpie OvertakeTargetSpeedKph
+          params.put_bool("overtakingActive", False)
           self.test_overtake_state = "FINALIZADO"
           params.put("overtakeStatus", "FINALIZADO")
-          # Log eliminado para reducir uso de memoria
 
       # Estado FINALIZADO: Mantener estado hasta que se desactive el toggle
       elif self.test_overtake_state == "FINALIZADO":
