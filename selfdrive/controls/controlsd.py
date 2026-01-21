@@ -597,9 +597,19 @@ class Controls:
             self.v_cruise_helper.v_cruise_kph = target_kph
             self.v_cruise_helper.v_cruise_cluster_kph = target_kph
       else:
-        # Si el adelantamiento no está activo, limpiar el parámetro para evitar bloqueos
+        # Si el adelantamiento no está activo pero hay velocidad para restaurar, aplicarla primero
         try:
-          if self.params.get("OvertakeTargetSpeedKph"):
+          overtake_target = self.params.get("OvertakeTargetSpeedKph")
+          if overtake_target:
+            # Aplicar la velocidad restaurada UNA VEZ antes de eliminar el parámetro
+            try:
+              target_kph = float(overtake_target.decode("utf-8") if isinstance(overtake_target, bytes) else overtake_target)
+              if target_kph > 0:
+                self.v_cruise_helper.v_cruise_kph = target_kph
+                self.v_cruise_helper.v_cruise_cluster_kph = target_kph
+            except Exception:
+              pass
+            # Ahora sí eliminar el parámetro
             self.params.remove("OvertakeTargetSpeedKph")
         except Exception:
           pass

@@ -392,21 +392,23 @@ class DesireHelper:
           self.lane_change_state = LaneChangeState.laneChangeStarting
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
+
+          # PRIMERO: Restaurar velocidad original ANTES de desactivar overtakingActive
+          # Esto evita la race condition con controlsd
+          if self.original_v_cruise_kph is not None:
+            try:
+              params.put("OvertakeTargetSpeedKph", f"{self.original_v_cruise_kph:.1f}")
+            except Exception:
+              pass  # Error silencioso para reducir uso de memoria
+
+          # DESPUÉS: Desactivar el adelantamiento (controlsd aplicará la velocidad restaurada)
           self.overtake_active = False
           params.put_bool("overtakingActive", False)
           self.speed_increased = False
 
-          # Restaurar velocidad original escribiendo de nuevo el objetivo en Params
-          if self.original_v_cruise_kph is not None:
-            try:
-              params.put("OvertakeTargetSpeedKph", f"{self.original_v_cruise_kph:.1f}")
-              # El parámetro se limpiará automáticamente en controlsd cuando overtakingActive sea False
-            except Exception:
-              pass  # Error silencioso para reducir uso de memoria
-
           params.put("overtakeStatus", "FINALIZADO")
-          # Log eliminado para reducir uso de memoria
-          self.original_v_cruise_kph = None  # Limpiar para el próximo adelantamiento
+          # Limpiar para el próximo adelantamiento
+          self.original_v_cruise_kph = None
           self.last_d_rel = None  # Resetear distancia anterior para permitir nuevo ciclo
 
     except Exception:
