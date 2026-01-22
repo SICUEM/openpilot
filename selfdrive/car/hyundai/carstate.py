@@ -269,8 +269,12 @@ class CarState(CarStateBase):
       50, cp.vl["BLINKERS"][left_blinker_sig], cp.vl["BLINKERS"][right_blinker_sig])
 
     if self.CP.enableBsm:
-      ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"].get("FL_INDICATOR", 0) != 0
-      ret.rightBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"].get("FR_INDICATOR", 0) != 0
+      if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
+        ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["LEFT_MB"] != 0
+        ret.rightBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["MORE_LEFT_PROB"] != 0
+      else:
+        ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"].get("FL_INDICATOR", 0) != 0
+        ret.rightBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"].get("FR_INDICATOR", 0) != 0
 
     # cruise state
     # CAN FD cars enable on main button press, set available if no TCS faults preventing engagement
