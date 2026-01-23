@@ -267,7 +267,8 @@ class CarState(CarStateBase):
       left_blinker_sig, right_blinker_sig = "LEFT_LAMP_ALT", "RIGHT_LAMP_ALT"
     ret.leftBlinker, ret.rightBlinker = ret.leftBlinkerOn, ret.rightBlinkerOn = self.update_blinker_from_lamp(
       50, cp.vl["BLINKERS"][left_blinker_sig], cp.vl["BLINKERS"][right_blinker_sig])
-
+    
+    # añadido en caso particular del Tucson 4th gen en etiquetas enableBsm
     if self.CP.enableBsm:
       if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
         ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["LEFT_MB"] != 0
