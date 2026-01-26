@@ -119,7 +119,7 @@ class CarInterface(CarInterfaceBase):
       # para hyunday Tucson HEV 2022 y IONIC 6 2023
       if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
         ret.enableBsm = 0x1ba in fingerprint[CAN.ECAN]
-      else
+      else:
         ret.enableBsm = 0x1e5 in fingerprint[CAN.ECAN]
       
 
