@@ -116,19 +116,16 @@ class CarInterface(CarInterfaceBase):
 
     # *** feature detection ***
     if candidate in CANFD_CAR:
-      #ret.enableBsm = 0x1e5 in fingerprint[CAN.ECAN]
-      # cambiamos y decimos que tenemos siempre BSM
-      # ret.enableBsm = True
-      ret.enableBsm = 0x1ba in fingerprint[CAN.ECAN]
-
-
+      # para hyunday Tucson HEV 2022 y IONIC 6 2023
+      if candidate == CAR.HYUNDAI_TUCSON_4TH_GEN:
+        ret.enableBsm = 0x1ba in fingerprint[CAN.ECAN]
+      else:
+        ret.enableBsm = 0x1e5 in fingerprint[CAN.ECAN]
+            
       if 0x1FA in fingerprint[CAN.ECAN]:
         ret.spFlags |= HyundaiFlagsSP.SP_NAV_MSG.value
     else:
-      #ret.enableBsm = 0x58b in fingerprint[0]
-      # ret.enableBsm = True
-      ret.enableBsm = 0x1ba in fingerprint[0]
-
+      ret.enableBsm = 0x58b in fingerprint[0]
 
       if 0x544 in fingerprint[0]:
         ret.spFlags |= HyundaiFlagsSP.SP_NAV_MSG.value
