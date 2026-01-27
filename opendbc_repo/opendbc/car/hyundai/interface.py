@@ -48,7 +48,7 @@ class CarInterface(CarInterfaceBase):
         ret.alphaLongitudinalAvailable = False
 
       # For Hyundai Tucson 2022 HEV EUR
-      if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
+      if candidate == CAR.HYUNDAI_TUCSON_4TH_GEN:
         ret.enableBsm = 0x1ba in fingerprint[CAN.ECAN]
       else:
         ret.enableBsm = 0x1e5 in fingerprint[CAN.ECAN]
