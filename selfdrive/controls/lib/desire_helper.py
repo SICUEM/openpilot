@@ -92,6 +92,11 @@ class DesireHelper:
 
       # Uses car interface helper functions, altering state won't be considered by card for actuation
     self.speed_increased = False
+    
+    # Parámetros configurables de adelantamiento (valores por defecto)
+    self.overtake_distancia_activacion = 50.0  # metros
+    self.overtake_tiempo_carril_izq = 15.0  # segundos
+    self.overtake_incremento_velocidad = 15.0  # km/h
 
     self.v_cruise_helper = VCruiseHelper(self.CP)
 
@@ -107,6 +112,41 @@ class DesireHelper:
     self.edge_toggle = self.param_s.get_bool("RoadEdge")
     self.lane_change_set_timer = int(self.param_s.get("AutoLaneChangeTimer", encoding="utf8"))
     self.lane_change_bsm_delay = self.param_s.get_bool("AutoLaneChangeBsmDelay")
+    
+    # Leer parámetros configurables de adelantamiento
+    self._read_overtake_params()
+  
+  def _read_overtake_params(self):
+    """Lee los parámetros configurables de adelantamiento desde Params.
+    
+    Valores configurables vía MQTT:
+    - overtake_distancia_activacion: 20-100 metros (default 50)
+    - overtake_tiempo_carril_izq: 5-30 segundos (default 15)
+    - overtake_incremento_velocidad: 5-30 km/h (default 15)
+    """
+    try:
+      # Distancia de activación (default 50m)
+      distancia_raw = self.params.get("overtake_distancia_activacion")
+      if distancia_raw:
+        distancia = float(distancia_raw.decode("utf-8") if isinstance(distancia_raw, bytes) else distancia_raw)
+        if 20.0 <= distancia <= 100.0:
+          self.overtake_distancia_activacion = distancia
+      
+      # Tiempo en carril izquierdo (default 15s)
+      tiempo_raw = self.params.get("overtake_tiempo_carril_izq")
+      if tiempo_raw:
+        tiempo = float(tiempo_raw.decode("utf-8") if isinstance(tiempo_raw, bytes) else tiempo_raw)
+        if 5.0 <= tiempo <= 30.0:
+          self.overtake_tiempo_carril_izq = tiempo
+      
+      # Incremento de velocidad (default 15 km/h)
+      incremento_raw = self.params.get("overtake_incremento_velocidad")
+      if incremento_raw:
+        incremento = float(incremento_raw.decode("utf-8") if isinstance(incremento_raw, bytes) else incremento_raw)
+        if 5.0 <= incremento <= 30.0:
+          self.overtake_incremento_velocidad = incremento
+    except Exception:
+      pass  # Usar valores por defecto si hay error
 
   def _has_bsm(self, carstate):
     """Verifica de forma segura si el coche tiene BSM disponible."""
@@ -193,6 +233,9 @@ class DesireHelper:
 
       # Estado INICIO: Preparar y comenzar
       if self.test_overtake_state == "INICIO":
+        # Leer parámetros configurables (valores dinámicos desde MQTT)
+        self._read_overtake_params()
+        
         # Guardar velocidad original REAL desde set_speed (que viene de controlsd)
         # set_speed está en m/s, convertir a km/h
         self.test_overtake_original_speed = set_speed * 3.6
@@ -205,11 +248,15 @@ class DesireHelper:
         params.put_bool("overtakingActive", True)
 
         # 2) SEGUNDO: Aumentar velocidad usando el mismo método que los botones de la app
-        # Usamos OvertakeTargetSpeedKph que controlsd aplicará cuando overtakingActive=True
+        # Usar incremento configurable (default 15 km/h, configurable 5-30 km/h vía MQTT)
+        incremento_vel = self.overtake_incremento_velocidad
         if self.test_overtake_original_speed is not None:
-          new_speed = min(self.test_overtake_original_speed + 15.0, 145.0)
+          new_speed = min(self.test_overtake_original_speed + incremento_vel, 145.0)
           try:
             params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
+            # Log para modo debug con valores dinámicos
+            if self.param_s.get_bool("modo_debug"):
+              print(f"🧪 TEST ADELANTAMIENTO - +Vel: {incremento_vel}km/h, Tiempo: {self.overtake_tiempo_carril_izq}s")
           except Exception:
             pass  # Error silencioso para reducir uso de memoria
 
@@ -222,10 +269,11 @@ class DesireHelper:
         self.test_overtake_state = "ADELANTANDO"
         params.put("overtakeStatus", "ADELANTANDO")
 
-      # Estado ADELANTANDO: esperar 15 segundos antes de volver al carril derecho
+      # Estado ADELANTANDO: esperar tiempo configurable antes de volver al carril derecho
       elif self.test_overtake_state == "ADELANTANDO":
         elapsed = current_time - self.test_overtake_start_time
-        if elapsed >= 15.0:
+        tiempo_carril_izq = self.overtake_tiempo_carril_izq  # Default 15s, configurable 5-30s
+        if elapsed >= tiempo_carril_izq:
           # Tiempo cumplido, cambiar a carril derecho
           self.lane_change_direction = LaneChangeDirection.right
           self.lane_change_state = LaneChangeState.laneChangeStarting
@@ -309,7 +357,7 @@ class DesireHelper:
         else:
           # Ya en carril izquierdo, verificando si aumentó velocidad
           elapsed = time.time() - self.overtake_start_time
-          return_time = 15.0  # Tiempo fijo de 15 segundos
+          return_time = self.overtake_tiempo_carril_izq  # Tiempo configurable vía MQTT
           if elapsed >= return_time * 0.5:  # Más de la mitad del tiempo
             params.put("overtakeStatus", "ESPERANDO_RETORNO")
           else:
@@ -325,16 +373,20 @@ class DesireHelper:
 
       # --- INICIAR ADELANTAMIENTO ---
       if not self.overtake_active and lead_status:
-        # Condición: solo iniciar si pasamos de >50m a <50m (transición)
-        # Si ya estábamos <50m desde el principio, NO iniciar
+        # Leer parámetros configurables (valores dinámicos desde MQTT)
+        self._read_overtake_params()
+        dist_activacion = self.overtake_distancia_activacion  # Default 50m, configurable 20-100m
+        
+        # Condición: solo iniciar si pasamos de >distancia a <distancia (transición)
+        # Si ya estábamos <distancia desde el principio, NO iniciar
 
         # Inicializar last_d_rel si es la primera vez
         if self.last_d_rel is None:
           self.last_d_rel = d_rel
 
-        # Verificar transición: distancia anterior >50m y actual <50m
-        distancia_anterior_ok = self.last_d_rel > 50.0
-        distancia_actual_ok = d_rel < 50.0
+        # Verificar transición: distancia anterior >dist_activacion y actual <dist_activacion
+        distancia_anterior_ok = self.last_d_rel > dist_activacion
+        distancia_actual_ok = d_rel < dist_activacion
 
         # Condición de velocidad comentada temporalmente
         # velocidad_ok = (set_speed - carstate.vEgo) > 4.166  # 15 km/h en m/s
@@ -353,12 +405,16 @@ class DesireHelper:
           params.put_bool("overtakingActive", True)
 
           # SEGUNDO: Aumentar velocidad (igual que en la rutina de simulador)
+          # Usar incremento configurable (default 15 km/h, configurable 5-30 km/h vía MQTT)
+          incremento_vel = self.overtake_incremento_velocidad
           if self.original_v_cruise_kph is not None:
-            new_speed = min(self.original_v_cruise_kph + 15.0, 145.0)  # Máximo 145 km/h
+            new_speed = min(self.original_v_cruise_kph + incremento_vel, 145.0)  # Máximo 145 km/h
             try:
               params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
               self.speed_increased = True
-              # Log reducido para evitar problemas de memoria
+              # Log para modo debug con valores dinámicos
+              if self.param_s.get_bool("modo_debug"):
+                print(f"🚗 ADELANTAMIENTO INICIADO - Dist: {dist_activacion}m, +Vel: {incremento_vel}km/h, Tiempo: {self.overtake_tiempo_carril_izq}s")
             except Exception:
               pass  # Error silencioso para reducir uso de memoria
 
@@ -382,8 +438,8 @@ class DesireHelper:
         # La velocidad ya se aumentó al iniciar el adelantamiento (antes del cambio de carril)
         # Aquí solo mantenemos el estado mientras adelanta
 
-        # Tiempo de retorno fijo: 15 segundos
-        return_time = 15.0
+        # Tiempo de retorno configurable (default 15s, configurable 5-30s vía MQTT)
+        return_time = self.overtake_tiempo_carril_izq
 
         # Verificar si es momento de volver al carril derecho
         if elapsed >= return_time:

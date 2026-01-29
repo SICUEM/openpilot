@@ -630,8 +630,32 @@ void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
   // Obtener distancia del lead (disponible como variable de clase)
   QString distancia_str = QString::number(lead_d_rel, 'f', 1);
 
-  // Texto completo en una sola línea: "Dis: (distancia) 🚗 ADELANTAMIENTO: (estado)"
-  QString texto_completo = QString("Dis: %1 🚗 ADELANTAMIENTO: %2").arg(distancia_str, estado);
+  // Leer parámetros configurables de adelantamiento para mostrar en pantalla
+  // Valores por defecto si no están configurados
+  float dist_activacion = 50.0;
+  float tiempo_carril_izq = 15.0;
+  float incremento_vel = 15.0;
+  
+  std::string dist_raw = Params().get("overtake_distancia_activacion", false);
+  if (!dist_raw.empty()) {
+    try { dist_activacion = std::stof(dist_raw); } catch (...) {}
+  }
+  std::string tiempo_raw = Params().get("overtake_tiempo_carril_izq", false);
+  if (!tiempo_raw.empty()) {
+    try { tiempo_carril_izq = std::stof(tiempo_raw); } catch (...) {}
+  }
+  std::string incr_raw = Params().get("overtake_incremento_velocidad", false);
+  if (!incr_raw.empty()) {
+    try { incremento_vel = std::stof(incr_raw); } catch (...) {}
+  }
+
+  // Texto completo con información de parámetros configurados
+  // Formato: "Dis: X.X 🚗 ADELANTAMIENTO: ESTADO [Conf: Dm Ts +Vkm/h]"
+  QString config_info = QString("[%1m %2s +%3km/h]")
+    .arg(QString::number(dist_activacion, 'f', 0))
+    .arg(QString::number(tiempo_carril_izq, 'f', 0))
+    .arg(QString::number(incremento_vel, 'f', 0));
+  QString texto_completo = QString("Dis: %1 🚗 ADELANTAMIENTO: %2 %3").arg(distancia_str, estado, config_info);
 
   // Configurar fuente más grande
   p.setFont(InterFont(50, QFont::Bold));

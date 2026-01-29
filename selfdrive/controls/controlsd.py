@@ -799,14 +799,33 @@ class Controls:
       actuators.accel = self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits)
 
       # Brutebreak: Frenado de emergencia brusco por comando MQTT
-      # Si está activo, aplica el frenado máximo posible
+      # Si está activo, aplica la intensidad de frenado configurada
       # El frenado se mantiene hasta que se desactive o el coche se detenga
       try:
         if self.params.get_bool("brutebreak_active"):
-          # Aplicar frenado máximo (el límite inferior de pid_accel_limits)
-          # pid_accel_limits es una tupla (min_accel, max_accel)
-          # min_accel es negativo (frenado), típicamente alrededor de -3.5 m/s²
-          actuators.accel = pid_accel_limits[0]  # Frenado máximo permitido
+          # Leer intensidad de frenado configurable (default -3.5 m/s², configurable -1.0 a -5.0 vía MQTT)
+          intensidad_frenado = -3.5  # Valor por defecto
+          try:
+            intensidad_raw = self.params.get("brutebreak_intensidad")
+            if intensidad_raw:
+              intensidad = float(intensidad_raw.decode("utf-8") if isinstance(intensidad_raw, bytes) else intensidad_raw)
+              # Validar que esté en el rango permitido y sea negativo
+              if -5.0 <= intensidad <= -1.0:
+                intensidad_frenado = intensidad
+          except Exception:
+            pass  # Usar valor por defecto si hay error
+          
+          # Aplicar intensidad de frenado configurada (limitada al mínimo del sistema si es necesario)
+          # pid_accel_limits[0] es el frenado máximo que permite el sistema
+          actuators.accel = max(intensidad_frenado, pid_accel_limits[0])
+          
+          # Log para modo debug con valor de intensidad
+          try:
+            if self.params.get_bool("modo_debug") and self.sm.frame % 50 == 0:
+              print(f"🛑 BRUTEBREAK ACTIVO - Intensidad: {intensidad_frenado} m/s²")
+          except Exception:
+            pass
+          
           # Auto-desactivar si el coche se ha detenido (vEgo < 0.5 m/s)
           if CS.vEgo < 0.5:
             self.params.put_bool("brutebreak_active", False)

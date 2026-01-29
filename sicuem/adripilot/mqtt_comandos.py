@@ -464,17 +464,47 @@ class MQTTComandos:
     Si tiene BSM, lo usa. Si no, funciona sin BSM.
 
     Formatos aceptados:
-    - JSON: {'enabled': true, 'timestamp': ...} (formato desde app)
+    - JSON completo (nuevo formato desde app v2.0):
+      {
+        "enabled": bool,
+        "distancia_activacion": float,  // Metros (20-100, default 50)
+        "tiempo_carril_izquierdo": float,  // Segundos (5-30, default 15)
+        "incremento_velocidad": float,  // km/h (5-30, default 15)
+        "timestamp": ...
+      }
+    - JSON simple: {'enabled': true, 'timestamp': ...} (formato antiguo)
     - String: "true" o "false" (formato simple)
     """
     try:
       # Intentar parsear como JSON primero (formato desde app)
       try:
         data = json.loads(payload)
+        
+        # Manejar enabled/disabled
         if data.get("enabled") is True:
           self.params.put_bool("sic_adelantar", True)
         elif data.get("enabled") is False:
           self.params.put_bool("sic_adelantar", False)
+        
+        # Guardar parámetros configurables si vienen en el payload
+        # Distancia de activación (20-100 metros)
+        if "distancia_activacion" in data:
+          distancia = float(data["distancia_activacion"])
+          if 20.0 <= distancia <= 100.0:
+            self.params.put("overtake_distancia_activacion", str(distancia))
+        
+        # Tiempo en carril izquierdo (5-30 segundos)
+        if "tiempo_carril_izquierdo" in data:
+          tiempo = float(data["tiempo_carril_izquierdo"])
+          if 5.0 <= tiempo <= 30.0:
+            self.params.put("overtake_tiempo_carril_izq", str(tiempo))
+        
+        # Incremento de velocidad (5-30 km/h)
+        if "incremento_velocidad" in data:
+          incremento = float(data["incremento_velocidad"])
+          if 5.0 <= incremento <= 30.0:
+            self.params.put("overtake_incremento_velocidad", str(incremento))
+            
       except (json.JSONDecodeError, AttributeError):
         # No es JSON, tratar como string simple (compatibilidad)
         if payload.lower() == "true":
@@ -487,21 +517,39 @@ class MQTTComandos:
   def handle_brutebreak(self, payload):
     """Maneja el comando de frenado de emergencia brusco.
 
-    Cuando se recibe este comando, el coche frenará lo más bruscamente posible.
+    Cuando se recibe este comando, el coche frenará con la intensidad configurada.
     El frenado se mantiene activo durante un tiempo limitado para seguridad.
 
     Formatos aceptados:
-    - JSON: {'enabled': true, 'timestamp': ...} (formato desde app)
+    - JSON completo (nuevo formato desde app v2.0):
+      {
+        "brutebreak": true,
+        "emergency": true,
+        "intensidad_frenado": float  // Valor NEGATIVO (-1.0 a -5.0, default -3.5 m/s²)
+        "timestamp": ...
+      }
+    - JSON simple: {'enabled': true, 'timestamp': ...} (formato antiguo)
     - String: "true" o "1" para activar, "false" o "0" para desactivar
     """
     try:
       # Intentar parsear como JSON primero (formato desde app)
       try:
         data = json.loads(payload)
+        
+        # Manejar activación/desactivación
         if data.get("enabled") is True or data.get("brutebreak") is True:
           self.params.put_bool("brutebreak_active", True)
         elif data.get("enabled") is False or data.get("brutebreak") is False:
           self.params.put_bool("brutebreak_active", False)
+        
+        # Guardar intensidad de frenado si viene en el payload
+        # El valor ya viene negativo desde la app (-1.0 a -5.0 m/s²)
+        if "intensidad_frenado" in data:
+          intensidad = float(data["intensidad_frenado"])
+          # Validar rango (debe ser negativo, entre -5.0 y -1.0)
+          if -5.0 <= intensidad <= -1.0:
+            self.params.put("brutebreak_intensidad", str(intensidad))
+            
       except (json.JSONDecodeError, AttributeError):
         # No es JSON, tratar como string simple
         payload_lower = payload.lower().strip()

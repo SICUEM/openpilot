@@ -149,6 +149,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"IsEngaged", PERSISTENT},
     {"IsLdwEnabled", PERSISTENT | BACKUP},
     {"IsMetric", PERSISTENT | BACKUP},
+
     {"cambiar_a_izq",PERSISTENT},//Adrian Cañadas Gallardo
     {"cambiar_a_der",PERSISTENT},//Adrian Cañadas Gallardo
     {"ForceLeftBlinker", PERSISTENT}, // Simula intermitente izquierdo activado (Adrián)
@@ -169,7 +170,11 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"OvertakeTargetSpeedKph", CLEAR_ON_MANAGER_START},  // Velocidad objetivo de adelantamiento (km/h), usada por DesireHelper + controlsd
     {"modo_debug", PERSISTENT | BACKUP},  // Modo debug para mostrar mensajes MQTT en el panel de debug
     {"brutebreak_active", CLEAR_ON_MANAGER_START},  // Frenado de emergencia brusco activo
+    {"brutebreak_intensidad", PERSISTENT},  // Intensidad de frenado configurable (valor negativo, default -3.5 m/s²)
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)
+    {"overtake_distancia_activacion", PERSISTENT},  // Distancia de activación del adelantamiento (metros, default 50)
+    {"overtake_tiempo_carril_izq", PERSISTENT},  // Tiempo en carril izquierdo (segundos, default 15)
+    {"overtake_incremento_velocidad", PERSISTENT},  // Incremento de velocidad (km/h, default 15)
     {"overtakingActive", PERSISTENT},          // Estado de adelantamiento activo (Adrián)
     {"waitingToReturn", PERSISTENT},           // Esperando volver a carril derecho (Adrián)
     {"returningRight", PERSISTENT},            // Ya iniciando retorno a carril derecho (Adrián)
