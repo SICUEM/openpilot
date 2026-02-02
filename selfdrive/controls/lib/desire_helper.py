@@ -392,8 +392,18 @@ class DesireHelper:
       # --- ESTADO: ESPERANDO PARA CAMBIAR A IZQUIERDA (BSM bloqueado) ---
       if self.overtake_waiting_left_bsm:
         if not left_bsm:
-          # BSM izquierdo libre → ahora sí podemos cambiar
+          # BSM izquierdo libre → ahora sí podemos cambiar y aumentar velocidad
           self.overtake_waiting_left_bsm = False
+
+          # AHORA sí aumentamos velocidad (solo cuando BSM está libre)
+          incremento_vel = self.overtake_incremento_velocidad
+          if self.original_v_cruise_kph is not None:
+            new_speed = min(self.original_v_cruise_kph + incremento_vel, 145.0)
+            try:
+              params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
+              self.speed_increased = True
+            except Exception:
+              pass
 
           # Iniciar cambio a la izquierda
           self.lane_change_direction = LaneChangeDirection.left
@@ -404,9 +414,9 @@ class DesireHelper:
           self.overtake_start_time = time.time()
 
           if self.param_s.get_bool("modo_debug"):
-            print("✅ BSM izquierdo libre - Iniciando cambio de carril")
+            print("✅ BSM izquierdo libre - Iniciando cambio de carril y aumentando velocidad")
         else:
-          # BSM sigue ocupado, seguir esperando
+          # BSM sigue ocupado, seguir esperando (sin aumentar velocidad)
           if self.param_s.get_bool("modo_debug"):
             print("⏳ Esperando BSM izquierdo libre...")
         return  # Salir para seguir verificando en la próxima iteración
@@ -414,7 +424,7 @@ class DesireHelper:
       # --- ESTADO: ESPERANDO PARA VOLVER A DERECHA (BSM bloqueado) ---
       if self.overtake_waiting_right_bsm:
         if not right_bsm:
-          # BSM derecho libre → ahora sí podemos volver
+          # BSM derecho libre → ahora sí podemos volver y restaurar velocidad
           self.overtake_waiting_right_bsm = False
 
           # Cambiar de carril a la derecha
@@ -423,14 +433,14 @@ class DesireHelper:
           self.lane_change_ll_prob = 1.0
           self.lane_change_wait_timer = 0
 
-          # PRIMERO: Restaurar velocidad original ANTES de desactivar overtakingActive
+          # AHORA sí restauramos velocidad (solo cuando BSM está libre y vamos a cambiar)
           if self.original_v_cruise_kph is not None:
             try:
               params.put("OvertakeTargetSpeedKph", f"{self.original_v_cruise_kph:.1f}")
             except Exception:
               pass
 
-          # DESPUÉS: Desactivar el adelantamiento
+          # Desactivar el adelantamiento
           self.overtake_active = False
           params.put_bool("overtakingActive", False)
           self.speed_increased = False
@@ -441,11 +451,11 @@ class DesireHelper:
           self.last_d_rel = None
 
           if self.param_s.get_bool("modo_debug"):
-            print("✅ BSM derecho libre - Volviendo al carril derecho")
+            print("✅ BSM derecho libre - Volviendo al carril derecho y restaurando velocidad")
         else:
-          # BSM sigue ocupado, seguir esperando
+          # BSM sigue ocupado, mantener velocidad aumentada y seguir esperando
           if self.param_s.get_bool("modo_debug"):
-            print("⏳ Esperando BSM derecho libre...")
+            print("⏳ Esperando BSM derecho libre (manteniendo velocidad)...")
         return  # Salir para seguir verificando en la próxima iteración
 
       # --- INICIAR ADELANTAMIENTO ---
@@ -473,31 +483,34 @@ class DesireHelper:
             # Fallback: usar velocidad del v_cruise_helper si set_speed no es válido
             self.original_v_cruise_kph = self.v_cruise_helper.v_cruise_kph if self.v_cruise_helper.v_cruise_kph > 0 else 30.0
 
-          # PRIMERO: Activar el adelantamiento y escribir el parámetro ANTES de OvertakeTargetSpeedKph
-          self.overtake_active = True
-          params.put_bool("overtakingActive", True)
-
-          # SEGUNDO: Aumentar velocidad
-          incremento_vel = self.overtake_incremento_velocidad
-          if self.original_v_cruise_kph is not None:
-            new_speed = min(self.original_v_cruise_kph + incremento_vel, 145.0)  # Máximo 145 km/h
-            try:
-              params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
-              self.speed_increased = True
-              if self.param_s.get_bool("modo_debug"):
-                print(f"🚗 ADELANTAMIENTO INICIADO - Dist: {dist_activacion}m, +Vel: {incremento_vel}km/h, Tiempo: {self.overtake_tiempo_carril_izq}s")
-            except Exception:
-              pass
-
-          # TERCERO: Verificar BSM izquierdo antes de cambiar
+          # Verificar BSM izquierdo ANTES de hacer cualquier cosa
           if left_bsm:
             # BSM izquierdo ocupado → esperar hasta que esté libre
+            # NO aumentamos velocidad, NO activamos adelantamiento aún
             self.overtake_waiting_left_bsm = True
+            self.overtake_active = True  # Marcar como activo para que siga en el bucle
+            params.put_bool("overtakingActive", True)
             params.put("overtakeStatus", "BSM_IZQ_OCUPADO")
             if self.param_s.get_bool("modo_debug"):
-              print("⚠️ BSM izquierdo ocupado - Esperando para cambiar de carril")
+              print(f"⚠️ BSM izquierdo ocupado - Esperando para adelantar (Dist: {dist_activacion}m)")
           else:
-            # BSM libre → iniciar cambio a la izquierda inmediatamente
+            # BSM libre → activar adelantamiento, aumentar velocidad y cambiar de carril
+            self.overtake_active = True
+            params.put_bool("overtakingActive", True)
+
+            # Aumentar velocidad (solo si BSM está libre)
+            incremento_vel = self.overtake_incremento_velocidad
+            if self.original_v_cruise_kph is not None:
+              new_speed = min(self.original_v_cruise_kph + incremento_vel, 145.0)  # Máximo 145 km/h
+              try:
+                params.put("OvertakeTargetSpeedKph", f"{new_speed:.1f}")
+                self.speed_increased = True
+                if self.param_s.get_bool("modo_debug"):
+                  print(f"🚗 ADELANTAMIENTO INICIADO - Dist: {dist_activacion}m, +Vel: {incremento_vel}km/h, Tiempo: {self.overtake_tiempo_carril_izq}s")
+              except Exception:
+                pass
+
+            # Iniciar cambio a la izquierda inmediatamente
             self.lane_change_direction = LaneChangeDirection.left
             self.lane_change_state = LaneChangeState.laneChangeStarting
             self.lane_change_ll_prob = 1.0
@@ -518,28 +531,30 @@ class DesireHelper:
 
         # Verificar si es momento de volver al carril derecho
         if elapsed >= return_time:
-          # Verificar BSM derecho antes de cambiar
+          # Verificar BSM derecho ANTES de hacer cualquier cosa
           if right_bsm:
             # BSM derecho ocupado → esperar hasta que esté libre
+            # NO bajamos velocidad, mantenemos velocidad aumentada mientras esperamos
             self.overtake_waiting_right_bsm = True
             params.put("overtakeStatus", "BSM_DER_OCUPADO")
             if self.param_s.get_bool("modo_debug"):
-              print("⚠️ BSM derecho ocupado - Esperando para volver al carril")
+              print("⚠️ BSM derecho ocupado - Esperando para volver (manteniendo velocidad)")
           else:
-            # BSM libre → cambiar de carril a la derecha
-            self.lane_change_direction = LaneChangeDirection.right
-            self.lane_change_state = LaneChangeState.laneChangeStarting
-            self.lane_change_ll_prob = 1.0
-            self.lane_change_wait_timer = 0
-
-            # PRIMERO: Restaurar velocidad original ANTES de desactivar overtakingActive
+            # BSM libre → restaurar velocidad y cambiar de carril a la derecha
+            # PRIMERO: Restaurar velocidad original
             if self.original_v_cruise_kph is not None:
               try:
                 params.put("OvertakeTargetSpeedKph", f"{self.original_v_cruise_kph:.1f}")
               except Exception:
                 pass
 
-            # DESPUÉS: Desactivar el adelantamiento
+            # Cambiar de carril a la derecha
+            self.lane_change_direction = LaneChangeDirection.right
+            self.lane_change_state = LaneChangeState.laneChangeStarting
+            self.lane_change_ll_prob = 1.0
+            self.lane_change_wait_timer = 0
+
+            # Desactivar el adelantamiento
             self.overtake_active = False
             params.put_bool("overtakingActive", False)
             self.speed_increased = False
