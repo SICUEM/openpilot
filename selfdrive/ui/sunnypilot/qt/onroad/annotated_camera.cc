@@ -712,6 +712,16 @@ void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
     bg_color = QColor(200, 0, 0, 220);  // Rojo con transparencia
     border_color = QColor(255, 0, 0, 255);  // Rojo brillante
     text_color = Qt::white;  // Blanco sobre rojo
+  } else if (estado == "BSM_IZQ_OCUPADO") {
+    // Rojo parpadeante: Esperando que se libere el BSM izquierdo
+    bg_color = QColor(200, 0, 0, 220);  // Rojo con transparencia
+    border_color = QColor(255, 50, 50, 255);  // Rojo brillante
+    text_color = Qt::white;  // Blanco sobre rojo
+  } else if (estado == "BSM_DER_OCUPADO") {
+    // Rojo parpadeante: Esperando que se libere el BSM derecho
+    bg_color = QColor(200, 0, 0, 220);  // Rojo con transparencia
+    border_color = QColor(255, 50, 50, 255);  // Rojo brillante
+    text_color = Qt::white;  // Blanco sobre rojo
   } else {
     // Por defecto: Amarillo (ESPERANDO)
     bg_color = QColor(255, 200, 0, 220);  // Amarillo con transparencia
@@ -737,8 +747,92 @@ void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
   p.restore();
 }
 
+void AnnotatedCameraWidgetSP::drawBsmLaneChangeAlert(QPainter &p) {
+  // Obtener el estado del BSM para cambio de carril
+  QString estado = QString::fromStdString(Params().get("bsmLaneChangeStatus", false));
 
+  // Si no hay estado o está vacío, no mostrar nada
+  if (estado.isEmpty()) {
+    return;
+  }
 
+  // Guardar el estado del painter
+  p.save();
+
+  // Configurar texto según el estado
+  QString texto;
+  QColor bg_color;
+  QColor text_color;
+  QColor border_color;
+
+  if (estado == "REVISANDO_BSM_IZQ" || estado == "REVISANDO_BSM_DER") {
+    // Amarillo: Revisando BSM
+    texto = "🔍 REVISANDO BSM...";
+    bg_color = QColor(255, 200, 0, 230);  // Amarillo
+    border_color = QColor(255, 255, 0, 255);
+    text_color = Qt::black;
+  } else if (estado == "CARRIL_OCUPADO_IZQ") {
+    // Rojo: Carril izquierdo ocupado
+    texto = "⛔ CARRIL IZQ OCUPADO";
+    bg_color = QColor(200, 0, 0, 230);  // Rojo
+    border_color = QColor(255, 0, 0, 255);
+    text_color = Qt::white;
+  } else if (estado == "CARRIL_OCUPADO_DER") {
+    // Rojo: Carril derecho ocupado
+    texto = "⛔ CARRIL DER OCUPADO";
+    bg_color = QColor(200, 0, 0, 230);  // Rojo
+    border_color = QColor(255, 0, 0, 255);
+    text_color = Qt::white;
+  } else if (estado == "CARRIL_LIBRE_IZQ") {
+    // Verde: Carril izquierdo libre
+    texto = "✅ CARRIL IZQ LIBRE";
+    bg_color = QColor(0, 180, 0, 230);  // Verde
+    border_color = QColor(0, 255, 0, 255);
+    text_color = Qt::white;
+  } else if (estado == "CARRIL_LIBRE_DER") {
+    // Verde: Carril derecho libre
+    texto = "✅ CARRIL DER LIBRE";
+    bg_color = QColor(0, 180, 0, 230);  // Verde
+    border_color = QColor(0, 255, 0, 255);
+    text_color = Qt::white;
+  } else {
+    // Estado desconocido, no mostrar
+    p.restore();
+    return;
+  }
+
+  // Configurar fuente
+  p.setFont(InterFont(55, QFont::Bold));
+
+  // Calcular dimensiones del texto
+  QFontMetrics fm(p.font());
+  int texto_width = fm.horizontalAdvance(texto);
+  int texto_height = fm.height();
+
+  // Posición: centro de la pantalla, un poco debajo del indicador de adelantamiento
+  int badge_width = texto_width + 50;
+  int badge_height = texto_height + 30;
+  int badge_x = (rect().width() - badge_width) / 2;
+  int badge_y = 100;  // Debajo del indicador de adelantamiento
+  int corner_radius = 20;
+
+  // Dibujar fondo con bordes redondeados
+  QPainterPath path;
+  path.addRoundedRect(badge_x, badge_y, badge_width, badge_height, corner_radius, corner_radius);
+
+  p.setPen(QPen(border_color, 4));
+  p.setBrush(bg_color);
+  p.drawPath(path);
+
+  // Dibujar texto centrado
+  p.setPen(text_color);
+  int text_x = badge_x + (badge_width - texto_width) / 2;
+  int text_y = badge_y + (badge_height + texto_height) / 2 - 5;
+  p.drawText(text_x, text_y, texto);
+
+  // Restaurar estado del painter
+  p.restore();
+}
 
 void AnnotatedCameraWidgetSP::drawHud(QPainter &p) {
 
@@ -1998,6 +2092,9 @@ void AnnotatedCameraWidgetSP::paintGL() {
 
   // Mostrar indicador visual de adelantamiento automático
   drawOvertakeIndicator(painter);
+
+  // Mostrar alerta visual de BSM para cambio de carril (MQTT)
+  drawBsmLaneChangeAlert(painter);
 
   // Mostrar/ocultar panel debug según el toggle
   if (debug_panel && modoDebug) {

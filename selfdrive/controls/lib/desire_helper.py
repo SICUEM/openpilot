@@ -183,30 +183,99 @@ class DesireHelper:
     if not self.param_s.get_bool("c_carril") or self.lane_change_state != LaneChangeState.off:
       return
 
+    # Inicializar variables de espera BSM si no existen
+    if not hasattr(self, "waiting_bsm_left"):
+      self.waiting_bsm_left = False
+    if not hasattr(self, "waiting_bsm_right"):
+      self.waiting_bsm_right = False
+
+    # Obtener estado del BSM
+    left_bsm = self._get_blindspot(carstate, LaneChangeDirection.left)
+    right_bsm = self._get_blindspot(carstate, LaneChangeDirection.right)
+
+    # --- ESTADO: ESPERANDO BSM IZQUIERDO LIBRE ---
+    if self.waiting_bsm_left:
+      if not left_bsm:
+        # BSM izquierdo libre → ejecutar cambio de carril
+        self.waiting_bsm_left = False
+        self.param_s.put("bsmLaneChangeStatus", "CARRIL_LIBRE_IZQ")
+        self.lane_change_direction = LaneChangeDirection.left
+        self.lane_change_state = LaneChangeState.laneChangeStarting
+        self.lane_change_ll_prob = 1.0
+        self.lane_change_wait_timer = 0
+        if self.param_s.get_bool("modo_debug"):
+          print("✅ BSM izquierdo libre - Cambiando de carril")
+      else:
+        # BSM sigue ocupado, seguir esperando
+        self.param_s.put("bsmLaneChangeStatus", "CARRIL_OCUPADO_IZQ")
+      return
+
+    # --- ESTADO: ESPERANDO BSM DERECHO LIBRE ---
+    if self.waiting_bsm_right:
+      if not right_bsm:
+        # BSM derecho libre → ejecutar cambio de carril
+        self.waiting_bsm_right = False
+        self.param_s.put("bsmLaneChangeStatus", "CARRIL_LIBRE_DER")
+        self.lane_change_direction = LaneChangeDirection.right
+        self.lane_change_state = LaneChangeState.laneChangeStarting
+        self.lane_change_ll_prob = 1.0
+        self.lane_change_wait_timer = 0
+        if self.param_s.get_bool("modo_debug"):
+          print("✅ BSM derecho libre - Cambiando de carril")
+      else:
+        # BSM sigue ocupado, seguir esperando
+        self.param_s.put("bsmLaneChangeStatus", "CARRIL_OCUPADO_DER")
+      return
+
     # Izquierda
     if self.param_s.get_bool("ForceLaneChangeLeft"):
       self.param_s.put_bool("ForceLaneChangeLeft", False)
-      if self._get_blindspot(carstate, LaneChangeDirection.left):
-        #cloudlog.warning("🔴 Cambio a izquierda bloqueado por ángulo muerto")
+      # Primero mostrar "REVISANDO_BSM"
+      self.param_s.put("bsmLaneChangeStatus", "REVISANDO_BSM_IZQ")
+
+      if left_bsm:
+        # BSM ocupado → entrar en estado de espera
+        self.waiting_bsm_left = True
+        self.param_s.put("bsmLaneChangeStatus", "CARRIL_OCUPADO_IZQ")
+        if self.param_s.get_bool("modo_debug"):
+          print("⚠️ BSM izquierdo ocupado - Esperando para cambiar")
         return
+
+      # BSM libre → cambiar de carril
+      self.param_s.put("bsmLaneChangeStatus", "CARRIL_LIBRE_IZQ")
       self.lane_change_direction = LaneChangeDirection.left
       self.lane_change_state = LaneChangeState.laneChangeStarting
       self.lane_change_ll_prob = 1.0
       self.lane_change_wait_timer = 0
-      #cloudlog.info("⬅️ Cambio de carril forzado a la izquierda")
       return
 
     # Derecha
     if self.param_s.get_bool("ForceLaneChangeRight"):
       self.param_s.put_bool("ForceLaneChangeRight", False)
-      if self._get_blindspot(carstate, LaneChangeDirection.right):
-        #cloudlog.warning("🔴 Cambio a derecha bloqueado por ángulo muerto")
+      # Primero mostrar "REVISANDO_BSM"
+      self.param_s.put("bsmLaneChangeStatus", "REVISANDO_BSM_DER")
+
+      if right_bsm:
+        # BSM ocupado → entrar en estado de espera
+        self.waiting_bsm_right = True
+        self.param_s.put("bsmLaneChangeStatus", "CARRIL_OCUPADO_DER")
+        if self.param_s.get_bool("modo_debug"):
+          print("⚠️ BSM derecho ocupado - Esperando para cambiar")
         return
+
+      # BSM libre → cambiar de carril
+      self.param_s.put("bsmLaneChangeStatus", "CARRIL_LIBRE_DER")
       self.lane_change_direction = LaneChangeDirection.right
       self.lane_change_state = LaneChangeState.laneChangeStarting
       self.lane_change_ll_prob = 1.0
       self.lane_change_wait_timer = 0
-      #cloudlog.info("➡️ Cambio de carril forzado a la derecha")
+
+    # Limpiar estado si no hay cambio de carril pendiente
+    if not self.waiting_bsm_left and not self.waiting_bsm_right:
+      # Solo limpiar si el estado no es uno activo
+      estado_actual = self.param_s.get("bsmLaneChangeStatus", encoding="utf8")
+      if estado_actual and estado_actual not in ("CARRIL_OCUPADO_IZQ", "CARRIL_OCUPADO_DER"):
+        self.param_s.put("bsmLaneChangeStatus", "")
 
 
 
@@ -638,6 +707,12 @@ class DesireHelper:
       self.lane_change_direction = LaneChangeDirection.none
       self.prev_lane_change = False
       self.prev_brake_pressed = False
+      # Limpiar estado de BSM cuando el cambio de carril termina o se cancela
+      if hasattr(self, 'waiting_bsm_left'):
+        self.waiting_bsm_left = False
+      if hasattr(self, 'waiting_bsm_right'):
+        self.waiting_bsm_right = False
+      self.param_s.put("bsmLaneChangeStatus", "")
     else:
       # LaneChangeState.off
       if self.lane_change_state == LaneChangeState.off and one_blinker and not self.prev_one_blinker and not below_lane_change_speed:
@@ -706,6 +781,8 @@ class DesireHelper:
 
         if self.lane_change_ll_prob > 0.99:
           self.lane_change_direction = LaneChangeDirection.none
+          # Limpiar estado de BSM cuando el cambio de carril se completa
+          self.param_s.put("bsmLaneChangeStatus", "")
           if one_blinker:
             self.lane_change_state = LaneChangeState.preLaneChange
           else:
