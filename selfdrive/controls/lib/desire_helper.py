@@ -712,6 +712,10 @@ class DesireHelper:
         self.waiting_bsm_left = False
       if hasattr(self, 'waiting_bsm_right'):
         self.waiting_bsm_right = False
+      if hasattr(self, 'blinker_waiting_bsm_left'):
+        self.blinker_waiting_bsm_left = False
+      if hasattr(self, 'blinker_waiting_bsm_right'):
+        self.blinker_waiting_bsm_right = False
       self.param_s.put("bsmLaneChangeStatus", "")
     else:
       # LaneChangeState.off
@@ -724,6 +728,46 @@ class DesireHelper:
       elif self.lane_change_state == LaneChangeState.preLaneChange and (self.road_edge if self.model_use_lateral_planner else lat_plan_sp.laneChangeEdgeBlockDEPRECATED):
         self.lane_change_direction = LaneChangeDirection.none
       elif self.lane_change_state == LaneChangeState.preLaneChange:
+        # Inicializar variables de espera BSM por intermitente si no existen
+        if not hasattr(self, "blinker_waiting_bsm_left"):
+          self.blinker_waiting_bsm_left = False
+        if not hasattr(self, "blinker_waiting_bsm_right"):
+          self.blinker_waiting_bsm_right = False
+
+        # Obtener estado del BSM
+        left_bsm = self._get_blindspot(carstate, LaneChangeDirection.left)
+        right_bsm = self._get_blindspot(carstate, LaneChangeDirection.right)
+
+        # --- ESTADO: ESPERANDO BSM IZQUIERDO LIBRE (intermitente) ---
+        if self.blinker_waiting_bsm_left:
+          if not left_bsm:
+            # BSM izquierdo libre → ejecutar cambio de carril
+            self.blinker_waiting_bsm_left = False
+            self.lane_change_state = LaneChangeState.laneChangeStarting
+            self.prev_lane_change = True
+            if self.param_s.get_bool("modo_debug"):
+              print("✅ BSM izquierdo libre (intermitente) - Cambiando de carril")
+          else:
+            # BSM sigue ocupado, seguir esperando
+            if self.param_s.get_bool("modo_debug"):
+              print("⏳ Esperando BSM izquierdo libre (intermitente)...")
+          return  # Salir para seguir verificando en la próxima iteración
+
+        # --- ESTADO: ESPERANDO BSM DERECHO LIBRE (intermitente) ---
+        if self.blinker_waiting_bsm_right:
+          if not right_bsm:
+            # BSM derecho libre → ejecutar cambio de carril
+            self.blinker_waiting_bsm_right = False
+            self.lane_change_state = LaneChangeState.laneChangeStarting
+            self.prev_lane_change = True
+            if self.param_s.get_bool("modo_debug"):
+              print("✅ BSM derecho libre (intermitente) - Cambiando de carril")
+          else:
+            # BSM sigue ocupado, seguir esperando
+            if self.param_s.get_bool("modo_debug"):
+              print("⏳ Esperando BSM derecho libre (intermitente)...")
+          return  # Salir para seguir verificando en la próxima iteración
+
         # Set lane change direction
         self.lane_change_direction = LaneChangeDirection.left if \
           carstate.leftBlinker else LaneChangeDirection.right
@@ -734,8 +778,6 @@ class DesireHelper:
 
         # Verificar blindspot de forma segura (protegido para coches sin BSM)
         try:
-          left_bsm = self._get_blindspot(carstate, LaneChangeDirection.left)
-          right_bsm = self._get_blindspot(carstate, LaneChangeDirection.right)
           blindspot_detected = ((left_bsm and self.lane_change_direction == LaneChangeDirection.left) or
                                 (right_bsm and self.lane_change_direction == LaneChangeDirection.right))
         except Exception:
@@ -760,10 +802,25 @@ class DesireHelper:
           self.lane_change_direction = LaneChangeDirection.none
           self.prev_lane_change = False
           self.prev_brake_pressed = False
-        elif (torque_applied or (auto_lane_change_allowed and not self.prev_lane_change and not self.prev_brake_pressed)) and \
-          not blindspot_detected:
-          self.lane_change_state = LaneChangeState.laneChangeStarting
-          self.prev_lane_change = True
+          # Limpiar estado de espera BSM al soltar el intermitente
+          self.blinker_waiting_bsm_left = False
+          self.blinker_waiting_bsm_right = False
+        elif (torque_applied or (auto_lane_change_allowed and not self.prev_lane_change and not self.prev_brake_pressed)):
+          # Verificar si hay BSM detectado (ocupado en la dirección del cambio)
+          if blindspot_detected:
+            # BSM ocupado → entrar en estado de espera
+            if self.lane_change_direction == LaneChangeDirection.left:
+              self.blinker_waiting_bsm_left = True
+              if self.param_s.get_bool("modo_debug"):
+                print("⚠️ BSM izquierdo ocupado (intermitente) - Esperando para cambiar")
+            else:
+              self.blinker_waiting_bsm_right = True
+              if self.param_s.get_bool("modo_debug"):
+                print("⚠️ BSM derecho ocupado (intermitente) - Esperando para cambiar")
+          else:
+            # BSM libre → ejecutar cambio de carril inmediatamente
+            self.lane_change_state = LaneChangeState.laneChangeStarting
+            self.prev_lane_change = True
 
       # LaneChangeState.laneChangeStarting
       elif self.lane_change_state == LaneChangeState.laneChangeStarting:
