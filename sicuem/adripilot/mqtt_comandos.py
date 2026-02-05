@@ -525,7 +525,7 @@ class MQTTComandos:
       {
         "brutebreak": true,
         "emergency": true,
-        "intensidad_frenado": float  // Valor NEGATIVO (-1.0 a -5.0, default -3.5 m/s²)
+        "intensidad_frenado": float  // Valor NEGATIVO (-1.0 a -10.0, default -3.5 m/s²)
         "timestamp": ...
       }
     - JSON simple: {'enabled': true, 'timestamp': ...} (formato antiguo)
@@ -535,19 +535,19 @@ class MQTTComandos:
       # Intentar parsear como JSON primero (formato desde app)
       try:
         data = json.loads(payload)
-        
+
         # Manejar activación/desactivación
         if data.get("enabled") is True or data.get("brutebreak") is True:
           self.params.put_bool("brutebreak_active", True)
         elif data.get("enabled") is False or data.get("brutebreak") is False:
           self.params.put_bool("brutebreak_active", False)
-        
+
         # Guardar intensidad de frenado si viene en el payload
-        # El valor ya viene negativo desde la app (-1.0 a -5.0 m/s²)
+        # El valor ya viene negativo desde la app (-1.0 a -10.0 m/s²)
         if "intensidad_frenado" in data:
           intensidad = float(data["intensidad_frenado"])
-          # Validar rango (debe ser negativo, entre -5.0 y -1.0)
-          if -5.0 <= intensidad <= -1.0:
+          # Validar rango (debe ser negativo, entre -10.0 y -1.0)
+          if -10.0 <= intensidad <= -1.0:
             self.params.put("brutebreak_intensidad", str(intensidad))
             
       except (json.JSONDecodeError, AttributeError):

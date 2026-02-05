@@ -803,14 +803,14 @@ class Controls:
       # El frenado se mantiene hasta que se desactive o el coche se detenga
       try:
         if self.params.get_bool("brutebreak_active"):
-          # Leer intensidad de frenado configurable (default -3.5 m/s², configurable -1.0 a -5.0 vía MQTT)
+          # Leer intensidad de frenado configurable (default -3.5 m/s², configurable -1.0 a -10.0 vía MQTT)
           intensidad_frenado = -3.5  # Valor por defecto
           try:
             intensidad_raw = self.params.get("brutebreak_intensidad")
             if intensidad_raw:
               intensidad = float(intensidad_raw.decode("utf-8") if isinstance(intensidad_raw, bytes) else intensidad_raw)
               # Validar que esté en el rango permitido y sea negativo
-              if -5.0 <= intensidad <= -1.0:
+              if -10.0 <= intensidad <= -1.0:
                 intensidad_frenado = intensidad
           except Exception:
             pass  # Usar valor por defecto si hay error
