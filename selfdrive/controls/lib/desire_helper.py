@@ -832,7 +832,10 @@ class DesireHelper:
                   print("⚠️ BSM derecho ocupado (intermitente) - Esperando para cambiar")
             else:
               # BSM libre → ejecutar cambio de carril inmediatamente
-              self.param_s.put("bsmLaneChangeStatus", "CARRIL_LIBRE")
+              if self.lane_change_direction == LaneChangeDirection.left:
+                self.param_s.put("bsmLaneChangeStatus", "CARRIL_LIBRE_IZQ")
+              else:
+                self.param_s.put("bsmLaneChangeStatus", "CARRIL_LIBRE_DER")
               self.lane_change_state = LaneChangeState.laneChangeStarting
               self.prev_lane_change = True
         else:
