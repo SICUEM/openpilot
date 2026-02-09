@@ -271,19 +271,14 @@ class CarState(CarStateBase):
 
     if self.CP.enableBsm:
       if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
-        # Usar múltiples señales (OR) para detectar BSM de forma más robusta
-        # LEFT_MB o LEFT_BLOCKED indican ocupación en el lado izquierdo
-        # RIGHT_BLOCKED indica ocupación en el lado derecho
-        # NOTA: Antes usaba MORE_LEFT_PROB para el derecho, que era incorrecto
         bsm_data = cp.vl["BLINDSPOTS_REAR_CORNERS"]
-        ret.leftBlindspot = (bsm_data["LEFT_MB"] != 0) or (bsm_data["LEFT_BLOCKED"] != 0)
-        ret.rightBlindspot = bsm_data["RIGHT_BLOCKED"] != 0
+        ret.leftBlindspot = bsm_data["LEFT_MB"] != 0
+        ret.rightBlindspot = bsm_data["MORE_LEFT_PROB"] != 0
 
         # Debug: imprimir valores BSM cuando modo_debug está activado
         if Params().get_bool("modo_debug"):
           if ret.leftBlindspot or ret.rightBlindspot or ret.leftBlinker or ret.rightBlinker:
-            print(f"🔍 BSM DEBUG - LEFT_MB:{bsm_data['LEFT_MB']} LEFT_BLOCKED:{bsm_data['LEFT_BLOCKED']} "
-                  f"RIGHT_BLOCKED:{bsm_data['RIGHT_BLOCKED']} | "
+            print(f"BSM DEBUG - LEFT_MB:{bsm_data['LEFT_MB']} MORE_LEFT_PROB:{bsm_data['MORE_LEFT_PROB']} | "
                   f"leftBSM:{ret.leftBlindspot} rightBSM:{ret.rightBlindspot} | "
                   f"leftBlinker:{ret.leftBlinker} rightBlinker:{ret.rightBlinker}")
       else:
