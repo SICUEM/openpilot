@@ -63,6 +63,13 @@ class CarState(CarStateBase):
     self.escc_aeb_dec_cmd = 0
     self._speed_limit_clu = 0
 
+    # Persistencia/debounce del BSM (inspirado en el BSM mejorado de Toyota)
+    # Previene falsos "libre" por parpadeo de señal CAN
+    # carstate.update() se llama a 100Hz (DT_CTRL=0.01), asi que 200 frames = 2 segundos
+    self._left_bsm_counter = 0
+    self._right_bsm_counter = 0
+    self.BSM_PERSISTENCE_FRAMES = 200
+
   def get_main_enabled(self, ret) -> bool:
     if self.prev_main_buttons != 1 and self.main_buttons[-1] == 1:
       self.mainEnabled = not self.mainEnabled
@@ -272,13 +279,41 @@ class CarState(CarStateBase):
     if self.CP.enableBsm:
       if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
         bsm_data = cp.vl["BLINDSPOTS_REAR_CORNERS"]
-        ret.leftBlindspot = bsm_data["LEFT_MB"] != 0
-        ret.rightBlindspot = bsm_data["MORE_LEFT_PROB"] != 0
+        left_raw = bsm_data["LEFT_MB"] != 0
+        right_raw = bsm_data["MORE_LEFT_PROB"] != 0
+
+        # Persistencia/debounce inspirado en el BSM mejorado de Toyota.
+        # Cuando la señal esta activa, resetea el contador al maximo.
+        # Cuando la señal cae, el contador decrementa cada frame.
+        # El BSM se mantiene "detectado" hasta que el contador llega a 0.
+        #
+        # CRITICO: La ECU BSM de Hyundai baja la señal CAN cuando el intermitente esta activo,
+        # aunque haya un coche en el angulo muerto (la luz del retrovisor sigue encendida).
+        # Para evitar falsos "libre" durante el intermitente, CONGELAMOS el contador
+        # mientras el intermitente este activo para esa direccion. El usuario debe soltar
+        # el intermitente para que el contador empiece a decrementar.
+        if left_raw:
+          self._left_bsm_counter = self.BSM_PERSISTENCE_FRAMES
+        elif ret.leftBlinker and self._left_bsm_counter > 0:
+          pass  # Congelado: no decrementar mientras el intermitente izq este activo y BSM reciente
+        else:
+          self._left_bsm_counter = max(0, self._left_bsm_counter - 1)
+
+        if right_raw:
+          self._right_bsm_counter = self.BSM_PERSISTENCE_FRAMES
+        elif ret.rightBlinker and self._right_bsm_counter > 0:
+          pass  # Congelado: no decrementar mientras el intermitente der este activo y BSM reciente
+        else:
+          self._right_bsm_counter = max(0, self._right_bsm_counter - 1)
+
+        ret.leftBlindspot = self._left_bsm_counter > 0
+        ret.rightBlindspot = self._right_bsm_counter > 0
 
         # Debug: imprimir valores BSM cuando modo_debug está activado
         if Params().get_bool("modo_debug"):
           if ret.leftBlindspot or ret.rightBlindspot or ret.leftBlinker or ret.rightBlinker:
-            print(f"BSM DEBUG - LEFT_MB:{bsm_data['LEFT_MB']} MORE_LEFT_PROB:{bsm_data['MORE_LEFT_PROB']} | "
+            print(f"BSM DEBUG - LEFT_MB:{bsm_data['LEFT_MB']}(ctr:{self._left_bsm_counter}) "
+                  f"MORE_LEFT_PROB:{bsm_data['MORE_LEFT_PROB']}(ctr:{self._right_bsm_counter}) | "
                   f"leftBSM:{ret.leftBlindspot} rightBSM:{ret.rightBlindspot} | "
                   f"leftBlinker:{ret.leftBlinker} rightBlinker:{ret.rightBlinker}")
       else:
