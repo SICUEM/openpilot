@@ -39,6 +39,7 @@ class MQTTComandos:
 
   def init_mqtt(self):
     self.mqttc = mqtt.Client()
+    self.mqttc.max_queued_messages_set(0)  # No encolar mensajes en RAM si no hay conexión
     self.mqttc.on_connect = self.on_connect
     self.mqttc.on_disconnect = self.on_disconnect
     self.mqttc.on_message = self.on_message

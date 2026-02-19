@@ -91,6 +91,7 @@ class SicMqttHilo2:
   def initialize_mqtt_client(self):
     """Configura el cliente MQTT y sus callbacks con reconexión automática."""
     self.mqttc = mqtt.Client()
+    self.mqttc.max_queued_messages_set(0)  # No encolar mensajes en RAM si no hay conexión
     self.mqttc.on_connect = self.on_connect
     self.mqttc.on_disconnect = self.on_disconnect
     self.mqttc.on_message = self.on_message
@@ -162,13 +163,7 @@ class SicMqttHilo2:
 
     self.cargar_canales()
 
-    if self.lista_suscripciones:
-      try:
-        self.sm = messaging.SubMaster(
-          ['carState', 'controlsState', 'liveCalibration', 'carControl', 'gpsLocationExternal', 'gpsLocation',
-           'navInstruction', 'radarState', 'drivingModelData'])
-      except Exception:
-        self.sm = None
+    # SubMaster ya creado en __init__, no duplicar (causa memory leak)
 
     time.sleep(self.velocidadActualizacion)
     hilo_telemetry = Thread(target=self.loop, daemon=True)

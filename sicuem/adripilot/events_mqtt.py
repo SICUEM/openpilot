@@ -81,6 +81,7 @@ def _ensure_mqtt_client():
         pass
 
       client = mqtt.Client()
+      client.max_queued_messages_set(0)  # No encolar mensajes en RAM si no hay conexión
       client.on_connect = _on_mqtt_connect
       client.on_disconnect = _on_mqtt_disconnect
       client.reconnect_delay_set(min_delay=1, max_delay=30)
