@@ -267,7 +267,7 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
     if self.CP.carFingerprint == CAR.HYUNDAI_KONA_EV_2ND_GEN:
       left_blinker_sig, right_blinker_sig = "LEFT_LAMP_ALT", "RIGHT_LAMP_ALT"
     ret.leftBlinker, ret.rightBlinker = self.update_blinker_from_lamp(50, cp.vl["BLINKERS"][left_blinker_sig],
-    
+                                                                      cp.vl["BLINKERS"][right_blinker_sig])  
     # Cambio para Bsm Tucson
     if self.CP.enableBsm:
       if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
