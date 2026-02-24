@@ -46,8 +46,11 @@ class CarInterface(CarInterfaceBase):
       if lka_steering and Ecu.adas not in [fw.ecu for fw in car_fw]:
         # this needs to be figured out for cars without an ADAS ECU
         ret.alphaLongitudinalAvailable = False
-
-      ret.enableBsm = 0x1e5 in fingerprint[CAN.ECAN]
+      # BSM para Tucson
+      if candidate == CAR.HYUNDAI_TUCSON_4TH_GEN:
+        ret.enableBsm = 0x1ba in fingerprint[CAN.ECAN]
+      else:
+        ret.enableBsm = 0x1e5 in fingerprint[CAN.ECAN]
 
       # Check if the car is hybrid. Only HEV/PHEV cars have 0xFA on E-CAN.
       if 0xFA in fingerprint[CAN.ECAN]:
