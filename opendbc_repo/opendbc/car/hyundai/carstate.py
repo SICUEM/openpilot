@@ -273,7 +273,7 @@ class CarState(CarStateBase, EsccCarStateBase, MadsCarState, CarStateExt):
       if self.CP.carFingerprint == CAR.HYUNDAI_TUCSON_4TH_GEN:
         ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["LEFT_MB"] != 0
         ret.rightBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["MORE_LEFT_PROB"] != 0
-      else:                                                                  cp.vl["BLINKERS"][right_blinker_sig])
+      else:                                                                 
         ret.leftBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["FL_INDICATOR"] != 0
         ret.rightBlindspot = cp.vl["BLINDSPOTS_REAR_CORNERS"]["FR_INDICATOR"] != 0
 
