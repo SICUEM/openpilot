@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 """
 Módulo para enviar imágenes de las cámaras del Comma al servidor AdriPilot mediante MQTT.
-Configurado para calidad baja y frame rate alto sin saturar el sistema.
+Usa el cliente MQTT compartido de MQTTEnvioGeneral para evitar conexiones independientes.
 """
 import time
 import threading
@@ -14,9 +14,6 @@ import numpy as np
 from PIL import Image
 from msgq.visionipc import VisionIpcClient, VisionStreamType
 import cereal.messaging as messaging
-import paho.mqtt.publish as publish
-from openpilot.common.params import Params
-from openpilot.common.realtime import DT_MDL
 
 # Detectar si estamos en modo simulación
 SIMULATION = "SIMULATION" in os.environ
@@ -24,34 +21,24 @@ SIMULATION = "SIMULATION" in os.environ
 class CameraSender:
   """Envía imágenes de las cámaras al servidor mediante MQTT."""
 
-  def __init__(self, camera_type="road", interval_seconds=2.0, thumbnail_size=(320, 180), quality=35):
+  def __init__(self, mqtt_client, dongle_id, camera_type="road", interval_seconds=30.0, thumbnail_size=(320, 180), quality=35):
     """
     Inicializa el envío de imágenes de cámara.
 
     Args:
+      mqtt_client: Cliente MQTT compartido (paho.mqtt.client.Client)
+      dongle_id: ID del dispositivo
       camera_type: Tipo de cámara ("road", "driver", "wide")
       interval_seconds: Intervalo entre envíos (segundos)
       thumbnail_size: Tamaño del thumbnail (ancho, alto)
       quality: Calidad JPEG (1-100, más bajo = más compresión)
     """
+    self.mqtt_client = mqtt_client
+    self.dongle_id = dongle_id
     self.camera_type = camera_type
     self.interval_seconds = interval_seconds
     self.thumbnail_size = thumbnail_size
     self.quality = quality
-    self.params = Params()
-    self.dongle_id = self.params.get("DongleId").decode("utf-8") if self.params.get("DongleId") else "UnregisteredDevice"
-
-    # Cargar configuración MQTT
-    base_path = os.path.dirname(os.path.abspath(__file__))
-    config_path = os.path.join(base_path, "config_mqtt.json")
-    try:
-      with open(config_path, "r") as f:
-        config = json.load(f)
-        self.broker = config.get("broker", "localhost")
-        self.port = config.get("broker_port", 1883)
-    except Exception:
-      self.broker = "localhost"
-      self.port = 1883
 
     # Mapeo de tipos de cámara
     self.stream_map = {
@@ -67,6 +54,8 @@ class CameraSender:
     self.last_sent = 0
     self.frame_count = 0
     self.error_count = 0
+    self.consecutive_errors = 0
+    self.max_backoff = 60.0
 
   def yuv_to_rgb(self, y, u, v):
     """Convierte YUV420 a RGB."""
@@ -119,7 +108,7 @@ class CameraSender:
       return None
 
   def send_image(self, jpeg_data, frame_id, timestamp):
-    """Envía imagen por MQTT."""
+    """Envía imagen por MQTT usando el cliente compartido."""
     try:
       # Convertir a base64
       jpeg_base64 = base64.b64encode(jpeg_data).decode('utf-8')
@@ -141,19 +130,19 @@ class CameraSender:
 
       topic = f"telemetry_mqtt/{self.dongle_id}/camera/{self.camera_type}"
 
-      # Enviar por MQTT (QoS 0 para máximo rendimiento)
-      publish.single(
-        topic,
-        json.dumps(payload),
-        hostname=self.broker,
-        port=self.port,
-        qos=0
-      )
+      # Enviar por MQTT usando cliente compartido (QoS 0)
+      result = self.mqtt_client.publish(topic, json.dumps(payload), qos=0)
+      if result.rc != 0:
+        self.error_count += 1
+        self.consecutive_errors += 1
+        return False
 
       self.frame_count += 1
+      self.consecutive_errors = 0
       return True
     except Exception:
       self.error_count += 1
+      self.consecutive_errors += 1
       return False
 
   def run(self):
@@ -193,9 +182,16 @@ class CameraSender:
     while not self.stop_event.is_set():
       current_time = time.time()
 
+      # Backoff exponencial si hay errores consecutivos
+      if self.consecutive_errors > 0:
+        backoff = min(self.max_backoff, 2.0 ** min(self.consecutive_errors, 6))
+        effective_interval = self.interval_seconds + backoff
+      else:
+        effective_interval = self.interval_seconds
+
       # Verificar intervalo
-      if current_time - self.last_sent < self.interval_seconds:
-        time.sleep(0.1)
+      if current_time - self.last_sent < effective_interval:
+        time.sleep(0.5)
         continue
 
       try:
@@ -222,7 +218,8 @@ class CameraSender:
 
       except Exception:
         self.error_count += 1
-        time.sleep(0.5)
+        self.consecutive_errors += 1
+        time.sleep(1.0)
 
   def start(self):
     """Inicia el thread de captura."""
