@@ -73,8 +73,6 @@ class MQTTEnvioGeneral:
         dongle_id=self.DongleID,
         camera_type="road",
         interval_seconds=30.0,
-        thumbnail_size=(320, 180),
-        quality=35
       )
       self.camera_sender.start()
     except Exception:
