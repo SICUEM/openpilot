@@ -47,10 +47,7 @@ class MQTTEnvioGeneral:
     }
 
   def init_submaster(self):
-    # Agregar canales adicionales que se usan en sicmqtthilo2.py
-    canales_adicionales = ['controlsState', 'liveCalibration', 'gpsLocation']
-    lista_completa = self.lista_suscripciones + canales_adicionales
-    self.sm = messaging.SubMaster(lista_completa)
+    self.sm = messaging.SubMaster(self.lista_suscripciones)
 
   def init_mqtt(self):
     self.mqttc = mqtt.Client()
@@ -88,7 +85,6 @@ class MQTTEnvioGeneral:
           time.sleep(0.5)
         break
       except Exception:
-        pass  # Error silenciado para reducir uso de memoria
         time.sleep(5)
 
   def on_connect(self, client, userdata, flags, rc):
@@ -157,29 +153,7 @@ class MQTTEnvioGeneral:
                 continue
               try:
                 self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
-              except Exception as e:
-                pass  # Error silenciado para reducir uso de memoria
-                self.conectado = False
-            # Si no hay conexión, simplemente no enviar (no encolar)
-
-      # Enviar datos adicionales de canales que no están en enabled_items pero están disponibles
-      canales_adicionales = ['controlsState', 'liveCalibration', 'gpsLocation']
-      for canal_nombre in canales_adicionales:
-        if canal_nombre in self.sm.data and self.sm.updated[canal_nombre]:
-          datos = self.sm[canal_nombre].to_dict()
-          # Crear topic para canal adicional
-          topic_adicional = f"telemetry_mqtt/{self.DongleID}/{canal_nombre}"
-          datos_filtrados = self.enviar_datos_importantes(canal_nombre, datos)
-          if datos_filtrados:
-            # Verificar conexión nuevamente antes de cada publicación
-            if self.conectado:
-              # Verificar también el estado real si está disponible
-              if hasattr(self.mqttc, 'is_connected') and not self.mqttc.is_connected():
-                continue
-              try:
-                self.mqttc.publish(topic_adicional, json.dumps(datos_filtrados), qos=0)
-              except Exception as e:
-                pass  # Error silenciado para reducir uso de memoria
+              except Exception:
                 self.conectado = False
             # Si no hay conexión, simplemente no enviar (no encolar)
 

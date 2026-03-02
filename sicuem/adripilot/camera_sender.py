@@ -11,7 +11,7 @@ import base64
 import json
 
 import cereal.messaging as messaging
-from openpilot.system.swaglog import cloudlog
+from openpilot.common.swaglog import cloudlog
 
 
 class CameraSender:
