@@ -1,18 +1,24 @@
+import io
 import numpy as np
 import os
 import pyopencl as cl
 import pyopencl.array as cl_array
 
+from PIL import Image
 from msgq.visionipc import VisionIpcServer, VisionStreamType
 from cereal import messaging
 
 from openpilot.common.basedir import BASEDIR
 from openpilot.tools.sim.lib.common import W, H
 
+THUMBNAIL_W = W // 4
+THUMBNAIL_H = H // 4
+THUMBNAIL_EVERY_N_FRAMES = 5
+
 class Camerad:
   """Simulates the camerad daemon"""
   def __init__(self, dual_camera):
-    self.pm = messaging.PubMaster(['roadCameraState', 'wideRoadCameraState'])
+    self.pm = messaging.PubMaster(['roadCameraState', 'wideRoadCameraState', 'thumbnail'])
 
     self.frame_road_id = 0
     self.frame_wide_id = 0
@@ -36,8 +42,10 @@ class Camerad:
     self.Wdiv4 = W // 4 if (W % 4 == 0) else (W + (4 - W % 4)) // 4
     self.Hdiv4 = H // 4 if (H % 4 == 0) else (H + (4 - H % 4)) // 4
 
-  def cam_send_yuv_road(self, yuv):
+  def cam_send_yuv_road(self, yuv, rgb=None):
     self._send_yuv(yuv, self.frame_road_id, 'roadCameraState', VisionStreamType.VISION_STREAM_ROAD)
+    if rgb is not None and self.frame_road_id % THUMBNAIL_EVERY_N_FRAMES == 0:
+      self._publish_thumbnail(rgb, self.frame_road_id)
     self.frame_road_id += 1
 
   def cam_send_yuv_wide_road(self, yuv):
@@ -54,6 +62,21 @@ class Camerad:
     self.krnl(self.queue, (self.Wdiv4, self.Hdiv4), None, rgb_cl.data, yuv_cl.data).wait()
     yuv = np.resize(yuv_cl.get(), rgb.size // 2)
     return yuv.data.tobytes()
+
+  def _publish_thumbnail(self, rgb, frame_id):
+    """Generates a JPEG thumbnail from the RGB frame and publishes it as a cereal 'thumbnail' message."""
+    img = Image.fromarray(rgb)
+    img = img.resize((THUMBNAIL_W, THUMBNAIL_H))
+    buf = io.BytesIO()
+    img.save(buf, format='JPEG', quality=50)
+    jpeg_data = buf.getvalue()
+
+    eof = int(frame_id * 0.05 * 1e9)
+    dat = messaging.new_message('thumbnail')
+    dat.thumbnail.frameId = frame_id
+    dat.thumbnail.timestampEof = eof
+    dat.thumbnail.thumbnail = jpeg_data
+    self.pm.send('thumbnail', dat)
 
   def _send_yuv(self, yuv, frame_id, pub_type, yuv_type):
     eof = int(frame_id * 0.05 * 1e9)

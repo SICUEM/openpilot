@@ -9,15 +9,19 @@ import time
 import threading
 import base64
 import json
+import os
 
 import cereal.messaging as messaging
+from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
+
+DEBUG_FILE = "/tmp/mqtt_debug_messages.txt"
 
 
 class CameraSender:
   """Envía imágenes de las cámaras al servidor mediante MQTT usando el thumbnail nativo de camerad."""
 
-  def __init__(self, mqtt_client, dongle_id, camera_type="road", interval_seconds=30.0):
+  def __init__(self, mqtt_client, dongle_id, camera_type="road", interval_seconds=5.0):
     """
     Inicializa el envío de imágenes de cámara.
 
@@ -38,6 +42,27 @@ class CameraSender:
     self.error_count = 0
     self.consecutive_errors = 0
     self.max_backoff = 60.0
+
+    self.params = Params()
+    self.debug_enabled = False
+    self._last_debug_check = 0
+
+  def _log_debug(self, message):
+    """Escribe un mensaje en el fichero de debug si modo_debug está activo."""
+    try:
+      now = time.time()
+      if now - self._last_debug_check > 2.0:
+        self.debug_enabled = self.params.get_bool("modo_debug")
+        self._last_debug_check = now
+      if not self.debug_enabled:
+        return
+      ts = time.strftime("%H:%M:%S", time.localtime())
+      topic = f"telemetry_mqtt/{self.dongle_id}/camera/{self.camera_type}"
+      entry = f"[{ts}] {topic}\n{message}"
+      with open(DEBUG_FILE, 'a', encoding='utf-8') as f:
+        f.write("\n\n" + entry)
+    except Exception:
+      pass
 
   def send_image(self, jpeg_data, frame_id, timestamp):
     """Envía imagen por MQTT usando el cliente compartido."""
@@ -64,6 +89,7 @@ class CameraSender:
 
       self.frame_count += 1
       self.consecutive_errors = 0
+      self._log_debug(f"Imagen enviada frame={frame_id} size={len(jpeg_data)}B")
       cloudlog.debug(f"CameraSender: sent frame {frame_id} ({len(jpeg_data)} bytes)")
       return True
     except Exception as e:

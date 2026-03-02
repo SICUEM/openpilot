@@ -102,7 +102,7 @@ class SimulatedSensors:
   def send_camera_images(self, world: 'World'):
     world.image_lock.acquire()
     yuv = self.camerad.rgb_to_yuv(world.road_image)
-    self.camerad.cam_send_yuv_road(yuv)
+    self.camerad.cam_send_yuv_road(yuv, rgb=world.road_image)
 
     if world.dual_camera:
       yuv = self.camerad.rgb_to_yuv(world.wide_road_image)
