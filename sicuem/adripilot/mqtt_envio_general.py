@@ -69,7 +69,7 @@ class MQTTEnvioGeneral:
         mqtt_client=self.mqttc,
         dongle_id=self.DongleID,
         camera_type="road",
-        interval_seconds=5.0,
+        interval_seconds=2.0,
       )
       self.camera_sender.start()
     except Exception:

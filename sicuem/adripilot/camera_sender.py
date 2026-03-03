@@ -21,7 +21,7 @@ DEBUG_FILE = "/tmp/mqtt_debug_messages.txt"
 class CameraSender:
   """Envía imágenes de las cámaras al servidor mediante MQTT usando el thumbnail nativo de camerad."""
 
-  def __init__(self, mqtt_client, dongle_id, camera_type="road", interval_seconds=5.0):
+  def __init__(self, mqtt_client, dongle_id, camera_type="road", interval_seconds=2.0):
     """
     Inicializa el envío de imágenes de cámara.
 
