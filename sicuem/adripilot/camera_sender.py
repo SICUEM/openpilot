@@ -48,7 +48,8 @@ class CameraSender:
     self._last_debug_check = 0
 
   def _log_debug(self, message):
-    """Escribe un mensaje en el fichero de debug si modo_debug está activo."""
+    """Escribe/actualiza un mensaje de cámara en el fichero de debug si modo_debug está activo.
+    En lugar de añadir una nueva línea cada vez, actualiza la entrada existente de cámara."""
     try:
       now = time.time()
       if now - self._last_debug_check > 2.0:
@@ -58,9 +59,34 @@ class CameraSender:
         return
       ts = time.strftime("%H:%M:%S", time.localtime())
       topic = f"telemetry_mqtt/{self.dongle_id}/camera/{self.camera_type}"
-      entry = f"[{ts}] {topic}\n{message}"
-      with open(DEBUG_FILE, 'a', encoding='utf-8') as f:
-        f.write("\n\n" + entry)
+      new_entry = f"[{ts}] {topic}\n{message}"
+
+      # Leer contenido existente y reemplazar la entrada de cámara si ya existe
+      entries = []
+      camera_marker = f"/camera/{self.camera_type}"
+      found = False
+      if os.path.exists(DEBUG_FILE):
+        try:
+          with open(DEBUG_FILE, 'r', encoding='utf-8') as f:
+            content = f.read()
+          if content.strip():
+            entries = [e.strip() for e in content.split("\n\n") if e.strip()]
+            for i, entry in enumerate(entries):
+              if camera_marker in entry:
+                entries[i] = new_entry
+                found = True
+                break
+        except Exception:
+          entries = []
+
+      if not found:
+        entries.append(new_entry)
+
+      try:
+        with open(DEBUG_FILE, 'w', encoding='utf-8') as f:
+          f.write("\n\n".join(entries))
+      except Exception:
+        pass
     except Exception:
       pass
 
