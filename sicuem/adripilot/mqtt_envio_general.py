@@ -29,6 +29,7 @@ class MQTTEnvioGeneral:
     self.init_mqtt()
     self.init_comandos()
     self.init_camera_sender()
+    self._link_camera_to_comandos()
 
   def load_config(self):
     with open(self.jsonConfig, "r") as f:
@@ -63,17 +64,24 @@ class MQTTEnvioGeneral:
     self.comandos_mqtt.start()
 
   def init_camera_sender(self):
-    """Inicializa el sistema de envío de imágenes de cámaras."""
+    """Inicializa el sistema de envío de imágenes de cámaras.
+    La configuracion (enabled, frecuencia) se carga automaticamente
+    desde /data/adripilot_camera_config.json si existe."""
     try:
       self.camera_sender = CameraSender(
         mqtt_client=self.mqttc,
         dongle_id=self.DongleID,
         camera_type="road",
-        interval_seconds=2.0,
+        interval_seconds=2.0,  # Default, se sobreescribe si hay config persistida
       )
       self.camera_sender.start()
     except Exception:
       self.camera_sender = None
+
+  def _link_camera_to_comandos(self):
+    """Conecta el CameraSender con MQTTComandos para permitir control remoto desde la app."""
+    if hasattr(self, 'camera_sender') and self.camera_sender is not None:
+      self.comandos_mqtt.set_camera_sender(self.camera_sender)
 
   def setup_mqtt(self):
     while not self.stop_event.is_set():

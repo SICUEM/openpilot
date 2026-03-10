@@ -29,6 +29,7 @@ class MQTTComandos:
     # Inicializar debug_enabled leyendo el parámetro al inicio
     self.debug_enabled = self.params.get_bool("modo_debug")
     self._last_debug_check = time.time()  # Inicializar timestamp para la primera verificación
+    self.camera_sender = None  # Referencia al CameraSender (se establece desde MQTTEnvioGeneral)
     self.load_config()
     self.init_mqtt()
 
@@ -73,7 +74,8 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/speed_increment", # Configuración del incremento de velocidad (futuro)
         f"telemetry_config/{self.DongleID}/intervalos",      # Configuración intervalos
         f"telemetry_config/{self.DongleID}/overtake",        # Adelantamiento automático (detecta BSM automáticamente)
-        f"telemetry_config/{self.DongleID}/brutebreak"       # Frenado de emergencia brusco
+        f"telemetry_config/{self.DongleID}/brutebreak",      # Frenado de emergencia brusco
+        f"telemetry_config/{self.DongleID}/camera_config"    # Configuración de cámara desde app ADRIPILOT
       ]
 
       for topic in topics:
@@ -212,6 +214,10 @@ class MQTTComandos:
       # Comando de frenado de emergencia brusco
       elif topic.endswith("/brutebreak"):
         self.handle_brutebreak(payload)
+
+      # Configuración de cámara desde app ADRIPILOT
+      elif topic.endswith("/camera_config"):
+        self.handle_camera_config(payload)
 
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
@@ -560,6 +566,56 @@ class MQTTComandos:
           self.params.put_bool("brutebreak_active", False)
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
+
+  def set_camera_sender(self, camera_sender):
+    """Establece la referencia al CameraSender para control remoto desde la app."""
+    self.camera_sender = camera_sender
+
+  def handle_camera_config(self, payload):
+    """Maneja la configuración de cámara recibida desde la app ADRIPILOT.
+
+    Topic: telemetry_config/{dongle_id}/camera_config
+
+    Payload esperado (campos opcionales):
+    {
+      "dongle_id": "abc123",
+      "timestamp": "2026-03-10T14:30:00.000Z",
+      "image_sending_enabled": true|false,
+      "send_frequency_seconds": 1|2|5|10|30|60,
+      "save_images": true|false  (informativo, no afecta al comma)
+    }
+    """
+    if self.camera_sender is None:
+      return
+
+    try:
+      data = json.loads(payload)
+
+      # Mensajes descriptivos para el panel debug antes de aplicar
+      if "image_sending_enabled" in data:
+        enabled = data["image_sending_enabled"]
+        self.save_debug_message(
+          f"telemetry_config/{self.DongleID}/cam_envio",
+          "true" if enabled else "false"
+        )
+
+      if "send_frequency_seconds" in data:
+        freq = data["send_frequency_seconds"]
+        self.save_debug_message(
+          f"telemetry_config/{self.DongleID}/cam_freq",
+          str(freq) + "s"
+        )
+
+      if "save_images" in data:
+        save = data["save_images"]
+        self.save_debug_message(
+          f"telemetry_config/{self.DongleID}/cam_guardar",
+          "true" if save else "false"
+        )
+
+      self.camera_sender.apply_config(data)
+    except (json.JSONDecodeError, Exception):
+      pass
 
   def start(self):
     """Inicia el cliente MQTT de comandos."""

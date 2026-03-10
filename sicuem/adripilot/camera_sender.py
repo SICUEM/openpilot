@@ -4,6 +4,11 @@
 Módulo para enviar imágenes de las cámaras del Comma al servidor AdriPilot mediante MQTT.
 Usa el thumbnail JPEG nativo generado por camerad (cereal 'thumbnail') para evitar
 operaciones pesadas de CPU (VisionIPC, numpy, PIL) que causaban "Camera Frame Rate Low".
+
+Soporta control remoto desde la app ADRIPILOT via MQTT:
+- Activar/desactivar envio de imagenes
+- Cambiar frecuencia de envio (1s, 2s, 5s, 10s, 30s, 60s)
+- Persistencia de configuracion en /data/adripilot_camera_config.json
 """
 import time
 import threading
@@ -16,6 +21,8 @@ from openpilot.common.params import Params
 from openpilot.common.swaglog import cloudlog
 
 DEBUG_FILE = "/tmp/mqtt_debug_messages.txt"
+CAMERA_CONFIG_FILE = "/data/adripilot_camera_config.json"
+VALID_FREQUENCIES = [1, 2, 5, 10, 30, 60]
 
 
 class CameraSender:
@@ -37,6 +44,7 @@ class CameraSender:
     self.interval_seconds = interval_seconds
 
     self.stop_event = threading.Event()
+    self.sending_enabled = True  # Control remoto: activar/desactivar envio
     self.last_sent = 0
     self.frame_count = 0
     self.error_count = 0
@@ -46,6 +54,75 @@ class CameraSender:
     self.params = Params()
     self.debug_enabled = False
     self._last_debug_check = 0
+
+    # Cargar configuracion persistida (si existe)
+    self._load_config()
+
+  def _load_config(self):
+    """Carga configuracion de camara desde archivo persistido."""
+    try:
+      if os.path.exists(CAMERA_CONFIG_FILE):
+        with open(CAMERA_CONFIG_FILE, 'r') as f:
+          config = json.load(f)
+        if "image_sending_enabled" in config:
+          self.sending_enabled = bool(config["image_sending_enabled"])
+        if "send_frequency_seconds" in config:
+          freq = int(config["send_frequency_seconds"])
+          if freq in VALID_FREQUENCIES:
+            self.interval_seconds = float(freq)
+        cloudlog.info(f"CameraSender: config loaded - enabled={self.sending_enabled}, freq={self.interval_seconds}s")
+    except Exception as e:
+      cloudlog.warning(f"CameraSender: could not load config, using defaults: {e}")
+
+  def _save_config(self):
+    """Persiste configuracion de camara a disco para sobrevivir reinicios."""
+    try:
+      config = {
+        "image_sending_enabled": self.sending_enabled,
+        "send_frequency_seconds": int(self.interval_seconds),
+      }
+      with open(CAMERA_CONFIG_FILE, 'w') as f:
+        json.dump(config, f)
+    except Exception as e:
+      cloudlog.warning(f"CameraSender: could not save config: {e}")
+
+  def set_enabled(self, enabled):
+    """Activa o desactiva el envio de imagenes (control remoto desde app)."""
+    self.sending_enabled = bool(enabled)
+    self._save_config()
+    cloudlog.info(f"CameraSender: sending {'enabled' if self.sending_enabled else 'disabled'}")
+
+  def set_frequency(self, seconds):
+    """Cambia la frecuencia de envio de imagenes (control remoto desde app)."""
+    seconds = int(seconds)
+    if seconds in VALID_FREQUENCIES:
+      self.interval_seconds = float(seconds)
+      self._save_config()
+      cloudlog.info(f"CameraSender: frequency changed to {seconds}s")
+    else:
+      cloudlog.warning(f"CameraSender: invalid frequency {seconds}s, valid: {VALID_FREQUENCIES}")
+
+  def apply_config(self, config_data):
+    """Aplica configuracion recibida por MQTT desde la app.
+
+    Args:
+      config_data: dict con campos opcionales:
+        - image_sending_enabled: bool
+        - send_frequency_seconds: int (1, 2, 5, 10, 30, 60)
+        - save_images: bool (informativo, no afecta al comma)
+    """
+    changed = False
+    if "image_sending_enabled" in config_data:
+      self.sending_enabled = bool(config_data["image_sending_enabled"])
+      changed = True
+    if "send_frequency_seconds" in config_data:
+      freq = int(config_data["send_frequency_seconds"])
+      if freq in VALID_FREQUENCIES:
+        self.interval_seconds = float(freq)
+        changed = True
+    if changed:
+      self._save_config()
+      cloudlog.info(f"CameraSender: config updated - enabled={self.sending_enabled}, freq={self.interval_seconds}s")
 
   def _log_debug(self, message):
     """Escribe/actualiza un mensaje de cámara en el fichero de debug si modo_debug está activo.
@@ -134,6 +211,10 @@ class CameraSender:
       sm.update(timeout=1000)
 
       if not sm.updated['thumbnail']:
+        continue
+
+      # Si el envio esta desactivado por la app, no procesar
+      if not self.sending_enabled:
         continue
 
       current_time = time.time()
