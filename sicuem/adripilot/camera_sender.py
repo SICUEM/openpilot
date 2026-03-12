@@ -44,7 +44,7 @@ class CameraSender:
     self.interval_seconds = interval_seconds
 
     self.stop_event = threading.Event()
-    self.sending_enabled = True  # Control remoto: activar/desactivar envio
+    self.sending_enabled = False  # Control remoto: desactivado por defecto
     self.last_sent = 0
     self.frame_count = 0
     self.error_count = 0
@@ -54,6 +54,13 @@ class CameraSender:
     self.params = Params()
     self.debug_enabled = False
     self._last_debug_check = 0
+
+    # Mapeo de camera_type a canal cereal para thumbnails
+    self._thumbnail_channels = {
+      'road': 'thumbnail',
+      'driver': 'driverThumbnail',
+      'wide': 'thumbnail',
+    }
 
     # Cargar configuracion persistida (si existe)
     self._load_config()
@@ -70,7 +77,11 @@ class CameraSender:
           freq = int(config["send_frequency_seconds"])
           if freq in VALID_FREQUENCIES:
             self.interval_seconds = float(freq)
-        cloudlog.info(f"CameraSender: config loaded - enabled={self.sending_enabled}, freq={self.interval_seconds}s")
+        if "camera_type" in config:
+          ct = config["camera_type"]
+          if ct in ("road", "driver", "wide"):
+            self.camera_type = ct
+        cloudlog.info(f"CameraSender: config loaded - enabled={self.sending_enabled}, freq={self.interval_seconds}s, type={self.camera_type}")
     except Exception as e:
       cloudlog.warning(f"CameraSender: could not load config, using defaults: {e}")
 
@@ -80,6 +91,7 @@ class CameraSender:
       config = {
         "image_sending_enabled": self.sending_enabled,
         "send_frequency_seconds": int(self.interval_seconds),
+        "camera_type": self.camera_type,
       }
       with open(CAMERA_CONFIG_FILE, 'w') as f:
         json.dump(config, f)
@@ -120,9 +132,14 @@ class CameraSender:
       if freq in VALID_FREQUENCIES:
         self.interval_seconds = float(freq)
         changed = True
+    if "camera_type" in config_data:
+      ct = config_data["camera_type"]
+      if ct in ("road", "driver", "wide"):
+        self.camera_type = ct
+        changed = True
     if changed:
       self._save_config()
-      cloudlog.info(f"CameraSender: config updated - enabled={self.sending_enabled}, freq={self.interval_seconds}s")
+      cloudlog.info(f"CameraSender: config updated - enabled={self.sending_enabled}, freq={self.interval_seconds}s, type={self.camera_type}")
 
   def _log_debug(self, message):
     """Escribe/actualiza un mensaje de cámara en el fichero de debug si modo_debug está activo.
@@ -203,14 +220,15 @@ class CameraSender:
 
   def run(self):
     """Loop principal: lee thumbnail nativo de camerad y envía por MQTT."""
-    sm = messaging.SubMaster(['thumbnail'])
+    channel = self._thumbnail_channels.get(self.camera_type, 'thumbnail')
+    sm = messaging.SubMaster([channel])
 
-    cloudlog.info("CameraSender: started, waiting for thumbnail messages")
+    cloudlog.info(f"CameraSender: started on channel '{channel}' (camera_type={self.camera_type})")
 
     while not self.stop_event.is_set():
       sm.update(timeout=1000)
 
-      if not sm.updated['thumbnail']:
+      if not sm.updated[channel]:
         continue
 
       # Si el envio esta desactivado por la app, no procesar
@@ -231,7 +249,7 @@ class CameraSender:
         continue
 
       try:
-        thumb = sm['thumbnail']
+        thumb = sm[channel]
         jpeg_data = thumb.thumbnail
         frame_id = thumb.frameId
 

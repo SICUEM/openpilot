@@ -2380,6 +2380,9 @@ struct Event {
     customReservedRawData1 @125 :Data;
     customReservedRawData2 @126 :Data;
 
+    # *********** AdriPilot: driver camera thumbnail ***********
+    driverThumbnail @130 :Thumbnail;
+
     # *********** Custom: reserved for forks ***********
     controlsStateSP @107 :Custom.ControlsStateSP;
     longitudinalPlanSP @108 :Custom.LongitudinalPlanSP;

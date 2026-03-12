@@ -664,7 +664,7 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
   s->road_cam.camera_init(v, device_id, ctx);
   s->wide_road_cam.camera_init(v, device_id, ctx);
 
-  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail"});
+  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail", "driverThumbnail"});
 }
 
 void cameras_open(MultiCameraState *s) {
@@ -971,6 +971,9 @@ void CameraState::run() {
     multi_cam_state->pm->send(publish_name, msg);
     if (stream_type == VISION_STREAM_ROAD && cnt % 100 == 3) {
       publish_thumbnail(multi_cam_state->pm, &buf);  // this takes 10ms???
+    }
+    if (stream_type == VISION_STREAM_DRIVER && cnt % 100 == 3) {
+      publish_thumbnail(multi_cam_state->pm, &buf, "driverThumbnail");
     }
   }
 }

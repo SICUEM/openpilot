@@ -613,6 +613,17 @@ class MQTTComandos:
           "true" if save else "false"
         )
 
+      if "camera_type" in data:
+        ct = data["camera_type"]
+        self.save_debug_message(
+          f"telemetry_config/{self.DongleID}/cam_tipo",
+          str(ct)
+        )
+
+      # Mapear preferred_camera_type -> camera_type para compatibilidad con la app
+      if "preferred_camera_type" in data and "camera_type" not in data:
+        data["camera_type"] = data["preferred_camera_type"]
+
       self.camera_sender.apply_config(data)
     except (json.JSONDecodeError, Exception):
       pass

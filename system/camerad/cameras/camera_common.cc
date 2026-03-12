@@ -243,7 +243,7 @@ static kj::Array<capnp::byte> yuv420_to_jpeg(const CameraBuf *b, int thumbnail_w
   return dat;
 }
 
-void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
+void publish_thumbnail(PubMaster *pm, const CameraBuf *b, const char *service) {
   auto thumbnail = yuv420_to_jpeg(b, b->rgb_width / 4, b->rgb_height / 4);
   if (thumbnail.size() == 0) return;
 
@@ -253,7 +253,7 @@ void publish_thumbnail(PubMaster *pm, const CameraBuf *b) {
   thumbnaild.setTimestampEof(b->cur_frame_data.timestamp_eof);
   thumbnaild.setThumbnail(thumbnail);
 
-  pm->send("thumbnail", msg);
+  pm->send(service, msg);
 }
 
 float set_exposure_target(const CameraBuf *b, Rect ae_xywh, int x_skip, int y_skip) {
