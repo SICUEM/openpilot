@@ -170,15 +170,14 @@ class MQTTEnvioGeneral:
   def enviar_datos_importantes(self, canal, datos):
     claves = self.keys_importantes_por_canal.get(canal, [])
 
-    # Si no hay claves definidas o está vacío, enviar TODOS los datos
+    # Si no hay claves definidas, usar datos directamente sin copiar
     if not claves:
-      resultado = datos.copy()
+      datos["dongle_id"] = self.DongleID
+      return datos
     else:
-      # Si hay claves definidas, usar solo esas (aunque ahora están vacías)
       resultado = {k: datos[k] for k in claves if k in datos}
-
-    resultado["dongle_id"] = self.DongleID
-    return resultado
+      resultado["dongle_id"] = self.DongleID
+      return resultado
 
 if __name__ == "__main__":
   sender = MQTTEnvioGeneral()

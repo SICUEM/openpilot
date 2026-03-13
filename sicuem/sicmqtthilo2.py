@@ -184,21 +184,15 @@ class SicMqttHilo2:
     def loop_watchdog():
       while not self.stop_event.is_set():
         if not self.conectado or not self.mqttc.is_connected():
-          # print("🔁 Watchdog: conexión MQTT inactiva, reintentando...")  # Comentado para reducir uso de memoria
           try:
             self.mqttc.reconnect()
-            try:
-              self.mqttc.reconnect()
-              self.mqttc.subscribe("opmqttsender/messages", qos=0)
-              self.mqttc.subscribe("telemetry_publish/vego", qos=0)
-              self.mqttc.subscribe("telemetry_config/+/intervalos", qos=0)
-              self.mqttc.subscribe("telemetry_config/+/left", qos=0)
-              self.mqttc.subscribe("telemetry_config/+/right", qos=0)
-            except Exception as e:
-              pass  # Error silenciado para reducir uso de memoria
-
-          except Exception as e:
-            pass  # Error silenciado para reducir uso de memoria
+            self.mqttc.subscribe("opmqttsender/messages", qos=0)
+            self.mqttc.subscribe("telemetry_publish/vego", qos=0)
+            self.mqttc.subscribe("telemetry_config/+/intervalos", qos=0)
+            self.mqttc.subscribe("telemetry_config/+/left", qos=0)
+            self.mqttc.subscribe("telemetry_config/+/right", qos=0)
+          except Exception:
+            pass
         time.sleep(intervalo)
 
     Thread(target=loop_watchdog, daemon=True).start()
@@ -322,7 +316,11 @@ class SicMqttHilo2:
       time.sleep(self.espera)
       return
 
-    self.cargar_canales()  # Carga los canales habilitados dinámicamente
+    # Recargar canales solo cada 60 segundos (evita file I/O + objetos nuevos cada 0.5s)
+    now = time.time()
+    if not hasattr(self, '_last_canal_reload') or (now - self._last_canal_reload) > 60:
+      self.cargar_canales()
+      self._last_canal_reload = now
 
     if len(self.enabled_items) > 0 and self.sm:
       for canal_actual in self.enabled_items:
@@ -350,8 +348,10 @@ class SicMqttHilo2:
           except KeyError:
             continue
 
-      # Publicar estado del archivo mapbox
-      self.enviar_estado_archivo_mapbox()
+      # Publicar estado del archivo mapbox (solo cada 10s, no cada 0.5s)
+      if not hasattr(self, '_last_mapbox_check') or (time.time() - self._last_mapbox_check) > 10:
+        self.enviar_estado_archivo_mapbox()
+        self._last_mapbox_check = time.time()
 
       # Espera configurada entre iteraciones
       time.sleep(self.espera)
@@ -373,16 +373,10 @@ class SicMqttHilo2:
       self.conectado = True
 
   def on_disconnect(self, client, userdata, rc):
-    """Maneja la desconexión e intenta reconectar automáticamente."""
+    """Maneja la desconexión. La reconexión la maneja reconnect_delay_set() y el watchdog."""
     self.conectado = False
-
-    # Intentar reconectar automáticamente
-    while not self.stop_event.is_set():
-      try:
-        self.mqttc.reconnect()  # Intenta reconectar sin bloquear el hilo principal
-        break
-      except Exception as e:
-        time.sleep(5)
+    # NO bloquear este callback — paho-mqtt maneja la reconexión automáticamente
+    # con reconnect_delay_set(). Bloquear aquí causa acumulación de buffers internos.
 
   def save_debug_message(self, topic, payload):
     """Guarda un mensaje MQTT para el modo debug."""
@@ -583,17 +577,18 @@ class SicMqttHilo2:
 
     return datos_importantes
 
-  def conexion(self, url='http://www.google.com', intervalo=5):
+  def conexion(self, url='http://www.google.com', intervalo=30):
     """Verifica la conexión a Internet periódicamente en un hilo separado."""
 
     def check_connection():
+      # Reutilizar sesión para evitar leak de conexiones/Response objects
+      session = requests.Session()
       while not self.stop_event.is_set():
         try:
-          response = requests.get(url, timeout=5)
-          if response.status_code == 200:
-            print("Conexión a Internet exitosa.")
-        except requests.ConnectionError:
-          print(f"No hay conexión a Internet. Intentando nuevamente en {intervalo} segundos...")
+          response = session.head(url, timeout=5)  # HEAD en vez de GET (sin body)
+          response.close()
+        except Exception:
+          pass
         time.sleep(intervalo)
 
     Thread(target=check_connection, daemon=True).start()

@@ -290,7 +290,7 @@ class DesireHelper:
     5. Restauración de velocidad original
     """
     try:
-      params = Params()
+      params = self.params  # Reutilizar instancia existente (evita crear Params() cada frame)
 
       # Inicializar variables si no existen
       if not hasattr(self, "test_overtake_start_time"):
@@ -411,7 +411,7 @@ class DesireHelper:
       if not hasattr(self, "overtake_waiting_right_bsm"):
         self.overtake_waiting_right_bsm = False  # Esperando para volver a derecha
 
-      params = Params()
+      params = self.params  # Reutilizar instancia existente (evita crear Params() cada frame)
       # NOTA: overtakingActive se escribe más abajo, justo cuando cambia de estado
       # para evitar race conditions con controlsd
 
@@ -689,8 +689,7 @@ class DesireHelper:
       self.auto_overtake(carstate, d_rel, v_rel, set_speed, lead_status)
     else:
       # Si el adelantamiento está desactivado, actualizar estado
-      params = Params()
-      params.put("overtakeStatus", "DESACTIVADO")
+      self.params.put("overtakeStatus", "DESACTIVADO")
 
     #Cambio de carril (hecho por Adrián)
     self.check_and_force_lane_change_param(carstate)

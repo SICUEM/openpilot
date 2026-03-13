@@ -32,7 +32,7 @@ from openpilot.selfdrive.modeld.custom_model_metadata import CustomModelMetadata
 
 from openpilot.system.athena.registration import is_registered_device
 from openpilot.system.hardware import HARDWARE
-from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
+# from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2  # DESACTIVADO temporalmente — no se usa, ahorra recursos
 from openpilot.sicuem.adripilot.mqtt_envio_general import MQTTEnvioGeneral
 from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_control_ultra_simple
 from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_ultra_simple
@@ -72,8 +72,9 @@ PERSONALITY_MAPPING = {0: 0, 1: 1, 2: 2, 3: 2}
 
 class Controls:
   def __init__(self, CI=None):
-    sicMqtt = SicMqttHilo2()
-    sicMqtt.start()
+    # SicMqttHilo2 DESACTIVADO temporalmente — no se usa, ahorra recursos
+    # sicMqtt = SicMqttHilo2()
+    # sicMqtt.start()
 
     # UEM/AdriPilot: el cooldown de eventos MQTT está manejado en events_mqtt.py
 
@@ -564,12 +565,16 @@ class Controls:
     # los cambios se apliquen correctamente.
     # Pasamos enabled_long para que pueda verificar si el control longitudinal está activo
     try:
-      # Crear un objeto temporal con enabled_long para pasar a process_speed_commands
-      class TempCarControl:
-        def __init__(self, enabled_long):
-          self.enabled_long = enabled_long
-      temp_cc = TempCarControl(self.enabled_long)
-      adripilot_speed_ultra_simple.process_speed_commands(temp_cc, CS, self.v_cruise_helper)
+      # Reutilizar objeto temporal (evita crear clase nueva cada frame)
+      if not hasattr(self, '_temp_car_control'):
+        class _TempCarControl:
+          __slots__ = ['enabled_long']
+          def __init__(self, enabled_long):
+            self.enabled_long = enabled_long
+        self._TempCarControlCls = _TempCarControl
+        self._temp_car_control = _TempCarControl(self.enabled_long)
+      self._temp_car_control.enabled_long = self.enabled_long
+      adripilot_speed_ultra_simple.process_speed_commands(self._temp_car_control, CS, self.v_cruise_helper)
     except Exception as e:
       # Log del error de forma muy limitada para no saturar
       if hasattr(self, '_adripilot_error_count'):
