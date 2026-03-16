@@ -23,8 +23,7 @@ from openpilot.system.version import get_build_metadata, terms_version, terms_ve
 
 # [Start Bemposta] ****************************************************************************
 from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
-#from openpilot.sicuem.sicmqtthilo import SicMqttHilo
-
+from openpilot.sicuem.adripilot.mqtt_envio_general import MQTTEnvioGeneral
 # [End Bemposta] ******************************************************************************
 
 
@@ -242,23 +241,19 @@ def manager_thread() -> None:
   started_prev = False
 
   # [Start Bemposta] ****************************************************************************
+  # Sistema MQTT legacy (telemetría a broker principal + mapbox + lane changes)
+  sicMqtt = SicMqttHilo2()
+  sicMqtt.start()
 
-  #sicMqtt = SicMqttHilo2()
-  #sicMqtt.start()
+  # Sistema AdriPilot (telemetría + envío de imágenes + comandos remotos)
+  adripilot_mqtt = MQTTEnvioGeneral()
+  adripilot_mqtt.start()
   # [End Bemposta] ******************************************************************************
 
 
   while True:
     sm.update(1000)
-    # Adri ini
-    '''
-    if params.get_bool("telemetria_uem"):
-      sicMqtt.reanudar_envio()  # reanudar hilo
-    else:
-      sicMqtt.pausar_envio()  # pausar hilo
 
-    # Adri fin
-    '''
     started = sm['deviceState'].started
 
     if started and not started_prev:
