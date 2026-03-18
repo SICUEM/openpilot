@@ -146,6 +146,24 @@ class MQTTEnvioGeneral:
       if hasattr(self, '_no_connection_log_counter'):
         self._no_connection_log_counter = 0
 
+      # Publicar Jetson config si fue cambiada desde la UI del Comma
+      try:
+        jetson_payload = self.params.get("JetsonConfigMqttPayload")
+        if jetson_payload and len(jetson_payload) > 2:
+          payload_str = jetson_payload.decode('utf-8')
+          print(f"[JETSON SYNC] Detectado JetsonConfigMqttPayload: {payload_str[:200]}")
+          try:
+            result1 = self.mqttc.publish("jetson_config/global", payload_str, qos=0)
+            result2 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/jetson_config", payload_str, qos=0)
+            print(f"[JETSON SYNC] Publicado a jetson_config/global rc={result1.rc}")
+            print(f"[JETSON SYNC] Publicado a telemetry_config/{self.DongleID}/jetson_config rc={result2.rc}")
+          except Exception as e:
+            print(f"[JETSON SYNC] ERROR publicando MQTT: {e}")
+          self.params.remove("JetsonConfigMqttPayload")
+          print("[JETSON SYNC] Param JetsonConfigMqttPayload eliminado")
+      except Exception as e:
+        print(f"[JETSON SYNC] ERROR leyendo param: {e}")
+
       for canal in self.enabled_items:
         nombre = canal["canal"]
         topic = canal["topic"].format(self.DongleID)

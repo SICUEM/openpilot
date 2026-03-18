@@ -22,6 +22,7 @@ from openpilot.common.swaglog import cloudlog
 
 DEBUG_FILE = "/tmp/mqtt_debug_messages.txt"
 CAMERA_CONFIG_FILE = "/data/adripilot_camera_config.json"
+JETSON_CONFIG_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_jetson.json")
 VALID_FREQUENCIES = [1, 2, 5, 10, 30, 60]
 
 
@@ -62,8 +63,44 @@ class CameraSender:
       'wide': 'thumbnail',
     }
 
+    # ZMQ client para envío a Jetson (se inicializa si está habilitado en config)
+    self.zmq_client = None
+    self._init_jetson_zmq()
+
     # Cargar configuracion persistida (si existe)
     self._load_config()
+
+  def _init_jetson_zmq(self):
+    """Inicializa el cliente ZMQ para envío de imágenes a la Jetson si está habilitado."""
+    try:
+      if not os.path.exists(JETSON_CONFIG_FILE):
+        cloudlog.info("CameraSender: config_jetson.json no encontrado, Jetson ZMQ deshabilitado")
+        return
+
+      with open(JETSON_CONFIG_FILE, 'r') as f:
+        config = json.load(f)
+
+      if not config.get("jetson_enabled", False):
+        cloudlog.info("CameraSender: Jetson ZMQ deshabilitado en config")
+        return
+
+      jetson_ip = config.get("jetson_ip", "192.168.1.50")
+      img_port = int(config.get("jetson_img_port", 5555))
+      torque_port = int(config.get("jetson_torque_port", 5556))
+      jpeg_quality = int(config.get("jpeg_quality", 80))
+
+      from openpilot.sicuem.adripilot.zmq_client import ZMQClient
+      self.zmq_client = ZMQClient(
+        jetson_ip=jetson_ip,
+        img_port=img_port,
+        torque_port=torque_port,
+        jpeg_quality=jpeg_quality,
+      )
+      self.zmq_client.start()
+      cloudlog.info(f"CameraSender: Jetson ZMQ iniciado -> {jetson_ip}:{img_port}")
+    except Exception as e:
+      cloudlog.error(f"CameraSender: error iniciando Jetson ZMQ: {e}")
+      self.zmq_client = None
 
   def _load_config(self):
     """Carga configuracion de camara desde archivo persistido."""
@@ -231,23 +268,6 @@ class CameraSender:
       if not sm.updated[channel]:
         continue
 
-      # Si el envio esta desactivado por la app, no procesar
-      if not self.sending_enabled:
-        continue
-
-      current_time = time.time()
-
-      # Backoff exponencial si hay errores consecutivos
-      if self.consecutive_errors > 0:
-        backoff = min(self.max_backoff, 2.0 ** min(self.consecutive_errors, 6))
-        effective_interval = self.interval_seconds + backoff
-      else:
-        effective_interval = self.interval_seconds
-
-      # Verificar intervalo
-      if current_time - self.last_sent < effective_interval:
-        continue
-
       try:
         thumb = sm[channel]
         jpeg_data = thumb.thumbnail
@@ -255,6 +275,35 @@ class CameraSender:
 
         if not jpeg_data:
           cloudlog.warning("CameraSender: received empty thumbnail")
+          continue
+
+        # Comprobar si la config de Jetson fue cambiada desde la UI del Comma
+        try:
+          if self.params.get_bool("JetsonConfigChanged"):
+            self.params.put_bool("JetsonConfigChanged", False)
+            self.reload_jetson_config()
+        except Exception:
+          pass
+
+        # Enviar siempre por ZMQ a la Jetson (cada frame, independiente del MQTT)
+        if self.zmq_client is not None:
+          self.zmq_client.send_image(bytes(jpeg_data))
+
+        # MQTT: respetar sending_enabled e intervalo
+        if not self.sending_enabled:
+          continue
+
+        current_time = time.time()
+
+        # Backoff exponencial si hay errores consecutivos
+        if self.consecutive_errors > 0:
+          backoff = min(self.max_backoff, 2.0 ** min(self.consecutive_errors, 6))
+          effective_interval = self.interval_seconds + backoff
+        else:
+          effective_interval = self.interval_seconds
+
+        # Verificar intervalo
+        if current_time - self.last_sent < effective_interval:
           continue
 
         timestamp_ms = int(current_time * 1000)
@@ -274,8 +323,27 @@ class CameraSender:
       return True
     return False
 
+  def reload_jetson_config(self):
+    """Recarga la configuracion de Jetson y reinicia el ZMQ client si es necesario."""
+    try:
+      # Parar ZMQ anterior si existe
+      if self.zmq_client is not None:
+        try:
+          self.zmq_client.stop()
+        except Exception:
+          pass
+        self.zmq_client = None
+
+      # Reinicializar con nueva config
+      self._init_jetson_zmq()
+      cloudlog.info("CameraSender: Jetson ZMQ config recargada")
+    except Exception as e:
+      cloudlog.error(f"CameraSender: error recargando Jetson ZMQ: {e}")
+
   def stop(self):
     """Detiene el capturador."""
     self.stop_event.set()
+    if self.zmq_client is not None:
+      self.zmq_client.stop()
     if hasattr(self, 'thread'):
       self.thread.join(timeout=5)

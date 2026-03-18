@@ -689,6 +689,77 @@ Please use caution when using this feature. Only use the blinker when traffic an
     </message>
 </context>
 <context>
+    <name>JetsonSettings</name>
+    <message>
+        <source>NVIDIA Jetson</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Configuracion de envio de imagenes a la Jetson</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Estado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Envio de imagenes a Jetson activo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Conexion</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IP de la Jetson:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Puerto imagenes:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Puerto torque:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Calidad de imagen</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>GUARDAR Y ENVIAR AL DISPOSITIVO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Los cambios se guardan localmente y se sincronizan con la app ADRIPILOT via MQTT.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>ACTIVA - Enviando a %1:%2</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>INACTIVA - Envio desactivado</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>GUARDADO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IP de la Jetson</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Puerto de imagenes</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Puerto de torque</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>LaneChangeSettings</name>
     <message>
         <source>Back</source>
@@ -3302,6 +3373,10 @@ This feature must be used along with SLC, and/or V-TSC, and/or M-TSC.</source>
     </message>
     <message>
         <source>Ejecuta rutina de prueba de adelantamiento automático en simulador (sin coches).</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Conf. NVIDIA Jetson</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -98,6 +98,17 @@ UemPanel::UemPanel(QWidget *parent, int edit) : QFrame(parent) {
   server_ip_settings = new ServerIpSettings(this);
   main_layout->addWidget(server_ip_settings);
 
+  // Subpanel para Configuración de Jetson
+  SubPanelButton *jetsonSettingsBtn = new SubPanelButton(tr("Conf. NVIDIA Jetson"));
+  jetsonSettingsBtn->setObjectName("jetson_btn");
+  QVBoxLayout* jetsonSettingsLayout = new QVBoxLayout;
+  jetsonSettingsLayout->setContentsMargins(0, 0, 0, 30);
+  jetsonSettingsLayout->addWidget(jetsonSettingsBtn);
+
+  // Crear instancia de JetsonSettings y agregarla al layout
+  jetson_settings = new JetsonSettings(this);
+  main_layout->addWidget(jetson_settings);
+
 /*
 SubPanelButton *madsSettings2 = new SubPanelButton(tr("INFO SOFTWARE UEM"));
   madsSettings2->setObjectName("mads_btn2");
@@ -157,6 +168,18 @@ SubPanelButton *madsSettings3 = new SubPanelButton(tr("Sender UEM"));
     main_layout->setCurrentWidget(sunnypilotScreen);  // Volver a la pantalla principal
   });
 
+  // Conectar el botón de configuración de Jetson
+  connect(jetsonSettingsBtn, &QPushButton::clicked, [=]() {
+    scrollView->setLastScrollPosition();
+    main_layout->setCurrentWidget(jetson_settings);
+  });
+
+  // Conectar el evento backPress de JetsonSettings para regresar a la pantalla principal
+  connect(jetson_settings, &JetsonSettings::backPress, [=]() {
+    scrollView->restoreScrollPosition();
+    main_layout->setCurrentWidget(sunnypilotScreen);
+  });
+
 /*
     connect(mads_settings2, &InfoUem::backPress, [=]() {
     scrollView->restoreScrollPosition();
@@ -205,6 +228,7 @@ SubPanelButton *madsSettings3 = new SubPanelButton(tr("Sender UEM"));
       sl->addStretch(1);
       list->addItem(section);
       list->addItem(serverIpSettingsLayout);  // Añadir el botón de configuración de IPs
+      list->addItem(jetsonSettingsLayout);     // Añadir el botón de configuración de Jetson
     }
      //list->addItem(madsSettingsLayout3);  // Añadir el botón debajo del toggle de TELEMETRIA UEM
       list->addItem(horizontal_line());   // Separador

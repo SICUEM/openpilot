@@ -172,6 +172,9 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"modo_debug", PERSISTENT | BACKUP},  // Modo debug para mostrar mensajes MQTT en el panel de debug
     {"brutebreak_active", CLEAR_ON_MANAGER_START},  // Frenado de emergencia brusco activo
     {"brutebreak_intensidad", PERSISTENT},  // Intensidad de frenado configurable (valor negativo, default -3.5 m/s²)
+    {"JetsonTorque", CLEAR_ON_MANAGER_START},  // Torque recibido de la Jetson via ZMQ
+    {"JetsonConfigChanged", CLEAR_ON_MANAGER_START},  // Flag para recargar config_jetson.json desde UI
+    {"JetsonConfigMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar config Jetson via MQTT
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)
     {"overtake_distancia_activacion", PERSISTENT},  // Distancia de activación del adelantamiento (metros, default 50)
     {"overtake_tiempo_carril_izq", PERSISTENT},  // Tiempo en carril izquierdo (segundos, default 15)

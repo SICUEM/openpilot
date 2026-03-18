@@ -75,7 +75,9 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/intervalos",      # Configuración intervalos
         f"telemetry_config/{self.DongleID}/overtake",        # Adelantamiento automático (detecta BSM automáticamente)
         f"telemetry_config/{self.DongleID}/brutebreak",      # Frenado de emergencia brusco
-        f"telemetry_config/{self.DongleID}/camera_config"    # Configuración de cámara desde app ADRIPILOT
+        f"telemetry_config/{self.DongleID}/camera_config",   # Configuración de cámara desde app ADRIPILOT
+        f"telemetry_config/{self.DongleID}/jetson_config",   # Configuracion de Jetson (por dongle_id)
+        "jetson_config/global"                               # Configuracion de Jetson GLOBAL (desde cualquier app)
       ]
 
       for topic in topics:
@@ -218,6 +220,11 @@ class MQTTComandos:
       # Configuración de cámara desde app ADRIPILOT
       elif topic.endswith("/camera_config"):
         self.handle_camera_config(payload)
+
+      # Configuracion de Jetson desde app ADRIPILOT
+      elif topic.endswith("/jetson_config") or topic == "jetson_config/global":
+        print(f"[JETSON SYNC] Recibido jetson_config en topic: {topic}")
+        self.handle_jetson_config(payload)
 
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
@@ -566,6 +573,65 @@ class MQTTComandos:
           self.params.put_bool("brutebreak_active", False)
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
+
+  def handle_jetson_config(self, payload):
+    """Maneja la configuracion de Jetson recibida desde la app ADRIPILOT.
+
+    Actualiza config_jetson.json y reinicia el ZMQ client si es necesario.
+
+    Topic: telemetry_config/{dongle_id}/jetson_config
+
+    Payload esperado (campos opcionales):
+    {
+      "jetson_enabled": true|false,
+      "jetson_ip": "192.168.1.50",
+      "jetson_img_port": 5555,
+      "jetson_torque_port": 5556,
+      "jpeg_quality": 80
+    }
+    """
+    try:
+      import json as json_mod
+      data = json_mod.loads(payload)
+      print(f"[JETSON SYNC] handle_jetson_config data: {data}")
+
+      # Leer config actual
+      config_path = os.path.join(self.base_path, "config_jetson.json")
+      current_config = {}
+      if os.path.exists(config_path):
+        try:
+          with open(config_path, 'r') as f:
+            current_config = json_mod.load(f)
+        except Exception:
+          current_config = {}
+
+      print(f"[JETSON SYNC] Config actual: {current_config}")
+
+      # Actualizar solo los campos recibidos
+      changed = False
+      for key in ["jetson_enabled", "jetson_ip", "jetson_img_port", "jetson_torque_port", "jpeg_quality"]:
+        if key in data:
+          old_val = current_config.get(key)
+          current_config[key] = data[key]
+          if old_val != data[key]:
+            changed = True
+            print(f"[JETSON SYNC] Campo {key}: {old_val} -> {data[key]}")
+
+      # Guardar config actualizada
+      if changed:
+        with open(config_path, 'w') as f:
+          json_mod.dump(current_config, f, indent=4)
+        print(f"[JETSON SYNC] config_jetson.json actualizado: {current_config}")
+
+        # Señalizar al CameraSender que debe recargar la config de Jetson
+        if self.camera_sender is not None and hasattr(self.camera_sender, 'reload_jetson_config'):
+          self.camera_sender.reload_jetson_config()
+          print("[JETSON SYNC] CameraSender recargado")
+      else:
+        print("[JETSON SYNC] Sin cambios detectados")
+
+    except Exception as e:
+      print(f"[JETSON SYNC] ERROR handle_jetson_config: {e}")
 
   def set_camera_sender(self, camera_sender):
     """Establece la referencia al CameraSender para control remoto desde la app."""
