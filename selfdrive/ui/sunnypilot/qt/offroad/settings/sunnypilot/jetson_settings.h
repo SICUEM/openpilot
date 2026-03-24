@@ -37,6 +37,7 @@ private:
   // UI elements
   QLabel* status_label;
   QLabel* ip_current_label;
+  QLabel* comma_ip_label;
   QLabel* img_port_label;
   QLabel* torque_port_label;
   QLabel* quality_label;
@@ -44,6 +45,7 @@ private:
 
   QCheckBox* enabled_checkbox;
   QLineEdit* ip_input;
+  QLineEdit* comma_ip_input;
   QLineEdit* img_port_input;
   QLineEdit* torque_port_input;
   QSlider* quality_slider;

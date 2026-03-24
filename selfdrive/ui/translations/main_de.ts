@@ -766,6 +766,14 @@ Please use caution when using this feature. Only use the blinker when traffic an
         <source>Puerto de torque</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>IP del Comma (este dispositivo):</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>IP del Comma (este dispositivo)</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>LaneChangeSettings</name>

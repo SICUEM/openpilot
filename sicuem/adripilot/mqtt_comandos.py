@@ -609,7 +609,7 @@ class MQTTComandos:
 
       # Actualizar solo los campos recibidos
       changed = False
-      for key in ["jetson_enabled", "jetson_ip", "jetson_img_port", "jetson_torque_port", "jpeg_quality"]:
+      for key in ["jetson_enabled", "jetson_ip", "comma_ip", "jetson_img_port", "jetson_torque_port", "jpeg_quality"]:
         if key in data:
           old_val = current_config.get(key)
           current_config[key] = data[key]

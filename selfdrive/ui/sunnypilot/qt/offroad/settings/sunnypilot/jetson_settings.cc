@@ -145,6 +145,31 @@ void JetsonSettings::setupConnectionSection() {
   ip_input->installEventFilter(this);
   main_layout->addWidget(ip_input);
 
+  // Comma IP Address (IP de este dispositivo, para que la Jetson se conecte)
+  comma_ip_label = new QLabel(tr("IP del Comma (este dispositivo):"));
+  comma_ip_label->setStyleSheet("font-size: 40px; color: #aaaaaa; margin-top: 15px;");
+  main_layout->addWidget(comma_ip_label);
+
+  comma_ip_input = new QLineEdit();
+  comma_ip_input->setPlaceholderText("127.0.0.1");
+  comma_ip_input->setStyleSheet(R"(
+    QLineEdit {
+      font-size: 48px;
+      font-family: monospace;
+      padding: 20px;
+      border-radius: 10px;
+      background-color: #393939;
+      color: white;
+      border: 2px solid #555555;
+    }
+    QLineEdit:focus {
+      border: 2px solid #3B82F6;
+    }
+  )");
+  comma_ip_input->setReadOnly(true);
+  comma_ip_input->installEventFilter(this);
+  main_layout->addWidget(comma_ip_input);
+
   // Ports in a row
   QWidget* ports_row = new QWidget();
   QHBoxLayout* pl = new QHBoxLayout(ports_row);
@@ -335,12 +360,14 @@ void JetsonSettings::loadConfig() {
 
   bool enabled = config.value("jetson_enabled").toBool(false);
   QString ip = config.value("jetson_ip").toString("192.168.1.50");
+  QString comma_ip = config.value("comma_ip").toString("127.0.0.1");
   int img_port = config.value("jetson_img_port").toInt(5555);
   int torque_port = config.value("jetson_torque_port").toInt(5556);
   int quality = config.value("jpeg_quality").toInt(80);
 
   enabled_checkbox->setChecked(enabled);
   ip_input->setText(ip);
+  comma_ip_input->setText(comma_ip);
   img_port_input->setText(QString::number(img_port));
   torque_port_input->setText(QString::number(torque_port));
   quality_slider->setValue(quality);
@@ -353,6 +380,7 @@ void JetsonSettings::saveConfig() {
   QJsonObject config;
   config["jetson_enabled"] = enabled_checkbox->isChecked();
   config["jetson_ip"] = ip_input->text().trimmed();
+  config["comma_ip"] = comma_ip_input->text().trimmed();
   config["jetson_img_port"] = img_port_input->text().trimmed().toInt();
   config["jetson_torque_port"] = torque_port_input->text().trimmed().toInt();
   config["jpeg_quality"] = quality_slider->value();
@@ -411,6 +439,7 @@ void JetsonSettings::publishConfigViaMqtt() {
   payload["dongle_id"] = dongle_id;
   payload["jetson_enabled"] = enabled_checkbox->isChecked();
   payload["jetson_ip"] = ip_input->text().trimmed();
+  payload["comma_ip"] = comma_ip_input->text().trimmed();
   payload["jetson_img_port"] = img_port_input->text().trimmed().toInt();
   payload["jetson_torque_port"] = torque_port_input->text().trimmed().toInt();
   payload["jpeg_quality"] = quality_slider->value();
@@ -429,6 +458,9 @@ bool JetsonSettings::eventFilter(QObject* watched, QEvent* event) {
     if (watched == ip_input) {
       title = tr("IP de la Jetson");
       target = ip_input;
+    } else if (watched == comma_ip_input) {
+      title = tr("IP del Comma (este dispositivo)");
+      target = comma_ip_input;
     } else if (watched == img_port_input) {
       title = tr("Puerto de imagenes");
       target = img_port_input;
