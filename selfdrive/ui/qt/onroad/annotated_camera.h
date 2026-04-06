@@ -2,9 +2,11 @@
 
 #include <QVBoxLayout>
 #include <memory>
+#include <string>
 
 #include "selfdrive/ui/qt/onroad/buttons.h"
 #include "selfdrive/ui/qt/widgets/cameraview.h"
+#include "common/params.h"
 
 class AnnotatedCameraWidget : public CameraWidget {
   Q_OBJECT
@@ -34,6 +36,11 @@ private:
 
   int skip_frame_count = 0;
   bool wide_cam_requested = false;
+
+  // Jetson torque
+  float jetson_torque = 0.0;
+  bool jetson_torque_valid = false;
+  Params params;
 
 protected:
   void paintGL() override;

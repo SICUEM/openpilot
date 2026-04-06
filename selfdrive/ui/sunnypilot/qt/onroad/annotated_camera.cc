@@ -389,6 +389,21 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
   right_blinker = car_state.getRightBlinker();
   lane_change_edge_block = lateral_plan_sp.getLaneChangeEdgeBlockDEPRECATED();
 
+  // update Jetson torque
+  {
+    std::string jt = params.get("JetsonTorque");
+    if (!jt.empty()) {
+      try {
+        jetson_torque = std::stof(jt);
+        jetson_torque_valid = true;
+      } catch (...) {
+        jetson_torque_valid = false;
+      }
+    } else {
+      jetson_torque_valid = false;
+    }
+  }
+
   // update engageability/experimental mode button
   experimental_btn->updateState(s);
 
@@ -1121,6 +1136,14 @@ if (adelantar) {
     int x = UI_BORDER_SIZE * 2 + (rightHandDM ? 600 : 370);
     int feature_status_text_x = rightHandDM ? rect().right() - x : x;
     drawFeatureStatusText(p, feature_status_text_x, rect().bottom() - 160 - rn_offset);
+  }
+
+  // Jetson Torque (esquina inferior derecha)
+  if (jetson_torque_valid) {
+    QString torqueStr = QString("JT: %1").arg(jetson_torque, 0, 'f', 1);
+    p.setFont(InterFont(38, QFont::DemiBold));
+    p.setPen(QColor(0, 255, 200, 200));
+    p.drawText(rect().right() - 280, rect().bottom() - 30, torqueStr);
   }
 
   p.restore();

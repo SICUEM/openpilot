@@ -54,6 +54,19 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
   hideBottomIcons = (cs.getAlertSize() != cereal::ControlsState::AlertSize::NONE);
   status = s.status;
 
+  // update Jetson torque
+  std::string jt = params.get("JetsonTorque");
+  if (!jt.empty()) {
+    try {
+      jetson_torque = std::stof(jt);
+      jetson_torque_valid = true;
+    } catch (...) {
+      jetson_torque_valid = false;
+    }
+  } else {
+    jetson_torque_valid = false;
+  }
+
   // update engageability/experimental mode button
   experimental_btn->updateState(s);
 
@@ -112,6 +125,14 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   drawText(p, rect().center().x(), 210, speedStr);
   p.setFont(InterFont(66));
   drawText(p, rect().center().x(), 290, speedUnit, 200);
+
+  // Jetson torque (esquina inferior derecha)
+  if (jetson_torque_valid) {
+    QString torqueStr = QString("JT: %1").arg(jetson_torque, 0, 'f', 1);
+    p.setFont(InterFont(38, QFont::DemiBold));
+    p.setPen(QColor(0, 255, 200, 200));
+    p.drawText(width() - 280, height() - 80, torqueStr);
+  }
 
   p.restore();
 }

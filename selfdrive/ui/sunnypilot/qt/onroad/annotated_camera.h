@@ -237,6 +237,10 @@ bool forceLaneChangeRight = false;//adri
 
   cereal::ModelGeneration drivingModelGen;
 
+  // Jetson torque
+  float jetson_torque = 0.0;
+  bool jetson_torque_valid = false;
+
 protected:
   //void resizeEvent(QResizeEvent *event) override;
   void paintGL() override;
