@@ -1,8 +1,8 @@
 {
-    "comma_ip": "127.0.0.1",
+    "comma_ip": "192.168.1.47",
     "jetson_enabled": true,
-    "jetson_img_port": 5534,
-    "jetson_ip": "127.0.0.1",
+    "jetson_img_port": 5555,
+    "jetson_ip": "192.168.1.44",
     "jetson_torque_port": 5556,
     "jpeg_quality": 60
 }

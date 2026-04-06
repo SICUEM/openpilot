@@ -969,8 +969,8 @@ void CameraState::run() {
 
     // Send the message
     multi_cam_state->pm->send(publish_name, msg);
-    if (stream_type == VISION_STREAM_ROAD && cnt % 100 == 3) {
-      publish_thumbnail(multi_cam_state->pm, &buf);  // this takes 10ms???
+    if (stream_type == VISION_STREAM_ROAD && cnt % 4 == 0) {
+      publish_thumbnail(multi_cam_state->pm, &buf);  // ~5 FPS para Jetson (cada 4 frames a 20FPS)
     }
     if (stream_type == VISION_STREAM_DRIVER && cnt % 100 == 3) {
       publish_thumbnail(multi_cam_state->pm, &buf, "driverThumbnail");
