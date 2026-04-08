@@ -404,6 +404,39 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
     }
   }
 
+  // update Jetson config info (solo en modo debug, cada ~2s via frame count)
+  if (modoDebug) {
+    static int jcfg_counter = 0;
+    if (jcfg_counter++ % 40 == 0) {
+      QStringList paths = {
+        "/data/openpilot/sicuem/adripilot/config_jetson.json",
+      };
+      const char* basedir = std::getenv("BASEDIR");
+      if (basedir) {
+        paths.prepend(QString(basedir) + "/sicuem/adripilot/config_jetson.json");
+      }
+      // Ruta relativa al binario (selfdrive/ui/ui -> repo root)
+      paths.prepend(QCoreApplication::applicationDirPath() + "/../../sicuem/adripilot/config_jetson.json");
+
+      for (const QString &p : paths) {
+        QFile f(p);
+        if (f.exists() && f.open(QIODevice::ReadOnly)) {
+          auto doc = QJsonDocument::fromJson(f.readAll());
+          f.close();
+          if (!doc.isNull()) {
+            auto obj = doc.object();
+            jetson_ip = obj.value("jetson_ip").toString("");
+            comma_ip_cfg = obj.value("comma_ip").toString("");
+            jetson_img_port = obj.value("jetson_img_port").toInt(0);
+            jetson_torque_port = obj.value("jetson_torque_port").toInt(0);
+            jetson_enabled = obj.value("jetson_enabled").toBool(false);
+          }
+          break;
+        }
+      }
+    }
+  }
+
   // update engageability/experimental mode button
   experimental_btn->updateState(s);
 
@@ -1144,6 +1177,21 @@ if (adelantar) {
     p.setFont(InterFont(38, QFont::DemiBold));
     p.setPen(QColor(0, 255, 200, 200));
     p.drawText(rect().right() - 280, rect().bottom() - 30, torqueStr);
+  }
+
+  // Jetson debug info (solo en modo debug, centrado abajo)
+  if (modoDebug && !jetson_ip.isEmpty()) {
+    QString info = QString("Comma: %1 -> Jetson: %2 | img:%3 trq:%4 | %5")
+      .arg(comma_ip_cfg)
+      .arg(jetson_ip)
+      .arg(jetson_img_port)
+      .arg(jetson_torque_port)
+      .arg(jetson_enabled ? "ON" : "OFF");
+    p.setFont(InterFont(28, QFont::DemiBold));
+    QRect infoRect = p.fontMetrics().boundingRect(info);
+    int info_x = rect().center().x() - infoRect.width() / 2;
+    p.setPen(QColor(255, 200, 50, 190));
+    p.drawText(info_x, rect().bottom() - 6, info);
   }
 
   p.restore();

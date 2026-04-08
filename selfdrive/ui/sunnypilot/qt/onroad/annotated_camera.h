@@ -240,6 +240,11 @@ bool forceLaneChangeRight = false;//adri
   // Jetson torque
   float jetson_torque = 0.0;
   bool jetson_torque_valid = false;
+  QString jetson_ip = "";
+  QString comma_ip_cfg = "";
+  int jetson_img_port = 0;
+  int jetson_torque_port = 0;
+  bool jetson_enabled = false;
 
 protected:
   //void resizeEvent(QResizeEvent *event) override;
