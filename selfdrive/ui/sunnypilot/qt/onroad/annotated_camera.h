@@ -245,6 +245,7 @@ bool forceLaneChangeRight = false;//adri
   int jetson_img_port = 0;
   int jetson_torque_port = 0;
   bool jetson_enabled = false;
+  int steer_torque_mode = 0;  // 0=MODELO COMMA, 1=JETSON, 2=TEST MAX
 
 protected:
   //void resizeEvent(QResizeEvent *event) override;

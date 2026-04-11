@@ -766,6 +766,93 @@ Please use caution when using this feature. Only use the blinker when traffic an
         <source>IP del Comma (este dispositivo)</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>Control del volante</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Selecciona de donde sale el torque que se aplica al volante cuando el control lateral esta activo.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>JETSON
+(PilotNet)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>MODELO COMMA - El volante usa el torque del modelo interno (original)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>⚠ JETSON - El volante hara caso al torque que llega de la Jetson (PilotNet)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>⚠⚠ TEST MAX - Torque FIJO al maximo hacia la derecha (para probar interceptacion)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>★ MODELO
+COMMA
+(RECOMENDADO)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>⚠ TEST MAX
+(PELIGROSO)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Volver al MODELO COMMA (recomendado)
+
+El volante usara el torque calculado por el modelo interno de openpilot.
+
+Esta es la opcion mas segura y probada.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cambiar a MODELO COMMA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>⚠ ATENCION
+
+Vas a delegar el control del volante a la JETSON (PilotNet).
+
+El volante obedecera al torque que calcule la red neuronal externa a traves del torque que llegue desde la jetson por zmq.
+
+Asegurate de que:
+- La Jetson esta conectada y enviando torque por ZMQ
+- Estas en un entorno controlado
+- Tienes las manos sobre el volante
+
+Deseas continuar?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SI, usar JETSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>⚠⚠ PELIGRO - MODO DE PRUEBA ⚠⚠
+
+Este modo fija el torque del volante al MAXIMO hacia la DERECHA de forma continua.
+
+SOLO sirve para verificar que el punto de interceptacion del torque en controlsd.py funciona correctamente.
+
+Cuando el coche este en engage con openpilot, el volante girara a la derecha tanto como el panda permita.
+
+USALO SOLO EN PRUEBAS CONTROLADAS.
+USALO SOLO CON LAS MANOS EN EL VOLANTE.
+NO LO USES EN VIA PUBLICA.
+
+Deseas continuar?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SI, ACTIVAR TEST MAX</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>LaneChangeSettings</name>

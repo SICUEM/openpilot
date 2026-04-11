@@ -164,6 +164,23 @@ class MQTTEnvioGeneral:
       except Exception as e:
         print(f"[JETSON SYNC] ERROR leyendo param: {e}")
 
+      # Publicar SteerTorqueMode si fue cambiado desde la UI del Comma
+      try:
+        steer_mode_payload = self.params.get("SteerTorqueModeMqttPayload")
+        if steer_mode_payload and len(steer_mode_payload) > 2:
+          payload_str = steer_mode_payload.decode('utf-8')
+          print(f"[STEER MODE SYNC] Detectado payload: {payload_str[:200]}")
+          try:
+            result1 = self.mqttc.publish("steer_torque_mode/global", payload_str, qos=0)
+            result2 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/steer_torque_mode", payload_str, qos=0)
+            print(f"[STEER MODE SYNC] Publicado a steer_torque_mode/global rc={result1.rc}")
+            print(f"[STEER MODE SYNC] Publicado a telemetry_config/{self.DongleID}/steer_torque_mode rc={result2.rc}")
+          except Exception as e:
+            print(f"[STEER MODE SYNC] ERROR publicando MQTT: {e}")
+          self.params.remove("SteerTorqueModeMqttPayload")
+      except Exception as e:
+        print(f"[STEER MODE SYNC] ERROR leyendo param: {e}")
+
       for canal in self.enabled_items:
         nombre = canal["canal"]
         topic = canal["topic"].format(self.DongleID)

@@ -30,6 +30,8 @@ private slots:
   void saveConfig();
   void loadConfig();
   void onEnabledToggled(bool checked);
+  void onSteerModeChanged(int mode);
+  void tryChangeSteerMode(int mode);
 
 private:
   QVBoxLayout* main_layout;
@@ -44,6 +46,10 @@ private:
   QLabel* quality_value_label;
 
   QCheckBox* enabled_checkbox;
+  QPushButton* btn_mode_model;
+  QPushButton* btn_mode_jetson;
+  QPushButton* btn_mode_test;
+  QLabel* torque_status_label;
   QLineEdit* ip_input;
   QLineEdit* comma_ip_input;
   QLineEdit* img_port_input;
@@ -55,6 +61,7 @@ private:
 
   void setupHeader();
   void setupEnableSection();
+  void setupTorqueControlSection();
   void setupConnectionSection();
   void setupQualitySection();
   void setupSaveButton();

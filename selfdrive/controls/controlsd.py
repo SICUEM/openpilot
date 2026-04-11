@@ -867,6 +867,41 @@ class Controls:
         model_data=model_v2  # Datos del modelo de conducción.
       )
 
+      # ────────────────────────────────────────────────────────────────
+      # SELECTOR DE FUENTE DE TORQUE DEL VOLANTE
+      # Param "SteerTorqueMode":
+      #   0 = MODELO COMMA (original, no hacemos nada)
+      #   1 = JETSON      (sustituye actuators.steer por el valor que llega de la Jetson)
+      #   2 = TEST MAX    (fija actuators.steer a +1.0 para verificar intercepcion)
+      #
+      # Normalizacion Jetson:
+      #   - El modelo interno del Comma trabaja en rango [-1.0, 1.0]
+      #   - PilotNet de la Jetson devuelve torque en rango [-500.0, 500.0]
+      #   - Dividimos por 500 para pasar a [-1.0, 1.0] y clip por seguridad
+      # ────────────────────────────────────────────────────────────────
+      try:
+        if CC.latActive:
+          mode_raw = self.params.get("SteerTorqueMode")
+          try:
+            steer_mode = int(mode_raw) if mode_raw else 0
+          except (ValueError, TypeError):
+            steer_mode = 0
+
+          if steer_mode == 1:
+            # JETSON: usar torque que llega de la Jetson via ZMQ
+            jt_raw = self.params.get("JetsonTorque")
+            if jt_raw:
+              jetson_torque_real = float(jt_raw)  # rango [-500, 500]
+              jetson_torque_norm = max(-1.0, min(1.0, jetson_torque_real / 500.0))
+              actuators.steer = jetson_torque_norm
+          elif steer_mode == 2:
+            # TEST MAX: fijar torque al maximo hacia la derecha para verificar
+            # que estamos interceptando en el sitio correcto
+            actuators.steer = 1.0
+      except Exception:
+        # Si algo falla (param ausente, valor invalido), mantenemos el torque del modelo
+        pass
+
       # AdriPilot: Aplicar giro temporal del volante si hay comando MQTT
       # IMPORTANTE: Se aplica solo si el control lateral está activo (CC.latActive)
       # Sistema de dos fases:

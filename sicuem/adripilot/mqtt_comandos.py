@@ -77,7 +77,9 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/brutebreak",      # Frenado de emergencia brusco
         f"telemetry_config/{self.DongleID}/camera_config",   # Configuración de cámara desde app ADRIPILOT
         f"telemetry_config/{self.DongleID}/jetson_config",   # Configuracion de Jetson (por dongle_id)
-        "jetson_config/global"                               # Configuracion de Jetson GLOBAL (desde cualquier app)
+        "jetson_config/global",                              # Configuracion de Jetson GLOBAL (desde cualquier app)
+        f"telemetry_config/{self.DongleID}/steer_torque_mode", # Modo de torque del volante (por dongle_id)
+        "steer_torque_mode/global"                           # Modo de torque del volante GLOBAL
       ]
 
       for topic in topics:
@@ -225,6 +227,11 @@ class MQTTComandos:
       elif topic.endswith("/jetson_config") or topic == "jetson_config/global":
         print(f"[JETSON SYNC] Recibido jetson_config en topic: {topic}")
         self.handle_jetson_config(payload)
+
+      # Modo de torque del volante desde app ADRIPILOT
+      elif topic.endswith("/steer_torque_mode") or topic == "steer_torque_mode/global":
+        print(f"[STEER MODE SYNC] Recibido steer_torque_mode en topic: {topic}")
+        self.handle_steer_torque_mode(payload)
 
     except Exception:
       pass  # Error silenciado para reducir uso de memoria
@@ -632,6 +639,63 @@ class MQTTComandos:
 
     except Exception as e:
       print(f"[JETSON SYNC] ERROR handle_jetson_config: {e}")
+
+  def handle_steer_torque_mode(self, payload):
+    """Maneja el cambio del modo de torque del volante desde la app ADRIPILOT.
+
+    Topics:
+      - telemetry_config/{dongle_id}/steer_torque_mode
+      - steer_torque_mode/global
+
+    Payload esperado:
+    {
+      "dongle_id": "xxx",
+      "steer_torque_mode": 0|1|2,
+      "source": "app" | "comma_ui"
+    }
+
+    Modos:
+      0 = MODELO COMMA
+      1 = JETSON
+      2 = TEST MAX
+    """
+    try:
+      import json as json_mod
+      data = json_mod.loads(payload)
+
+      # Evitar eco: si el mensaje viene del propio Comma, ignorarlo
+      if data.get("source") == "comma_ui":
+        print(f"[STEER MODE SYNC] Ignorado eco de comma_ui")
+        return
+
+      if "steer_torque_mode" not in data:
+        print(f"[STEER MODE SYNC] Payload sin 'steer_torque_mode', ignorado")
+        return
+
+      try:
+        mode = int(data["steer_torque_mode"])
+      except (ValueError, TypeError):
+        print(f"[STEER MODE SYNC] Valor invalido: {data.get('steer_torque_mode')}")
+        return
+
+      if mode not in (0, 1, 2):
+        print(f"[STEER MODE SYNC] Modo fuera de rango: {mode}")
+        return
+
+      # Leer el valor actual para detectar cambios reales
+      current = self.params.get("SteerTorqueMode")
+      current_str = current.decode('utf-8') if current else ""
+      new_str = str(mode)
+
+      if current_str == new_str:
+        print(f"[STEER MODE SYNC] Sin cambios (ya en modo {mode})")
+        return
+
+      self.params.put("SteerTorqueMode", new_str)
+      print(f"[STEER MODE SYNC] SteerTorqueMode actualizado: {current_str} -> {new_str}")
+
+    except Exception as e:
+      print(f"[STEER MODE SYNC] ERROR handle_steer_torque_mode: {e}")
 
   def set_camera_sender(self, camera_sender):
     """Establece la referencia al CameraSender para control remoto desde la app."""

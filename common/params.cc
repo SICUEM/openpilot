@@ -175,6 +175,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"JetsonTorque", CLEAR_ON_MANAGER_START},  // Torque recibido de la Jetson via ZMQ
     {"JetsonConfigChanged", CLEAR_ON_MANAGER_START},  // Flag para recargar config_jetson.json desde UI
     {"JetsonConfigMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar config Jetson via MQTT
+    {"SteerTorqueMode", PERSISTENT},  // Selector: 0=modelo Comma, 1=Jetson, 2=test max (torque fijo al maximo)
+    {"SteerTorqueModeMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar modo torque via MQTT
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)
     {"overtake_distancia_activacion", PERSISTENT},  // Distancia de activación del adelantamiento (metros, default 50)
     {"overtake_tiempo_carril_izq", PERSISTENT},  // Tiempo en carril izquierdo (segundos, default 15)

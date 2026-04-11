@@ -404,6 +404,16 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
     }
   }
 
+  // update SteerTorqueMode (0=MODELO COMMA, 1=JETSON, 2=TEST MAX)
+  {
+    std::string stm = params.get("SteerTorqueMode");
+    try {
+      steer_torque_mode = stm.empty() ? 0 : std::stoi(stm);
+    } catch (...) {
+      steer_torque_mode = 0;
+    }
+  }
+
   // update Jetson config info (solo en modo debug, cada ~2s via frame count)
   if (modoDebug) {
     static int jcfg_counter = 0;
@@ -1180,18 +1190,45 @@ if (adelantar) {
   }
 
   // Jetson debug info (solo en modo debug, centrado abajo)
-  if (modoDebug && !jetson_ip.isEmpty()) {
-    QString info = QString("Comma: %1 -> Jetson: %2 | img:%3 trq:%4 | %5")
-      .arg(comma_ip_cfg)
-      .arg(jetson_ip)
-      .arg(jetson_img_port)
-      .arg(jetson_torque_port)
-      .arg(jetson_enabled ? "ON" : "OFF");
-    p.setFont(InterFont(28, QFont::DemiBold));
-    QRect infoRect = p.fontMetrics().boundingRect(info);
-    int info_x = rect().center().x() - infoRect.width() / 2;
-    p.setPen(QColor(255, 200, 50, 190));
-    p.drawText(info_x, rect().bottom() - 6, info);
+  if (modoDebug) {
+    // Linea 1: Modo de torque activo (siempre visible en modo debug)
+    QString mode_label;
+    QColor mode_color;
+    switch (steer_torque_mode) {
+      case 1:
+        mode_label = QString("TORQUE -> JETSON (PilotNet)");
+        mode_color = QColor(245, 158, 11, 220);  // naranja
+        break;
+      case 2:
+        mode_label = QString("TORQUE -> TEST MAX (⚠ PELIGROSO)");
+        mode_color = QColor(239, 68, 68, 230);   // rojo
+        break;
+      default:
+        mode_label = QString("TORQUE -> MODELO COMMA (original)");
+        mode_color = QColor(118, 185, 0, 220);   // verde
+        break;
+    }
+    p.setFont(InterFont(30, QFont::Bold));
+    QRect modeRect = p.fontMetrics().boundingRect(mode_label);
+    int mode_x = rect().center().x() - modeRect.width() / 2;
+    int mode_y = rect().bottom() - 42;  // por encima de la linea de red
+    p.setPen(mode_color);
+    p.drawText(mode_x, mode_y, mode_label);
+
+    // Linea 2: Info de red Jetson (solo si hay config cargada)
+    if (!jetson_ip.isEmpty()) {
+      QString info = QString("Comma: %1 -> Jetson: %2 | img:%3 trq:%4 | %5")
+        .arg(comma_ip_cfg)
+        .arg(jetson_ip)
+        .arg(jetson_img_port)
+        .arg(jetson_torque_port)
+        .arg(jetson_enabled ? "ON" : "OFF");
+      p.setFont(InterFont(26, QFont::DemiBold));
+      QRect infoRect = p.fontMetrics().boundingRect(info);
+      int info_x = rect().center().x() - infoRect.width() / 2;
+      p.setPen(QColor(255, 200, 50, 190));
+      p.drawText(info_x, rect().bottom() - 8, info);
+    }
   }
 
   p.restore();

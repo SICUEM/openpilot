@@ -50,6 +50,8 @@ JetsonSettings::JetsonSettings(QWidget* parent) : QWidget(parent) {
   setupHeader();
   setupEnableSection();
   main_layout->addItem(new QSpacerItem(20, 20));
+  setupTorqueControlSection();
+  main_layout->addItem(new QSpacerItem(20, 20));
   setupConnectionSection();
   main_layout->addItem(new QSpacerItem(20, 20));
   setupQualitySection();
@@ -113,6 +115,166 @@ void JetsonSettings::setupEnableSection() {
   connect(enabled_checkbox, &QCheckBox::toggled, this, &JetsonSettings::onEnabledToggled);
   rl->addWidget(enabled_checkbox);
   main_layout->addWidget(enable_row);
+}
+
+void JetsonSettings::setupTorqueControlSection() {
+  QLabel* section_label = new QLabel(tr("Control del volante"));
+  section_label->setStyleSheet("font-size: 50px; font-weight: 600; color: #E0E0E0; margin-top: 10px;");
+  main_layout->addWidget(section_label);
+
+  QLabel* desc = new QLabel(tr("Selecciona de donde sale el torque que se aplica al volante cuando el control lateral esta activo."));
+  desc->setStyleSheet("font-size: 32px; color: #BDBDBD;");
+  desc->setWordWrap(true);
+  main_layout->addWidget(desc);
+
+  // Fila con los 3 botones de modo
+  QWidget* mode_row = new QWidget();
+  QHBoxLayout* ml = new QHBoxLayout(mode_row);
+  ml->setContentsMargins(0, 15, 0, 0);
+  ml->setSpacing(15);
+
+  auto makeModeButton = [](const QString& text, const QString& accent) {
+    QPushButton* b = new QPushButton(text);
+    b->setCheckable(true);
+    b->setMinimumHeight(120);
+    b->setStyleSheet(QString(R"(
+      QPushButton {
+        font-size: 38px;
+        font-weight: 700;
+        padding: 20px;
+        border-radius: 15px;
+        background-color: #393939;
+        color: #BDBDBD;
+        border: 3px solid #555555;
+      }
+      QPushButton:checked {
+        background-color: %1;
+        color: white;
+        border: 3px solid %1;
+      }
+    )").arg(accent));
+    return b;
+  };
+
+  btn_mode_model  = makeModeButton(tr("★ MODELO\nCOMMA\n(RECOMENDADO)"),  "#76B900");  // verde, recomendado
+  btn_mode_jetson = makeModeButton(tr("JETSON\n(PilotNet)"), "#F59E0B");  // naranja
+  btn_mode_test   = makeModeButton(tr("⚠ TEST MAX\n(PELIGROSO)"), "#EF4444");  // rojo
+
+  ml->addWidget(btn_mode_model);
+  ml->addWidget(btn_mode_jetson);
+  ml->addWidget(btn_mode_test);
+  main_layout->addWidget(mode_row);
+
+  // Label de estado
+  torque_status_label = new QLabel();
+  torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; margin-top: 8px;");
+  torque_status_label->setWordWrap(true);
+  main_layout->addWidget(torque_status_label);
+
+  // Conectar cada boton a su modo (0=modelo, 1=jetson, 2=test max)
+  // Usamos tryChangeSteerMode que muestra un dialogo de confirmacion antes
+  connect(btn_mode_model,  &QPushButton::clicked, this, [this]() { tryChangeSteerMode(0); });
+  connect(btn_mode_jetson, &QPushButton::clicked, this, [this]() { tryChangeSteerMode(1); });
+  connect(btn_mode_test,   &QPushButton::clicked, this, [this]() { tryChangeSteerMode(2); });
+
+  // Estado inicial: leer el param guardado
+  std::string mode_str = Params().get("SteerTorqueMode");
+  int mode = 0;
+  try { mode = mode_str.empty() ? 0 : std::stoi(mode_str); } catch (...) { mode = 0; }
+  onSteerModeChanged(mode);
+}
+
+void JetsonSettings::tryChangeSteerMode(int mode) {
+  // Leer modo actual para no pedir confirmacion si ya esta en ese modo
+  Params params;
+  std::string cur = params.get("SteerTorqueMode");
+  int current = 0;
+  try { current = cur.empty() ? 0 : std::stoi(cur); } catch (...) { current = 0; }
+
+  // Refrescar estado visual de los botones (por si el usuario cancela)
+  btn_mode_model->setChecked(current == 0);
+  btn_mode_jetson->setChecked(current == 1);
+  btn_mode_test->setChecked(current == 2);
+
+  if (mode == current) return;
+
+  // Preparar mensaje segun el modo destino
+  QString msg;
+  bool confirmed = false;
+
+  if (mode == 0) {
+    // MODELO COMMA - opcion segura, confirmacion ligera
+    msg = tr("Volver al MODELO COMMA (recomendado)\n\n"
+             "El volante usara el torque calculado por el modelo interno de openpilot.\n\n"
+             "Esta es la opcion mas segura y probada.");
+    confirmed = ConfirmationDialog::confirm(msg, tr("Cambiar a MODELO COMMA"), this);
+  } else if (mode == 1) {
+    // JETSON - aviso importante
+    msg = tr("⚠ ATENCION\n\n"
+             "Vas a delegar el control del volante a la JETSON (PilotNet).\n\n"
+             "El volante obedecera al torque que calcule la red neuronal externa a traves del torque que llegue desde la jetson por zmq.\n\n"
+             "Asegurate de que:\n"
+             "- La Jetson esta conectada y enviando torque por ZMQ\n"
+             "- Estas en un entorno controlado\n"
+             "- Tienes las manos sobre el volante\n\n"
+             "Deseas continuar?");
+    confirmed = ConfirmationDialog::confirm(msg, tr("SI, usar JETSON"), this);
+  } else if (mode == 2) {
+    // TEST MAX - aviso fuerte
+    msg = tr("⚠⚠ PELIGRO - MODO DE PRUEBA ⚠⚠\n\n"
+             "Este modo fija el torque del volante al MAXIMO hacia la DERECHA de forma continua.\n\n"
+             "SOLO sirve para verificar que el punto de interceptacion del torque en controlsd.py funciona correctamente.\n\n"
+             "Cuando el coche este en engage con openpilot, el volante girara a la derecha tanto como el panda permita.\n\n"
+             "USALO SOLO EN PRUEBAS CONTROLADAS.\n"
+             "USALO SOLO CON LAS MANOS EN EL VOLANTE.\n"
+             "NO LO USES EN VIA PUBLICA.\n\n"
+             "Deseas continuar?");
+    confirmed = ConfirmationDialog::confirm(msg, tr("SI, ACTIVAR TEST MAX"), this);
+  }
+
+  if (confirmed) {
+    onSteerModeChanged(mode);
+  } else {
+    // Restaurar visual al estado previo
+    btn_mode_model->setChecked(current == 0);
+    btn_mode_jetson->setChecked(current == 1);
+    btn_mode_test->setChecked(current == 2);
+  }
+}
+
+void JetsonSettings::onSteerModeChanged(int mode) {
+  // Guardar el modo en Params (como string para usar get() en Python)
+  Params params;
+  params.put("SteerTorqueMode", std::to_string(mode));
+
+  // Actualizar estado visual de los botones (solo uno activo a la vez)
+  btn_mode_model->setChecked(mode == 0);
+  btn_mode_jetson->setChecked(mode == 1);
+  btn_mode_test->setChecked(mode == 2);
+
+  // Actualizar label de estado segun el modo
+  if (mode == 0) {
+    torque_status_label->setText(tr("MODELO COMMA - El volante usa el torque del modelo interno (original)"));
+    torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: rgba(118, 185, 0, 0.15); color: #76B900; border: 2px solid #76B900;");
+  } else if (mode == 1) {
+    torque_status_label->setText(tr("⚠ JETSON - El volante hara caso al torque que llega de la Jetson (PilotNet)"));
+    torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: rgba(245, 158, 11, 0.2); color: #F59E0B; border: 2px solid #F59E0B;");
+  } else if (mode == 2) {
+    torque_status_label->setText(tr("⚠⚠ TEST MAX - Torque FIJO al maximo hacia la derecha (para probar interceptacion)"));
+    torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: rgba(239, 68, 68, 0.2); color: #EF4444; border: 2px solid #EF4444;");
+  }
+
+  // Publicar via MQTT para sincronizar con app/servidor
+  QString dongle_id = QString::fromStdString(params.get("DongleId"));
+  if (!dongle_id.isEmpty()) {
+    QJsonObject payload;
+    payload["dongle_id"] = dongle_id;
+    payload["steer_torque_mode"] = mode;
+    payload["source"] = "comma_ui";
+    payload["timestamp"] = QString::number(QDateTime::currentMSecsSinceEpoch());
+    QJsonDocument doc(payload);
+    params.put("SteerTorqueModeMqttPayload", doc.toJson(QJsonDocument::Compact).toStdString());
+  }
 }
 
 void JetsonSettings::setupConnectionSection() {
