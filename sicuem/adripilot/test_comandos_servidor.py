@@ -9,7 +9,7 @@ import paho.mqtt.publish as publish
 
 # Configuración basada en los logs del servidor
 DONGLE_ID = "UnregisteredDevice"
-BROKER_ADDRESS = "79.146.243.191"  # Broker del servidor
+BROKER_ADDRESS = "79.146.247.152"  # Broker del servidor
 BROKER_PORT = 1883
 
 def send_speed_down():
