@@ -1,6 +1,7 @@
 #include "system/camerad/cameras/camera_common.h"
 
 #include <cassert>
+#include <cstring>
 #include <string>
 
 #include "third_party/libyuv/include/libyuv.h"
@@ -248,7 +249,20 @@ void publish_thumbnail(PubMaster *pm, const CameraBuf *b, const char *service) {
   if (thumbnail.size() == 0) return;
 
   MessageBuilder msg;
-  auto thumbnaild = msg.initEvent().initThumbnail();
+  // IMPORTANTE: el despacho en el subscriber usa Event.which(), no el nombre del
+  // socket. Si enviamos por el socket "driverThumbnail" o "jetsonThumbnail" pero
+  // inicializamos Event.thumbnail, el SubMaster lo dispara como si fuese "thumbnail"
+  // y el suscriptor del canal dedicado nunca recibe update.
+  auto event = msg.initEvent();
+  cereal::Thumbnail::Builder thumbnaild = [&]() {
+    if (strcmp(service, "driverThumbnail") == 0) {
+      return event.initDriverThumbnail();
+    } else if (strcmp(service, "jetsonThumbnail") == 0) {
+      return event.initJetsonThumbnail();
+    } else {
+      return event.initThumbnail();
+    }
+  }();
   thumbnaild.setFrameId(b->cur_frame_data.frame_id);
   thumbnaild.setTimestampEof(b->cur_frame_data.timestamp_eof);
   thumbnaild.setThumbnail(thumbnail);

@@ -56,11 +56,14 @@ class CameraSender:
     self.debug_enabled = False
     self._last_debug_check = 0
 
-    # Mapeo de camera_type a canal cereal para thumbnails
+    # Mapeo de camera_type a canal cereal para thumbnails.
+    # 'road' y 'wide' usan 'jetsonThumbnail' (~5 Hz, canal dedicado, NO logueado):
+    # asi NO saturamos el 'thumbnail' original de comma (0.2 Hz, logueado en qlog),
+    # que si se publica a 5 Hz rompe la subida de rutas a la plataforma comma.
     self._thumbnail_channels = {
-      'road': 'thumbnail',
+      'road': 'jetsonThumbnail',
       'driver': 'driverThumbnail',
-      'wide': 'thumbnail',
+      'wide': 'jetsonThumbnail',
     }
 
     # ZMQ client para envío a Jetson (se inicializa si está habilitado en config)

@@ -664,7 +664,7 @@ void cameras_init(VisionIpcServer *v, MultiCameraState *s, cl_device_id device_i
   s->road_cam.camera_init(v, device_id, ctx);
   s->wide_road_cam.camera_init(v, device_id, ctx);
 
-  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail", "driverThumbnail"});
+  s->pm = new PubMaster({"roadCameraState", "driverCameraState", "wideRoadCameraState", "thumbnail", "driverThumbnail", "jetsonThumbnail"});
 }
 
 void cameras_open(MultiCameraState *s) {
@@ -969,8 +969,17 @@ void CameraState::run() {
 
     // Send the message
     multi_cam_state->pm->send(publish_name, msg);
+    // Thumbnail original de comma (~0.2 Hz): lo consume loggerd y entra en qlog,
+    // que es lo que la plataforma comma sube como preview de la ruta.
+    // Si publicamos aqui a mas rate, el qlog se infla y la subida falla.
+    if (stream_type == VISION_STREAM_ROAD && cnt % 100 == 3) {
+      publish_thumbnail(multi_cam_state->pm, &buf);  // this takes 10ms???
+    }
+    // Thumbnail dedicado a la Jetson (~5 Hz a 20 FPS). Canal separado
+    // ('jetsonThumbnail', should_log=False) para no saturar msgq/loggerd
+    // ni inflar el qlog que sube a comma.
     if (stream_type == VISION_STREAM_ROAD && cnt % 4 == 0) {
-      publish_thumbnail(multi_cam_state->pm, &buf);  // ~5 FPS para Jetson (cada 4 frames a 20FPS)
+      publish_thumbnail(multi_cam_state->pm, &buf, "jetsonThumbnail");
     }
     if (stream_type == VISION_STREAM_DRIVER && cnt % 100 == 3) {
       publish_thumbnail(multi_cam_state->pm, &buf, "driverThumbnail");

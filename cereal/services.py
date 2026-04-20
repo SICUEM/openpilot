@@ -55,6 +55,7 @@ _services: dict[str, tuple] = {
   "lateralPlanDEPRECATED": (True, 20., 5),
   "thumbnail": (True, 0.2, 1),
   "driverThumbnail": (True, 0.2, 1),
+  "jetsonThumbnail": (False, 5., 1),  # canal dedicado a la Jetson, ~5 Hz; NO logueado para no inflar qlog
   "onroadEvents": (True, 1., 1),
   "carParams": (True, 0.02, 1),
   "roadCameraState": (True, 20., 20),

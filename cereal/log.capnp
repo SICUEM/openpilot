@@ -2383,6 +2383,12 @@ struct Event {
     # *********** AdriPilot: driver camera thumbnail ***********
     driverThumbnail @130 :Thumbnail;
 
+    # *********** AdriPilot: thumbnail rapido para Jetson (~5 Hz) ***********
+    # Canal separado del 'thumbnail' original (0.2 Hz) para no romper loggerd/uploader.
+    # NO se loguea en qlog (services.py: should_log=False), asi la subida de rutas a
+    # la plataforma comma no se infla con 25x mas mensajes de lo normal.
+    jetsonThumbnail @131 :Thumbnail;
+
     # *********** Custom: reserved for forks ***********
     controlsStateSP @107 :Custom.ControlsStateSP;
     longitudinalPlanSP @108 :Custom.LongitudinalPlanSP;
