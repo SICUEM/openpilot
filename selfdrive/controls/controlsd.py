@@ -180,6 +180,10 @@ class Controls:
     self.not_running_prev = None
     self.steer_limited = False
     self.desired_curvature = 0.0
+    # Estado para suavizar / mantener el torque de la Jetson entre llegadas (4-5 Hz)
+    self._jetson_last_norm = 0.0
+    self._jetson_sign_streak = 0
+    self._jetson_last_sign = 0
     self.experimental_mode = False
     self.personality = self.read_personality_param()
     self.v_cruise_helper = VCruiseHelper(self.CP)
@@ -867,17 +871,32 @@ class Controls:
         model_data=model_v2  # Datos del modelo de conducción.
       )
 
+      # Guardar el torque calculado por el modelo Comma ANTES de cualquier override
+      # (Jetson, MAX, etc.) para que la UI pueda mostrarlo en modo debug aunque no
+      # sea el que finalmente se aplica.
+      try:
+        self.params.put_nonblocking("CommaSteerTorque", f"{float(actuators.steer):.4f}")
+      except Exception:
+        pass
+
       # ────────────────────────────────────────────────────────────────
       # SELECTOR DE FUENTE DE TORQUE DEL VOLANTE
       # Param "SteerTorqueMode":
       #   0 = MODELO COMMA (original, no hacemos nada)
       #   1 = JETSON      (sustituye actuators.steer por el valor que llega de la Jetson)
-      #   2 = TEST MAX    (fija actuators.steer a +1.0 para verificar intercepcion)
+      #   2 = TEST MAX    (fija actuators.steer a -1.0 para verificar intercepcion: giro a la derecha)
       #
       # Normalizacion Jetson:
-      #   - El modelo interno del Comma trabaja en rango [-1.0, 1.0]
-      #   - PilotNet de la Jetson devuelve torque en rango [-500.0, 500.0]
-      #   - Dividimos por 500 para pasar a [-1.0, 1.0] y clip por seguridad
+      #   - Comma espera rango [-1.0, 1.0]; PilotNet nominal: [-500, 500]
+      #   - Ganancia configurable via param "JetsonTorqueGain" (default 5.0) para
+      #     compensar que los valores tipicos de PilotNet son mucho menores que 500.
+      #   - Signo invertido para alinear convencion Jetson con convencion Comma
+      #     (MAX +1.0 gira a la izquierda en este coche, queremos positivo=derecha).
+      #   - Saturacion de signo: si el signo se mantiene estable N ciclos consecutivos,
+      #     forzamos saturacion (±1.0). Esto vence el rate-limiter del carcontroller
+      #     cuando la Jetson publica a 4-5 Hz (con senales oscilantes el rate-limiter
+      #     cancela el giro antes de llegar al target).
+      #   - Hold entre llegadas: si el param viene vacio, reutilizamos el ultimo valor.
       # ────────────────────────────────────────────────────────────────
       try:
         if CC.latActive:
@@ -890,14 +909,66 @@ class Controls:
           if steer_mode == 1:
             # JETSON: usar torque que llega de la Jetson via ZMQ
             jt_raw = self.params.get("JetsonTorque")
+            jetson_torque_norm = None
+
             if jt_raw:
-              jetson_torque_real = float(jt_raw)  # rango [-500, 500]
-              jetson_torque_norm = max(-1.0, min(1.0, jetson_torque_real / 500.0))
-              actuators.steer = jetson_torque_norm
+              try:
+                jetson_torque_real = float(jt_raw)
+              except (ValueError, TypeError):
+                jetson_torque_real = None
+
+              if jetson_torque_real is not None:
+                # Ganancia configurable (default 5.0)
+                gain = 5.0
+                try:
+                  gain_raw = self.params.get("JetsonTorqueGain")
+                  if gain_raw:
+                    gain = float(gain_raw)
+                except (ValueError, TypeError):
+                  pass
+
+                # Invertir signo + aplicar ganancia + normalizar + clip
+                scaled = -jetson_torque_real * gain / 500.0
+                jetson_torque_norm = max(-1.0, min(1.0, scaled))
+
+                # Saturacion por estabilidad de signo: si la Jetson publica el mismo
+                # signo durante varios ciclos, saturamos para que el rate-limiter del
+                # carcontroller tenga tiempo de rampar a un valor util.
+                DEAD_ZONE = 0.02         # ignorar ruido cerca de cero
+                SATURATE_AFTER = 20      # ciclos de controlsd (~200 ms a 100 Hz)
+                if jetson_torque_norm > DEAD_ZONE:
+                  cur_sign = 1
+                elif jetson_torque_norm < -DEAD_ZONE:
+                  cur_sign = -1
+                else:
+                  cur_sign = 0
+
+                if cur_sign != 0 and cur_sign == self._jetson_last_sign:
+                  self._jetson_sign_streak += 1
+                else:
+                  self._jetson_sign_streak = 1 if cur_sign != 0 else 0
+                self._jetson_last_sign = cur_sign
+
+                if cur_sign != 0 and self._jetson_sign_streak >= SATURATE_AFTER:
+                  # signo consistente -> saturar hacia ese lado
+                  jetson_torque_norm = float(cur_sign)
+
+                self._jetson_last_norm = jetson_torque_norm
+
+            # Si no hay valor nuevo valido, mantener el ultimo aplicado (hold)
+            if jetson_torque_norm is None:
+              jetson_torque_norm = self._jetson_last_norm
+
+            actuators.steer = jetson_torque_norm
           elif steer_mode == 2:
             # TEST MAX: fijar torque al maximo hacia la derecha para verificar
             # que estamos interceptando en el sitio correcto
-            actuators.steer = 1.0
+            actuators.steer = -1.0
+          else:
+            # reset del estado Jetson cuando no estamos en ese modo
+            self._jetson_sign_streak = 0
+            self._jetson_last_sign = 0
+            self._jetson_last_norm = 0.0
       except Exception:
         # Si algo falla (param ausente, valor invalido), mantenemos el torque del modelo
         pass

@@ -40,6 +40,12 @@ private:
   // Jetson torque
   float jetson_torque = 0.0;
   bool jetson_torque_valid = false;
+  // Comma-calculated torque (antes de override Jetson/MAX)
+  float comma_torque = 0.0;
+  bool comma_torque_valid = false;
+  // Debug mode flag
+  bool debug_mode = false;
+  double last_debug_check = 0.0;
   Params params;
 
 protected:

@@ -67,6 +67,26 @@ void AnnotatedCameraWidget::updateState(const UIState &s) {
     jetson_torque_valid = false;
   }
 
+  // update Comma-calculated torque (valor del LaC antes de override)
+  std::string ct = params.get("CommaSteerTorque");
+  if (!ct.empty()) {
+    try {
+      comma_torque = std::stof(ct);
+      comma_torque_valid = true;
+    } catch (...) {
+      comma_torque_valid = false;
+    }
+  } else {
+    comma_torque_valid = false;
+  }
+
+  // refrescar modo_debug cada 2 s para no leer param cada frame
+  double now_ms = millis_since_boot();
+  if (now_ms - last_debug_check > 2000.0) {
+    debug_mode = params.getBool("modo_debug");
+    last_debug_check = now_ms;
+  }
+
   // update engageability/experimental mode button
   experimental_btn->updateState(s);
 
@@ -126,12 +146,45 @@ void AnnotatedCameraWidget::drawHud(QPainter &p) {
   p.setFont(InterFont(66));
   drawText(p, rect().center().x(), 290, speedUnit, 200);
 
-  // Jetson torque (esquina inferior derecha)
-  if (jetson_torque_valid) {
-    QString torqueStr = QString("JT: %1").arg(jetson_torque, 0, 'f', 1);
-    p.setFont(InterFont(38, QFont::DemiBold));
-    p.setPen(QColor(0, 255, 200, 200));
-    p.drawText(width() - 280, height() - 80, torqueStr);
+  // Torques de depuracion (solo cuando modo_debug esta activo).
+  // Se muestran ambos: el calculado por el modelo Comma (aunque no sea el que se
+  // aplica) y el recibido de la Jetson. Cada uno con su etiqueta y color.
+  //   COMMA  -> amarillo       (rango [-1.0, 1.0])
+  //   JETSON -> cian/verde     (rango ~[-500, 500])
+  if (debug_mode) {
+    p.save();
+
+    const int line_h = 70;
+    const int box_w  = 520;
+    const int box_h  = (comma_torque_valid ? line_h : 0) + (jetson_torque_valid ? line_h : 0) + 40;
+    const int box_x  = width() - box_w - 40;
+    const int box_y  = height() - box_h - 40;
+
+    if (comma_torque_valid || jetson_torque_valid) {
+      // fondo semitransparente para legibilidad
+      p.setPen(QPen(QColor(255, 255, 255, 60), 2));
+      p.setBrush(QColor(0, 0, 0, 140));
+      p.drawRoundedRect(QRect(box_x, box_y, box_w, box_h), 16, 16);
+
+      p.setFont(InterFont(56, QFont::Bold));
+      int ty = box_y + 20;
+
+      if (comma_torque_valid) {
+        p.setPen(QColor(255, 210, 70, 255));  // amarillo
+        QString s = QString("COMMA: %1").arg(comma_torque, 0, 'f', 3);
+        p.drawText(QRect(box_x + 20, ty, box_w - 40, line_h),
+                   Qt::AlignVCenter | Qt::AlignLeft, s);
+        ty += line_h;
+      }
+      if (jetson_torque_valid) {
+        p.setPen(QColor(0, 255, 200, 255));   // cian-verde
+        QString s = QString("JETSON: %1").arg(jetson_torque, 0, 'f', 1);
+        p.drawText(QRect(box_x + 20, ty, box_w - 40, line_h),
+                   Qt::AlignVCenter | Qt::AlignLeft, s);
+      }
+    }
+
+    p.restore();
   }
 
   p.restore();
