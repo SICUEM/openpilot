@@ -419,6 +419,26 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
     }
   }
 
+  // update Applied torque (el valor FINAL que controlsd envia al carcontroller
+  // tras el selector). Permite verificar visualmente que la rama activa del
+  // selector coincide con el modo elegido:
+  //   modo 0 (Comma)    -> AT ≈ CT
+  //   modo 1 (Jetson)   -> AT ≈ -JT (o 0 si watchdog)
+  //   modo 2 (TEST MAX) -> AT = -1.0
+  {
+    std::string at = params.get("AppliedSteerTorque");
+    if (!at.empty()) {
+      try {
+        applied_torque = std::stof(at);
+        applied_torque_valid = true;
+      } catch (...) {
+        applied_torque_valid = false;
+      }
+    } else {
+      applied_torque_valid = false;
+    }
+  }
+
   // update SteerTorqueMode (0=MODELO COMMA, 1=JETSON, 2=TEST MAX)
   {
     std::string stm = params.get("SteerTorqueMode");
@@ -1197,23 +1217,38 @@ if (adelantar) {
   }
 
   // Torques en pantalla (esquina inferior derecha), tamano grande.
-  //   Linea superior (amarillo): CT = torque que CALCULARIA el modelo Comma
-  //                              (siempre visible si hay dato, incluso cuando
-  //                              el modo activo NO es Comma; indicativo).
+  //   Linea superior (amarillo): CT = torque teorico del modelo Comma.
+  //   Linea del medio (blanco):  AT = torque FINAL aplicado al volante.
   //   Linea inferior (cyan):     JT = torque recibido de la Jetson.
-  // Formateados con 2 decimales para ver mejor la proporcionalidad.
+  //
+  // Como interpretarlas:
+  //   - AT es la unica que va REALMENTE al coche. Sirve para confirmar
+  //     visualmente que el selector esta aplicando la fuente esperada.
+  //   - En modo COMMA: AT debe coincidir con CT.
+  //   - En modo JETSON: AT debe ser -JT (signo invertido por convencion),
+  //     o 0.0 si el watchdog detecto que la Jetson esta muda.
+  //   - En modo TEST MAX: AT es siempre -1.0.
+  //   - CT en parado puede saltar a ±1 por saturacion del PID de Comma
+  //     con el low-speed-factor; es comportamiento conocido, no bug.
   {
     const int torque_font_px = 64;
     p.setFont(InterFont(torque_font_px, QFont::DemiBold));
-    const int line_gap = torque_font_px + 12;       // separacion vertical entre CT y JT
-    const int x_pos    = rect().right() - 420;      // desplazado para que quepa el texto
-    const int y_jt     = rect().bottom() - 30;      // linea inferior (JT)
-    const int y_ct     = y_jt - line_gap;            // linea superior (CT)
+    const int line_gap = torque_font_px + 12;          // separacion vertical entre lineas
+    const int x_pos    = rect().right() - 420;          // desplazado para que quepa el texto
+    const int y_jt     = rect().bottom() - 30;          // linea inferior (JT)
+    const int y_at     = y_jt - line_gap;                // linea del medio (AT)
+    const int y_ct     = y_at - line_gap;                // linea superior (CT)
 
     if (comma_torque_valid) {
       QString ctStr = QString("CT: %1").arg(comma_torque, 0, 'f', 2);
       p.setPen(QColor(255, 220, 80, 220));   // amarillo (Comma - informativo)
       p.drawText(x_pos, y_ct, ctStr);
+    }
+
+    if (applied_torque_valid) {
+      QString atStr = QString("AT: %1").arg(applied_torque, 0, 'f', 2);
+      p.setPen(QColor(255, 255, 255, 230));  // blanco (valor REAL aplicado)
+      p.drawText(x_pos, y_at, atStr);
     }
 
     if (jetson_torque_valid) {

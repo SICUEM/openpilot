@@ -180,6 +180,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"JetsonTorqueGain", PERSISTENT},  // DEPRECATED desde v3 proporcional: la Jetson ya publica en [-1,1], no se aplica ganancia ni /500.
     {"JetsonDeadZone", PERSISTENT},  // Dead-zone en unidades NORMALIZADAS [0,1] (default 0.02). Si abs(JetsonTorque) < este valor -> torque cero (filtra ruido).
     {"CommaSteerTorque", CLEAR_ON_MANAGER_START},  // Torque lateral calculado por el modelo Comma (antes de override Jetson/MAX), rango [-1.0, 1.0]
+    {"AppliedSteerTorque", CLEAR_ON_MANAGER_START},  // Torque final que controlsd envia al carcontroller tras el selector. Debe coincidir con CT en modo 0, con -JT en modo 1, con -1.0 en modo 2.
     {"SteerTorqueModeMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar modo torque via MQTT
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)
     {"overtake_distancia_activacion", PERSISTENT},  // Distancia de activación del adelantamiento (metros, default 50)

@@ -14,7 +14,7 @@ import time
 
 import zmq
 
-from openpilot.common.params import Params
+from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.swaglog import cloudlog
 
 
@@ -125,7 +125,16 @@ class ZMQClient:
         # Orden importante: primero el timestamp (marca que hay senal viva),
         # luego el valor. Si controlsd lee entre las dos escrituras, lee un
         # ts nuevo pero torque viejo -> aplica el valor anterior (seguro).
-        self._params.put("JetsonTorqueTimestamp", f"{now:.6f}")
+        # Si JetsonTorqueTimestamp no esta registrado en params.cc (no se
+        # recompilo), seguimos publicando JetsonTorque para no romper la
+        # UI, pero el watchdog en controlsd no podra validar frescura y
+        # marcara stale -> torque=0 (fail-safe).
+        try:
+          self._params.put("JetsonTorqueTimestamp", f"{now:.6f}")
+        except UnknownKeyName:
+          if not getattr(self, "_warned_ts_param", False):
+            cloudlog.error("JetsonTorqueTimestamp no registrado. Recompila common/params.cc para habilitar el watchdog del modo Jetson.")
+            self._warned_ts_param = True
         self._params.put("JetsonTorque", str(torque))
       except zmq.Again:
         # RCVTIMEO cumplido sin datos. Volvemos a comprobar _running y
