@@ -268,6 +268,18 @@ class CameraSender:
     while not self.stop_event.is_set():
       sm.update(timeout=1000)
 
+      # IMPORTANTE: comprobamos JetsonConfigChanged ANTES del `continue` de abajo.
+      # Antes estaba dentro del bloque de procesado de thumbnail, asi que si el
+      # canal no traia frames (sim sin camara, offroad, cargas puntuales...) el
+      # flag nunca se leia y habia que hacer sudo reboot para que la nueva IP
+      # de la Jetson tuviese efecto. Ahora el reload se hace pase lo que pase.
+      try:
+        if self.params.get_bool("JetsonConfigChanged"):
+          self.params.put_bool("JetsonConfigChanged", False)
+          self.reload_jetson_config()
+      except Exception as e:
+        cloudlog.warning(f"CameraSender: error comprobando JetsonConfigChanged: {e}")
+
       if not sm.updated[channel]:
         continue
 
@@ -279,14 +291,6 @@ class CameraSender:
         if not jpeg_data:
           cloudlog.warning("CameraSender: received empty thumbnail")
           continue
-
-        # Comprobar si la config de Jetson fue cambiada desde la UI del Comma
-        try:
-          if self.params.get_bool("JetsonConfigChanged"):
-            self.params.put_bool("JetsonConfigChanged", False)
-            self.reload_jetson_config()
-        except Exception:
-          pass
 
         # Enviar siempre por ZMQ a la Jetson (cada frame, independiente del MQTT)
         if self.zmq_client is not None:

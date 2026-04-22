@@ -98,8 +98,73 @@ class MQTTEnvioGeneral:
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
       self.conectado = True
+      # "Cold start" sync: publicar nuestro estado actual como mensaje
+      # RETAINED para que cualquier app que se conecte despues lo reciba
+      # inmediatamente (sin necesidad de que el usuario mueva nada).
+      #
+      # Lo hacemos con un pequeno delay para dar tiempo a que el otro
+      # cliente MQTT (mqtt_comandos, que tiene las suscripciones) procese
+      # los retained que el broker le pueda estar entregando del lado app
+      # (caso: el usuario cambio algo en la app mientras el Comma estaba
+      # offline). Asi publicamos DESPUES de haber aplicado esos cambios
+      # y nuestro retained refleja el estado real.
+      threading.Timer(1.5, self._publish_state_snapshot_retained).start()
     else:
       self.conectado = False
+
+  def _publish_state_snapshot_retained(self):
+    """Publica el estado actual de SteerTorqueMode y config_jetson con retain=True.
+
+    Se llama una vez al conectar MQTT. El broker guarda estos mensajes y los
+    entrega instantaneamente a cualquier subscriber futuro (p.ej. la app al
+    lanzarse). source='comma_ui' para que el anti-eco de mqtt_comandos.py
+    ignore el retained cuando le llegue a el mismo por su suscripcion.
+    """
+    if not self.conectado:
+      return
+    try:
+      # --- SteerTorqueMode ---
+      mode_raw = self.params.get("SteerTorqueMode")
+      try:
+        mode = int(mode_raw) if mode_raw else 0
+      except (ValueError, TypeError):
+        mode = 0
+      steer_payload = {
+        "dongle_id": self.DongleID,
+        "steer_torque_mode": mode,
+        "source": "comma_ui",
+        "timestamp": int(time.time() * 1000),
+      }
+      steer_str = json.dumps(steer_payload)
+      self.mqttc.publish("steer_torque_mode/global", steer_str, qos=0, retain=True)
+      self.mqttc.publish(f"telemetry_config/{self.DongleID}/steer_torque_mode", steer_str, qos=0, retain=True)
+      print(f"[COLD-START SYNC] Retained SteerTorqueMode={mode} publicado")
+
+      # --- config_jetson.json (IPs, puertos, calidad, enabled) ---
+      config_path = os.path.join(self.base_path, "config_jetson.json")
+      if os.path.exists(config_path):
+        try:
+          with open(config_path, "r") as f:
+            cfg = json.load(f)
+        except Exception:
+          cfg = {}
+        jetson_payload = {
+          "dongle_id": self.DongleID,
+          "jetson_enabled": cfg.get("jetson_enabled", False),
+          "jetson_ip": cfg.get("jetson_ip", ""),
+          "comma_ip": cfg.get("comma_ip", ""),
+          "jetson_img_port": cfg.get("jetson_img_port", 5555),
+          "jetson_torque_port": cfg.get("jetson_torque_port", 5556),
+          "jpeg_quality": cfg.get("jpeg_quality", 80),
+          "source": "comma_ui",
+          "timestamp": int(time.time() * 1000),
+        }
+        jet_str = json.dumps(jetson_payload)
+        self.mqttc.publish("jetson_config/global", jet_str, qos=0, retain=True)
+        self.mqttc.publish(f"telemetry_config/{self.DongleID}/jetson_config", jet_str, qos=0, retain=True)
+        print(f"[COLD-START SYNC] Retained jetson_config publicado: {jetson_payload}")
+    except Exception as e:
+      print(f"[COLD-START SYNC] ERROR publicando snapshot: {e}")
 
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
@@ -153,10 +218,13 @@ class MQTTEnvioGeneral:
           payload_str = jetson_payload.decode('utf-8')
           print(f"[JETSON SYNC] Detectado JetsonConfigMqttPayload: {payload_str[:200]}")
           try:
-            result1 = self.mqttc.publish("jetson_config/global", payload_str, qos=0)
-            result2 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/jetson_config", payload_str, qos=0)
-            print(f"[JETSON SYNC] Publicado a jetson_config/global rc={result1.rc}")
-            print(f"[JETSON SYNC] Publicado a telemetry_config/{self.DongleID}/jetson_config rc={result2.rc}")
+            # retain=True: el broker guarda la ultima version de cada topic y
+            # la entrega automaticamente a futuros subscribers. Asi la app al
+            # lanzarse tiene el estado actual sin tener que preguntarle a nadie.
+            result1 = self.mqttc.publish("jetson_config/global", payload_str, qos=0, retain=True)
+            result2 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/jetson_config", payload_str, qos=0, retain=True)
+            print(f"[JETSON SYNC] Publicado (retained) a jetson_config/global rc={result1.rc}")
+            print(f"[JETSON SYNC] Publicado (retained) a telemetry_config/{self.DongleID}/jetson_config rc={result2.rc}")
           except Exception as e:
             print(f"[JETSON SYNC] ERROR publicando MQTT: {e}")
           self.params.remove("JetsonConfigMqttPayload")
@@ -171,10 +239,11 @@ class MQTTEnvioGeneral:
           payload_str = steer_mode_payload.decode('utf-8')
           print(f"[STEER MODE SYNC] Detectado payload: {payload_str[:200]}")
           try:
-            result1 = self.mqttc.publish("steer_torque_mode/global", payload_str, qos=0)
-            result2 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/steer_torque_mode", payload_str, qos=0)
-            print(f"[STEER MODE SYNC] Publicado a steer_torque_mode/global rc={result1.rc}")
-            print(f"[STEER MODE SYNC] Publicado a telemetry_config/{self.DongleID}/steer_torque_mode rc={result2.rc}")
+            # retain=True: ver comentario arriba en JetsonConfig.
+            result1 = self.mqttc.publish("steer_torque_mode/global", payload_str, qos=0, retain=True)
+            result2 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/steer_torque_mode", payload_str, qos=0, retain=True)
+            print(f"[STEER MODE SYNC] Publicado (retained) a steer_torque_mode/global rc={result1.rc}")
+            print(f"[STEER MODE SYNC] Publicado (retained) a telemetry_config/{self.DongleID}/steer_torque_mode rc={result2.rc}")
           except Exception as e:
             print(f"[STEER MODE SYNC] ERROR publicando MQTT: {e}")
           self.params.remove("SteerTorqueModeMqttPayload")

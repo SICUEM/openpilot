@@ -37,10 +37,19 @@ class ZMQClient:
     # PUB: envío de imágenes — fire-and-forget, nunca bloquea
     self._img_socket = self._context.socket(zmq.PUB)
     self._img_socket.setsockopt(zmq.SNDHWM, 1)  # descarta si Jetson va lento
+    # LINGER=0: al hacer close() no esperamos a drenar colas pendientes.
+    # Critico para reload_jetson_config (cambio de IP en caliente): sin esto
+    # context.term() podia bloquear y dejar el puerto 5555 en un estado raro.
+    self._img_socket.setsockopt(zmq.LINGER, 0)
     self._img_socket.bind(f"tcp://*:{img_port}")
 
     # PULL: recepción de torque desde Jetson
     self._torque_socket = self._context.socket(zmq.PULL)
+    self._torque_socket.setsockopt(zmq.LINGER, 0)
+    # Timeout en recv para que el hilo listener no quede bloqueado para
+    # siempre si la Jetson no envia nada; asi stop()+join() pueden cerrar
+    # en tiempo finito incluso si la Jetson esta muerta.
+    self._torque_socket.setsockopt(zmq.RCVTIMEO, 500)  # ms
     self._torque_socket.connect(f"tcp://{jetson_ip}:{torque_port}")
 
     self._listener_thread = threading.Thread(
@@ -73,11 +82,30 @@ class ZMQClient:
       cloudlog.warning(f"ZMQClient: error enviando imagen: {e}")
 
   def stop(self):
-    """Cierra los sockets y el contexto ZMQ limpiamente."""
+    """Cierra los sockets y el contexto ZMQ limpiamente.
+
+    Critico para cambiar IP en caliente: esta funcion se llama desde
+    reload_jetson_config cada vez que el usuario modifica la config. Tiene
+    que dejar el puerto 5555 LIBRE para que el siguiente bind funcione.
+    """
     self._running = False
-    self._img_socket.close()
-    self._torque_socket.close()
-    self._context.term()
+    # Esperar a que el hilo listener salga del recv (timeout RCVTIMEO=500ms)
+    # y termine limpio antes de cerrar sockets/contexto. Sin join podiamos
+    # tener el hilo vivo usando _torque_socket mientras otro thread lo cierra.
+    if self._listener_thread.is_alive():
+      self._listener_thread.join(timeout=1.5)
+    try:
+      self._img_socket.close(linger=0)
+    except Exception:
+      pass
+    try:
+      self._torque_socket.close(linger=0)
+    except Exception:
+      pass
+    try:
+      self._context.term()
+    except Exception:
+      pass
     cloudlog.info("ZMQClient: detenido")
 
   def _torque_listener(self):
@@ -87,6 +115,11 @@ class ZMQClient:
         data = self._torque_socket.recv()
         torque = struct.unpack("f", data)[0]
         self._params.put("JetsonTorque", str(torque))
+      except zmq.Again:
+        # RCVTIMEO cumplido sin datos. Volvemos a comprobar _running y
+        # seguimos esperando. Es el mecanismo que permite a stop() romper
+        # el bucle en tiempo finito.
+        continue
       except zmq.ZMQError as e:
         if e.errno == zmq.ETERM:
           break

@@ -602,6 +602,13 @@ class MQTTComandos:
       data = json_mod.loads(payload)
       print(f"[JETSON SYNC] handle_jetson_config data: {data}")
 
+      # Anti-eco: el propio Comma publica retained al conectar a MQTT con
+      # source="comma_ui". Si recibimos nuestro propio retained, ignorar.
+      # Esto evita logs ruidosos y un reload inutil cuando arranca.
+      if data.get("source") == "comma_ui":
+        print(f"[JETSON SYNC] Ignorado eco de comma_ui (propio retained)")
+        return
+
       # Leer config actual
       config_path = os.path.join(self.base_path, "config_jetson.json")
       current_config = {}
@@ -630,10 +637,16 @@ class MQTTComandos:
           json_mod.dump(current_config, f, indent=4)
         print(f"[JETSON SYNC] config_jetson.json actualizado: {current_config}")
 
-        # Señalizar al CameraSender que debe recargar la config de Jetson
-        if self.camera_sender is not None and hasattr(self.camera_sender, 'reload_jetson_config'):
-          self.camera_sender.reload_jetson_config()
-          print("[JETSON SYNC] CameraSender recargado")
+        # Señalizar al CameraSender que debe recargar la config.
+        # NO llamamos reload_jetson_config() directamente desde este hilo
+        # (thread de paho-mqtt). El CameraSender corre en su propio hilo y
+        # estaria usando self.zmq_client.send_image en paralelo; un reload
+        # desde fuera causaba race condition con el socket siendo cerrado
+        # a la vez que otro hilo lo usa. En su lugar ponemos un flag y
+        # dejamos que el propio loop del CameraSender se recargue en su
+        # siguiente iteracion (mismo mecanismo que usa la UI Qt del Comma).
+        self.params.put_bool("JetsonConfigChanged", True)
+        print("[JETSON SYNC] flag JetsonConfigChanged=True (el CameraSender recargara en su loop)")
       else:
         print("[JETSON SYNC] Sin cambios detectados")
 

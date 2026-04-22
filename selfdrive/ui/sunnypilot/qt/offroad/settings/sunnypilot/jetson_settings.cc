@@ -177,11 +177,50 @@ void JetsonSettings::setupTorqueControlSection() {
   connect(btn_mode_jetson, &QPushButton::clicked, this, [this]() { tryChangeSteerMode(1); });
   connect(btn_mode_test,   &QPushButton::clicked, this, [this]() { tryChangeSteerMode(2); });
 
-  // Estado inicial: leer el param guardado
+  // Estado inicial: leer el param guardado y pintar los botones.
+  // OJO: usamos updateSteerModeVisual (solo UI), NO onSteerModeChanged.
+  // onSteerModeChanged publicaria un payload MQTT "source=comma_ui" cada vez
+  // que el usuario abre la pantalla, lo cual es spam innecesario.
   std::string mode_str = Params().get("SteerTorqueMode");
   int mode = 0;
   try { mode = mode_str.empty() ? 0 : std::stoi(mode_str); } catch (...) { mode = 0; }
-  onSteerModeChanged(mode);
+  updateSteerModeVisual(mode);
+
+  // Timer de sincronizacion: mientras la pantalla este visible, sondeamos:
+  //   - SteerTorqueMode (param): refresca botones si cambio por MQTT.
+  //   - config_jetson.json (archivo): refresca IP/puertos/quality si cambio
+  //     por fuera (la app envio jetson_config y mqtt_comandos reescribio
+  //     el JSON). Comparamos mtime para no releer/repintar cada tick.
+  // Ninguna de las dos ramas publica MQTT -> sin riesgo de eco.
+  steer_mode_sync_timer = new QTimer(this);
+  steer_mode_sync_timer->setInterval(500);
+  connect(steer_mode_sync_timer, &QTimer::timeout, this, [this]() {
+    // 1) Refresco del selector de torque
+    std::string s = Params().get("SteerTorqueMode");
+    int m = 0;
+    try { m = s.empty() ? 0 : std::stoi(s); } catch (...) { m = 0; }
+    if (m != last_steer_mode_ui) {
+      updateSteerModeVisual(m);
+    }
+
+    // 2) Refresco de IP/puertos/quality si cambio el JSON.
+    // Solo actuamos si NINGUN QLineEdit tiene el foco: asi no pisamos lo
+    // que el usuario este escribiendo (los inputs son readOnly y se
+    // editan con el keyboard dialog, pero por si acaso).
+    QFileInfo fi(config_path);
+    if (fi.exists()) {
+      qint64 mtime = fi.lastModified().toMSecsSinceEpoch();
+      if (mtime != last_config_mtime) {
+        last_config_mtime = mtime;
+        bool editing = ip_input->hasFocus() || comma_ip_input->hasFocus() ||
+                       img_port_input->hasFocus() || torque_port_input->hasFocus();
+        if (!editing) {
+          loadConfig();
+        }
+      }
+    }
+  });
+  // Se arranca/para en showEvent/hideEvent.
 }
 
 void JetsonSettings::tryChangeSteerMode(int mode) {
@@ -242,17 +281,16 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
   }
 }
 
-void JetsonSettings::onSteerModeChanged(int mode) {
-  // Guardar el modo en Params (como string para usar get() en Python)
-  Params params;
-  params.put("SteerTorqueMode", std::to_string(mode));
-
-  // Actualizar estado visual de los botones (solo uno activo a la vez)
+// Refresco VISUAL puro: actualiza botones + label de estado.
+// No toca Params. No publica MQTT. Se usa cuando el cambio ha venido
+// de fuera (app via MQTT -> mqtt_comandos.py ya escribio el param) y
+// solo queremos que los botones de la pantalla del Comma reflejen el
+// nuevo estado.
+void JetsonSettings::updateSteerModeVisual(int mode) {
   btn_mode_model->setChecked(mode == 0);
   btn_mode_jetson->setChecked(mode == 1);
   btn_mode_test->setChecked(mode == 2);
 
-  // Actualizar label de estado segun el modo
   if (mode == 0) {
     torque_status_label->setText(tr("MODELO COMMA - El volante usa el torque del modelo interno (original)"));
     torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: rgba(118, 185, 0, 0.15); color: #76B900; border: 2px solid #76B900;");
@@ -264,7 +302,20 @@ void JetsonSettings::onSteerModeChanged(int mode) {
     torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: rgba(239, 68, 68, 0.2); color: #EF4444; border: 2px solid #EF4444;");
   }
 
-  // Publicar via MQTT para sincronizar con app/servidor
+  last_steer_mode_ui = mode;
+}
+
+// Cambio originado DESDE esta UI Qt (el usuario pulso un boton local).
+// Escribe Params, refresca los botones y deja un payload MQTT para que
+// mqtt_envio_general.py lo publique y llegue a la app.
+void JetsonSettings::onSteerModeChanged(int mode) {
+  Params params;
+  params.put("SteerTorqueMode", std::to_string(mode));
+
+  updateSteerModeVisual(mode);
+
+  // Publicar via MQTT para sincronizar con app/servidor.
+  // source=comma_ui -> el anti-eco de mqtt_comandos.py lo ignora si rebota.
   QString dongle_id = QString::fromStdString(params.get("DongleId"));
   if (!dongle_id.isEmpty()) {
     QJsonObject payload;
@@ -645,5 +696,40 @@ bool JetsonSettings::eventFilter(QObject* watched, QEvent* event) {
 
 void JetsonSettings::showEvent(QShowEvent* event) {
   loadConfig();
+
+  // Guardar mtime actual del JSON para que el timer solo dispare loadConfig()
+  // de nuevo cuando el archivo cambie DESPUES de este momento (evita bucle).
+  {
+    QFileInfo fi(config_path);
+    if (fi.exists()) {
+      last_config_mtime = fi.lastModified().toMSecsSinceEpoch();
+    }
+  }
+
+  // Refrescar el selector de torque por si cambio mientras la pantalla
+  // estaba oculta (la app pudo enviar un cambio via MQTT). Visual puro,
+  // sin re-publicar MQTT.
+  {
+    std::string s = Params().get("SteerTorqueMode");
+    int m = 0;
+    try { m = s.empty() ? 0 : std::stoi(s); } catch (...) { m = 0; }
+    updateSteerModeVisual(m);
+  }
+
+  // Arrancar el poll de sincronizacion mientras esta visible.
+  if (steer_mode_sync_timer && !steer_mode_sync_timer->isActive()) {
+    steer_mode_sync_timer->start();
+  }
+
   QWidget::showEvent(event);
+}
+
+void JetsonSettings::hideEvent(QHideEvent* event) {
+  // Paramos el poll cuando la pantalla no esta visible.
+  // No hace falta gastar CPU sondeando si el usuario no lo ve; cuando
+  // vuelva a showEvent se refresca el estado y se reanuda.
+  if (steer_mode_sync_timer && steer_mode_sync_timer->isActive()) {
+    steer_mode_sync_timer->stop();
+  }
+  QWidget::hideEvent(event);
 }
