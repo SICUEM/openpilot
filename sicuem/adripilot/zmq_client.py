@@ -10,6 +10,7 @@ Basado en el código proporcionado por el equipo de la Jetson.
 """
 import struct
 import threading
+import time
 
 import zmq
 
@@ -109,11 +110,22 @@ class ZMQClient:
     cloudlog.info("ZMQClient: detenido")
 
   def _torque_listener(self):
-    """Hilo daemon: espera torques de la Jetson y los guarda en Params."""
+    """Hilo daemon: espera torques de la Jetson y los guarda en Params.
+
+    Guarda tambien un timestamp (wall-clock) por cada torque recibido. Eso
+    permite a controlsd detectar que la Jetson se ha caido (watchdog): si el
+    timestamp tiene mas de N ms de antiguedad, controlsd fuerza torque=0
+    para que el volante no se quede atascado con un valor viejo.
+    """
     while self._running:
       try:
         data = self._torque_socket.recv()
         torque = struct.unpack("f", data)[0]
+        now = time.time()
+        # Orden importante: primero el timestamp (marca que hay senal viva),
+        # luego el valor. Si controlsd lee entre las dos escrituras, lee un
+        # ts nuevo pero torque viejo -> aplica el valor anterior (seguro).
+        self._params.put("JetsonTorqueTimestamp", f"{now:.6f}")
         self._params.put("JetsonTorque", str(torque))
       except zmq.Again:
         # RCVTIMEO cumplido sin datos. Volvemos a comprobar _running y

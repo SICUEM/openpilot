@@ -594,47 +594,105 @@ class MQTTComandos:
       "jetson_ip": "192.168.1.50",
       "jetson_img_port": 5555,
       "jetson_torque_port": 5556,
-      "jpeg_quality": 80
+      "jpeg_quality": 80,
+      "_version": "1712345678901"   # opcional, ms desde epoch
     }
+
+    Anti-eco en capas:
+      1) source == "comma_ui"                  -> ignorar (retained propio).
+      2) _version_entrante <= _version_local   -> ignorar (retained viejo).
+      3) Sin cambios de campo                  -> no escribir a disco.
+
+    Concurrencia:
+      La lectura + escritura se protege con fcntl.flock para que un lector
+      en otro proceso (UI Qt via QSaveFile, camera_sender.py) no observe un
+      archivo a medio escribir ni haya doble escritura concurrente.
     """
     try:
+      import fcntl
       import json as json_mod
       data = json_mod.loads(payload)
       print(f"[JETSON SYNC] handle_jetson_config data: {data}")
 
-      # Anti-eco: el propio Comma publica retained al conectar a MQTT con
+      # Anti-eco 1: el propio Comma publica retained al conectar a MQTT con
       # source="comma_ui". Si recibimos nuestro propio retained, ignorar.
-      # Esto evita logs ruidosos y un reload inutil cuando arranca.
       if data.get("source") == "comma_ui":
         print(f"[JETSON SYNC] Ignorado eco de comma_ui (propio retained)")
         return
 
-      # Leer config actual
-      config_path = os.path.join(self.base_path, "config_jetson.json")
-      current_config = {}
-      if os.path.exists(config_path):
+      # Parsear _version entrante (si existe)
+      incoming_version = None
+      if "_version" in data:
         try:
-          with open(config_path, 'r') as f:
-            current_config = json_mod.load(f)
-        except Exception:
-          current_config = {}
+          incoming_version = int(data["_version"])
+        except (ValueError, TypeError):
+          incoming_version = None
 
-      print(f"[JETSON SYNC] Config actual: {current_config}")
+      # Lectura + escritura protegidas con filelock exclusivo.
+      config_path = os.path.join(self.base_path, "config_jetson.json")
+      lock_path = config_path + ".lock"
 
-      # Actualizar solo los campos recibidos
-      changed = False
-      for key in ["jetson_enabled", "jetson_ip", "comma_ip", "jetson_img_port", "jetson_torque_port", "jpeg_quality"]:
-        if key in data:
-          old_val = current_config.get(key)
-          current_config[key] = data[key]
-          if old_val != data[key]:
-            changed = True
-            print(f"[JETSON SYNC] Campo {key}: {old_val} -> {data[key]}")
+      # Abrir (o crear) el archivo de lock y adquirir lock exclusivo. Esto
+      # bloquea a OTROS PROCESOS Python (mqtt_envio si concurriera) durante
+      # la seccion critica. Nota: QSaveFile desde C++ usa tempfile+rename
+      # que es atomico en el filesystem, asi que la UI no sufre lock pero
+      # si lee durante nuestra escritura vera el contenido anterior completo.
+      lock_fd = open(lock_path, 'w')
+      try:
+        fcntl.flock(lock_fd.fileno(), fcntl.LOCK_EX)
 
-      # Guardar config actualizada
-      if changed:
-        with open(config_path, 'w') as f:
+        # Leer config actual (dentro del lock)
+        current_config = {}
+        if os.path.exists(config_path):
+          try:
+            with open(config_path, 'r') as f:
+              current_config = json_mod.load(f)
+          except Exception:
+            current_config = {}
+
+        print(f"[JETSON SYNC] Config actual: {current_config}")
+
+        # Anti-eco 2: comparar versiones. Si entrante <= local, descartar.
+        local_version = 0
+        if "_version" in current_config:
+          try:
+            local_version = int(current_config["_version"])
+          except (ValueError, TypeError):
+            local_version = 0
+
+        if incoming_version is not None and incoming_version <= local_version:
+          print(f"[JETSON SYNC] Ignorado: _version entrante {incoming_version} <= local {local_version} (retained viejo o eco)")
+          return
+
+        # Actualizar solo los campos recibidos
+        changed = False
+        for key in ["jetson_enabled", "jetson_ip", "comma_ip", "jetson_img_port", "jetson_torque_port", "jpeg_quality"]:
+          if key in data:
+            old_val = current_config.get(key)
+            current_config[key] = data[key]
+            if old_val != data[key]:
+              changed = True
+              print(f"[JETSON SYNC] Campo {key}: {old_val} -> {data[key]}")
+
+        if not changed:
+          print("[JETSON SYNC] Sin cambios de campo")
+          return
+
+        # Persistir _version: si el payload traia una, la conservamos; si no,
+        # generamos una local (ms desde epoch) para marcar esta escritura.
+        if incoming_version is not None:
+          current_config["_version"] = str(incoming_version)
+        else:
+          current_config["_version"] = str(int(time.time() * 1000))
+
+        # Escritura atomica: escribimos a .tmp y renombramos. Esto evita que
+        # un lector vea el archivo a medio escribir.
+        tmp_path = config_path + ".tmp"
+        with open(tmp_path, 'w') as f:
           json_mod.dump(current_config, f, indent=4)
+          f.flush()
+          os.fsync(f.fileno())
+        os.replace(tmp_path, config_path)
         print(f"[JETSON SYNC] config_jetson.json actualizado: {current_config}")
 
         # Señalizar al CameraSender que debe recargar la config.
@@ -647,8 +705,12 @@ class MQTTComandos:
         # siguiente iteracion (mismo mecanismo que usa la UI Qt del Comma).
         self.params.put_bool("JetsonConfigChanged", True)
         print("[JETSON SYNC] flag JetsonConfigChanged=True (el CameraSender recargara en su loop)")
-      else:
-        print("[JETSON SYNC] Sin cambios detectados")
+      finally:
+        try:
+          fcntl.flock(lock_fd.fileno(), fcntl.LOCK_UN)
+        except Exception:
+          pass
+        lock_fd.close()
 
     except Exception as e:
       print(f"[JETSON SYNC] ERROR handle_jetson_config: {e}")

@@ -172,11 +172,13 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"modo_debug", PERSISTENT | BACKUP},  // Modo debug para mostrar mensajes MQTT en el panel de debug
     {"brutebreak_active", CLEAR_ON_MANAGER_START},  // Frenado de emergencia brusco activo
     {"brutebreak_intensidad", PERSISTENT},  // Intensidad de frenado configurable (valor negativo, default -3.5 m/s²)
-    {"JetsonTorque", CLEAR_ON_MANAGER_START},  // Torque recibido de la Jetson via ZMQ
+    {"JetsonTorque", CLEAR_ON_MANAGER_START},  // Torque recibido de la Jetson via ZMQ (ya normalizado en [-1,1])
+    {"JetsonTorqueTimestamp", CLEAR_ON_MANAGER_START},  // Wall-clock time.time() del ultimo torque recibido. Watchdog: si es viejo, controlsd ignora JetsonTorque.
     {"JetsonConfigChanged", CLEAR_ON_MANAGER_START},  // Flag para recargar config_jetson.json desde UI
     {"JetsonConfigMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar config Jetson via MQTT
     {"SteerTorqueMode", PERSISTENT},  // Selector: 0=modelo Comma, 1=Jetson, 2=test max (torque fijo al maximo)
-    {"JetsonTorqueGain", PERSISTENT},  // Ganancia multiplicativa aplicada al torque de la Jetson antes de /500 (default 5.0)
+    {"JetsonTorqueGain", PERSISTENT},  // DEPRECATED desde v3 proporcional: la Jetson ya publica en [-1,1], no se aplica ganancia ni /500.
+    {"JetsonDeadZone", PERSISTENT},  // Dead-zone en unidades NORMALIZADAS [0,1] (default 0.02). Si abs(JetsonTorque) < este valor -> torque cero (filtra ruido).
     {"CommaSteerTorque", CLEAR_ON_MANAGER_START},  // Torque lateral calculado por el modelo Comma (antes de override Jetson/MAX), rango [-1.0, 1.0]
     {"SteerTorqueModeMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar modo torque via MQTT
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)

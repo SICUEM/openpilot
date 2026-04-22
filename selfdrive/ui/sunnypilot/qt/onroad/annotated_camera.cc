@@ -404,6 +404,21 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
     }
   }
 
+  // update Comma steer torque (lo que el modelo Comma calcularia AUNQUE no se aplique)
+  {
+    std::string ct = params.get("CommaSteerTorque");
+    if (!ct.empty()) {
+      try {
+        comma_torque = std::stof(ct);
+        comma_torque_valid = true;
+      } catch (...) {
+        comma_torque_valid = false;
+      }
+    } else {
+      comma_torque_valid = false;
+    }
+  }
+
   // update SteerTorqueMode (0=MODELO COMMA, 1=JETSON, 2=TEST MAX)
   {
     std::string stm = params.get("SteerTorqueMode");
@@ -1181,12 +1196,31 @@ if (adelantar) {
     drawFeatureStatusText(p, feature_status_text_x, rect().bottom() - 160 - rn_offset);
   }
 
-  // Jetson Torque (esquina inferior derecha)
-  if (jetson_torque_valid) {
-    QString torqueStr = QString("JT: %1").arg(jetson_torque, 0, 'f', 1);
-    p.setFont(InterFont(38, QFont::DemiBold));
-    p.setPen(QColor(0, 255, 200, 200));
-    p.drawText(rect().right() - 280, rect().bottom() - 30, torqueStr);
+  // Torques en pantalla (esquina inferior derecha), tamano grande.
+  //   Linea superior (amarillo): CT = torque que CALCULARIA el modelo Comma
+  //                              (siempre visible si hay dato, incluso cuando
+  //                              el modo activo NO es Comma; indicativo).
+  //   Linea inferior (cyan):     JT = torque recibido de la Jetson.
+  // Formateados con 2 decimales para ver mejor la proporcionalidad.
+  {
+    const int torque_font_px = 64;
+    p.setFont(InterFont(torque_font_px, QFont::DemiBold));
+    const int line_gap = torque_font_px + 12;       // separacion vertical entre CT y JT
+    const int x_pos    = rect().right() - 420;      // desplazado para que quepa el texto
+    const int y_jt     = rect().bottom() - 30;      // linea inferior (JT)
+    const int y_ct     = y_jt - line_gap;            // linea superior (CT)
+
+    if (comma_torque_valid) {
+      QString ctStr = QString("CT: %1").arg(comma_torque, 0, 'f', 2);
+      p.setPen(QColor(255, 220, 80, 220));   // amarillo (Comma - informativo)
+      p.drawText(x_pos, y_ct, ctStr);
+    }
+
+    if (jetson_torque_valid) {
+      QString jtStr = QString("JT: %1").arg(jetson_torque, 0, 'f', 2);
+      p.setPen(QColor(0, 255, 200, 220));    // cyan (Jetson)
+      p.drawText(x_pos, y_jt, jtStr);
+    }
   }
 
   // Jetson debug info (solo en modo debug, centrado abajo)

@@ -148,6 +148,11 @@ class MQTTEnvioGeneral:
             cfg = json.load(f)
         except Exception:
           cfg = {}
+        # Propagar el _version EXACTO del disco. Asi, si este retained vuelve
+        # a nosotros via handle_jetson_config, el anti-eco por _version lo
+        # descartara porque sera igual al ya guardado en disco (no mayor).
+        # Si no hay _version en el archivo (migracion), no lo inventamos
+        # aqui para no pisarnos a nosotros mismos en el futuro.
         jetson_payload = {
           "dongle_id": self.DongleID,
           "jetson_enabled": cfg.get("jetson_enabled", False),
@@ -159,6 +164,8 @@ class MQTTEnvioGeneral:
           "source": "comma_ui",
           "timestamp": int(time.time() * 1000),
         }
+        if "_version" in cfg:
+          jetson_payload["_version"] = str(cfg["_version"])
         jet_str = json.dumps(jetson_payload)
         self.mqttc.publish("jetson_config/global", jet_str, qos=0, retain=True)
         self.mqttc.publish(f"telemetry_config/{self.DongleID}/jetson_config", jet_str, qos=0, retain=True)

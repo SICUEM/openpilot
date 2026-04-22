@@ -5,6 +5,7 @@
 #include <QFrame>
 #include <QTimer>
 #include <QDateTime>
+#include <QSaveFile>
 #include "selfdrive/ui/sunnypilot/ui.h"
 #include "selfdrive/ui/qt/util.h"
 #include "system/hardware/hw.h"
@@ -558,14 +559,19 @@ bool JetsonSettings::saveJsonConfig(const QJsonObject& config) {
     dir.mkpath(".");
   }
 
-  QFile file(config_path);
-  if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+  // Escritura ATOMICA con QSaveFile: escribe a un temporal y hace rename()
+  // al commit(). Asi, si un lector (mqtt_comandos.py, camera_sender.py)
+  // accede mientras escribimos, o bien ve el contenido antiguo completo o
+  // ve el nuevo completo, pero nunca un JSON a medio escribir / truncado.
+  // Tambien protege si el proceso muere a mitad: el archivo original queda
+  // intacto en vez de quedar corrupto.
+  QSaveFile file(config_path);
+  if (!file.open(QIODevice::WriteOnly | QIODevice::Text)) {
     return false;
   }
   QJsonDocument doc(config);
   file.write(doc.toJson(QJsonDocument::Indented));
-  file.close();
-  return true;
+  return file.commit();  // rename atomico + fsync implicito
 }
 
 void JetsonSettings::loadConfig() {
@@ -598,14 +604,34 @@ void JetsonSettings::saveConfig() {
   config["jetson_torque_port"] = torque_port_input->text().trimmed().toInt();
   config["jpeg_quality"] = quality_slider->value();
 
+  // Version monotonica (ms desde epoch) que se persiste en el JSON Y viaja
+  // en el payload MQTT. Permite que los consumidores (mqtt_comandos.py,
+  // otros clientes MQTT) rechacen ecos/retained viejos: si una escritura
+  // entrante trae _version <= al local, se ignora. Esto evita que una
+  // publicacion retenida en el broker, de antes de este guardado, nos
+  // pise la IP que el usuario acaba de poner.
+  const qint64 version_ms = QDateTime::currentMSecsSinceEpoch();
+  config["_version"] = QString::number(version_ms);
+
   if (saveJsonConfig(config)) {
+    // Readback defensivo: releemos lo que acabamos de escribir. Si el
+    // _version releido no coincide con el que acabamos de generar, otro
+    // proceso pisó el archivo entre el commit y el readback -> avisamos
+    // en consola para diagnostico. No bloqueamos al usuario.
+    QJsonObject readback = loadJsonConfig();
+    const QString readback_version = readback.value("_version").toString();
+    if (readback_version != QString::number(version_ms)) {
+      qWarning() << "[JETSON SYNC] readback _version mismatch after save. Expected"
+                 << version_ms << "got" << readback_version;
+    }
+
     updateStatusLabel();
 
     // Signal CameraSender to reload via Params
     Params params;
     params.putBool("JetsonConfigChanged", true);
 
-    // Publish config via MQTT for app/server sync
+    // Publish config via MQTT for app/server sync (propaga el mismo _version)
     publishConfigViaMqtt();
 
     // Visual feedback
@@ -648,6 +674,13 @@ void JetsonSettings::publishConfigViaMqtt() {
   QString dongle_id = QString::fromStdString(params.get("DongleId"));
   if (dongle_id.isEmpty()) return;
 
+  // Leer el _version del JSON recien escrito para que el payload MQTT lleve
+  // EXACTAMENTE la misma version que el disco. Asi, si este payload vuelve
+  // al broker y nos regresa por eco/retained, comparando _version podemos
+  // identificarlo como "nuestro" y no reescribir el disco con el.
+  QJsonObject on_disk = loadJsonConfig();
+  QString version_str = on_disk.value("_version").toString();
+
   QJsonObject payload;
   payload["dongle_id"] = dongle_id;
   payload["jetson_enabled"] = enabled_checkbox->isChecked();
@@ -658,6 +691,7 @@ void JetsonSettings::publishConfigViaMqtt() {
   payload["jpeg_quality"] = quality_slider->value();
   payload["source"] = "comma_ui";
   payload["timestamp"] = QString::number(QDateTime::currentMSecsSinceEpoch());
+  payload["_version"] = version_str;
 
   QJsonDocument doc(payload);
   params.put("JetsonConfigMqttPayload", doc.toJson(QJsonDocument::Compact).toStdString());
