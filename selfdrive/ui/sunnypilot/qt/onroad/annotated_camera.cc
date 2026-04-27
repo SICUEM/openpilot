@@ -34,7 +34,7 @@ Last updated: July 29, 2024
 #include <QCoreApplication>
 #include <QDir>
 
-
+#include <QDebug>
 #include <cmath>
 #include <QMouseEvent>
 #include <QPainterPath>
@@ -728,7 +728,7 @@ void AnnotatedCameraWidgetSP::drawOvertakeIndicator(QPainter &p) {
   float dist_activacion = 50.0;
   float tiempo_carril_izq = 15.0;
   float incremento_vel = 15.0;
-  
+
   std::string dist_raw = Params().get("overtake_distancia_activacion", false);
   if (!dist_raw.empty()) {
     try { dist_activacion = std::stof(dist_raw); } catch (...) {}
@@ -1252,7 +1252,10 @@ if (adelantar) {
     }
 
     if (jetson_torque_valid) {
+      qDebug() << "mmmmmmmmmmmmmmmmmmmmmmmmmm" << jetson_torque;
       QString jtStr = QString("JT: %1").arg(jetson_torque, 0, 'f', 2);
+      qDebug() << "mmmmmmmmmmmmmmmmmmmmmmmmmm" << jtStr;
+
       p.setPen(QColor(0, 255, 200, 220));    // cyan (Jetson)
       p.drawText(x_pos, y_jt, jtStr);
     }

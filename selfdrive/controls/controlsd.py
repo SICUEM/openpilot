@@ -180,10 +180,6 @@ class Controls:
     self.not_running_prev = None
     self.steer_limited = False
     self.desired_curvature = 0.0
-    # Estado para suavizar / mantener el torque de la Jetson entre llegadas (4-5 Hz)
-    self._jetson_last_norm = 0.0
-    self._jetson_sign_streak = 0
-    self._jetson_last_sign = 0
     self.experimental_mode = False
     self.personality = self.read_personality_param()
     self.v_cruise_helper = VCruiseHelper(self.CP)
@@ -852,18 +848,18 @@ class Controls:
                 intensidad_frenado = intensidad
           except Exception:
             pass  # Usar valor por defecto si hay error
-          
+
           # Aplicar intensidad de frenado configurada (limitada al mínimo del sistema si es necesario)
           # pid_accel_limits[0] es el frenado máximo que permite el sistema
           actuators.accel = max(intensidad_frenado, pid_accel_limits[0])
-          
+
           # Log para modo debug con valor de intensidad
           try:
             if self.params.get_bool("modo_debug") and self.sm.frame % 50 == 0:
               print(f"🛑 BRUTEBREAK ACTIVO - Intensidad: {intensidad_frenado} m/s²")
           except Exception:
             pass
-          
+
           # Auto-desactivar si el coche se ha detenido (vEgo < 0.5 m/s)
           if CS.vEgo < 0.5:
             self.params.put_bool("brutebreak_active", False)
@@ -1001,101 +997,27 @@ class Controls:
           steer_mode = 0
 
         if steer_mode == 1:
-          # ════════════════════════════════════════════════════════════
-          # JETSON PROPORCIONAL + WATCHDOG + FAIL-SAFE (v3.2)
-          # El torque de la Jetson ya viene normalizado [-1,+1]. Aplicamos
-          # con inversion de signo (convencion) y clip [-1,1].
-          # Watchdog: si no hay timestamp fresco (>0.5s) -> torque=0.
-          # Fail-safe: si cualquier params.get falla -> torque=0 (NO Comma).
-          # Convencion: Jetson positivo -> actuators.steer negativo (derecha).
-          # ════════════════════════════════════════════════════════════
-          JETSON_STALE_TIMEOUT_S = 0.5  # ~2.5 ciclos de la Jetson
-
-          # FAIL-SAFE: empezamos asumiendo que el torque va a 0. Solo si
-          # leemos correctamente el valor de la Jetson lo subimos. Asi
-          # cualquier fallo (param no registrado, valor invalido, etc.)
-          # deja el volante neutro en lugar de Comma corriendo en silencio.
-          jetson_torque_norm = 0.0
-          jetson_branch_ok = False
-
-          # 1) Watchdog: comprobar frescura del ultimo torque recibido
-          jetson_is_stale = True
+          # FUENTE 2 (JETSON): leemos el float que la Jetson dejo en el param
+          # JetsonTorque (lo escribe sicuem/adripilot/zmq_client.py:_torque_listener
+          # como str(torque) sobre un float ya normalizado en [-1, 1]).
+          # params.get devuelve bytes/None: hay que convertir a float SI o SI,
+          # asignar el bytes directamente al campo capnp float32 hace crashear
+          # controlsd al serializar (ese era el "se queda pillado").
           try:
-            ts_raw = self.params.get("JetsonTorqueTimestamp")
-            if ts_raw:
-              ts = float(ts_raw)
-              age = time.time() - ts
-              jetson_is_stale = age > JETSON_STALE_TIMEOUT_S
-          except UnknownKeyName:
-            cloudlog.error("JetsonTorqueTimestamp no registrado. Recompila common/params.cc. Modo Jetson NO funcionara hasta entonces.")
-            jetson_is_stale = True
-          except (ValueError, TypeError):
-            jetson_is_stale = True
+            jt = float(self.params.get("JetsonTorque") or 0.0)
 
-          if jetson_is_stale:
-            # Sin senal reciente: no empujar el volante. Reset del estado
-            # de hold para que al volver la senal empiece limpio.
-            self._jetson_last_norm = 0.0
-            jetson_branch_ok = True  # rama OK, decision deliberada de poner 0
-          else:
-            # 2) Senal viva: leer torque y aplicarlo proporcional
-            try:
-              jt_raw = self.params.get("JetsonTorque")
-            except UnknownKeyName:
-              cloudlog.error("JetsonTorque no registrado. Recompila common/params.cc.")
-              jt_raw = None
+          except (UnknownKeyName, ValueError, TypeError):
+            jt = 0.0
+          actuators.steer = jt
+          #print("#######################################acctt####################################", actuators.steer)
 
-            if jt_raw is not None:
-              try:
-                jt_val = float(jt_raw) if jt_raw else None
-              except (ValueError, TypeError):
-                jt_val = None
-
-              if jt_val is not None:
-                # Dead-zone configurable en unidades normalizadas (default 0.02)
-                dead_zone = 0.02
-                try:
-                  dz_raw = self.params.get("JetsonDeadZone")
-                  if dz_raw:
-                    dead_zone = max(0.0, float(dz_raw))
-                except UnknownKeyName:
-                  pass  # opcional, usa default
-                except (ValueError, TypeError):
-                  pass
-
-                if abs(jt_val) < dead_zone:
-                  jetson_torque_norm = 0.0
-                else:
-                  # Invertir signo (convencion) + clip defensivo
-                  jetson_torque_norm = max(-1.0, min(1.0, -jt_val))
-
-                self._jetson_last_norm = jetson_torque_norm
-                jetson_branch_ok = True
-              else:
-                # JetsonTorque vacio o invalido -> mantener fail-safe (0)
-                self._jetson_last_norm = 0.0
-                jetson_branch_ok = True
-            else:
-              # JetsonTorque no leido (UnknownKeyName arriba) -> fail-safe
-              jetson_torque_norm = 0.0
-
-          # >>> PUNTO DE INYECCION FUENTE 2 (JETSON): pisamos el torque de Comma.
-          # Si jetson_branch_ok es False, jetson_torque_norm = 0 y el volante
-          # no se mueve -> el usuario ve el problema inmediatamente.
-          actuators.steer = jetson_torque_norm
         elif steer_mode == 2:
-          # >>> PUNTO DE INYECCION FUENTE 3 (TEST MAX):
-          # Forzamos el torque al MAX (-1.0 = derecha a tope). Sirve para
-          # comprobar que este punto del codigo es el que realmente llega
-          # al EPS. Si en modo 2 el volante no gira a tope, el problema
-          # esta aguas abajo (carcontroller / panda / safety).
+          # FUENTE 3 (TEST MAX): torque fijo a -1.0 (derecha a tope) para
+          # confirmar que este punto del codigo llega al EPS. Si en modo 2
+          # el volante no gira a tope, el problema esta aguas abajo
+          # (carcontroller / panda / safety).
           actuators.steer = -1.0
-        else:
-          # modo 0 (COMMA): no tocamos actuators.steer (queda con el LaC).
-          # Reset del estado Jetson cuando no estamos en ese modo.
-          self._jetson_sign_streak = 0
-          self._jetson_last_sign = 0
-          self._jetson_last_norm = 0.0
+        # modo 0 (COMMA): no tocamos actuators.steer, queda lo del LaC.
 
       # ────────────────────────────────────────────────────────────────
       # Diagnostico: publicamos el torque FINAL tras el selector, para

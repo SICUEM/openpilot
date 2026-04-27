@@ -47,8 +47,9 @@ class Camerad:
     self.Hdiv4 = H // 4 if (H % 4 == 0) else (H + (4 - H % 4)) // 4
 
   def _init_jetson_zmq(self):
-    """Inicializa ZMQClient para enviar imágenes a la Jetson si está habilitado en config."""
-    self._jpeg_quality = 60
+    """Inicializa ZMQClient para enviar imágenes a la Jetson si está habilitado en config.
+    El JPEG se genera en _publish_thumbnail con la misma calidad que el thumbnail cereal,
+    igual que hace el coche real (que reusa el JPEG de camerad sin re-encodear)."""
     try:
       if not os.path.exists(JETSON_CONFIG_FILE):
         print("Camerad: config_jetson.json no encontrado, Jetson ZMQ deshabilitado")
@@ -61,14 +62,12 @@ class Camerad:
         print("Camerad: Jetson ZMQ deshabilitado en config")
         return
 
-      self._jpeg_quality = int(config.get("jpeg_quality", 60))
-
       from openpilot.sicuem.adripilot.zmq_client import ZMQClient
       self.zmq_client = ZMQClient(
         jetson_ip=config.get("jetson_ip", "127.0.0.1"),
         img_port=int(config.get("jetson_img_port", 5555)),
         torque_port=int(config.get("jetson_torque_port", 5556)),
-        jpeg_quality=self._jpeg_quality,
+        jpeg_quality=int(config.get("jpeg_quality", 80)),
       )
       self.zmq_client.start()
       print(f"Camerad: Jetson ZMQ activo -> {config.get('jetson_ip')}:{config.get('jetson_img_port')}")
@@ -78,10 +77,13 @@ class Camerad:
 
   def cam_send_yuv_road(self, yuv, rgb=None):
     self._send_yuv(yuv, self.frame_road_id, 'roadCameraState', VisionStreamType.VISION_STREAM_ROAD)
-    if rgb is not None:
-      self._send_jetson_frame(rgb)
-      if self.frame_road_id % THUMBNAIL_EVERY_N_FRAMES == 0:
-        self._publish_thumbnail(rgb, self.frame_road_id)
+    # En el coche real, sicuem/adripilot/camera_sender.py se suscribe al canal cereal
+    # 'jetsonThumbnail' (~5 Hz) y reenvia ese mismo JPEG por ZMQ a la Jetson, sin
+    # re-encodear ni mandar el frame completo. Para que el sim se comporte igual,
+    # generamos el thumbnail solo cada N frames y reusamos exactamente esos bytes
+    # tanto para el mensaje cereal como para el envio ZMQ a la Jetson.
+    if rgb is not None and self.frame_road_id % THUMBNAIL_EVERY_N_FRAMES == 0:
+      self._publish_thumbnail(rgb, self.frame_road_id)
     self.frame_road_id += 1
 
   def cam_send_yuv_wide_road(self, yuv):
@@ -100,7 +102,9 @@ class Camerad:
     return yuv.data.tobytes()
 
   def _publish_thumbnail(self, rgb, frame_id):
-    """Generates a JPEG thumbnail from the RGB frame and publishes it as a cereal 'thumbnail' message."""
+    """Genera un JPEG thumbnail del frame RGB, lo publica en el canal cereal 'thumbnail'
+    y, si la Jetson esta habilitada, envia los MISMOS bytes por ZMQ (igual que hace
+    sicuem/adripilot/camera_sender.py en el coche real con 'jetsonThumbnail')."""
     img = Image.fromarray(rgb)
     img = img.resize((THUMBNAIL_W, THUMBNAIL_H))
     buf = io.BytesIO()
@@ -114,17 +118,11 @@ class Camerad:
     dat.thumbnail.thumbnail = jpeg_data
     self.pm.send('thumbnail', dat)
 
-  def _send_jetson_frame(self, rgb):
-    """Codifica el frame RGB como JPEG y lo envía a la Jetson via ZMQ cada frame."""
-    if self.zmq_client is None:
-      return
-    try:
-      img = Image.fromarray(rgb)
-      buf = io.BytesIO()
-      img.save(buf, format='JPEG', quality=self._jpeg_quality)
-      self.zmq_client.send_image(buf.getvalue())
-    except Exception as e:
-      print(f"Camerad: error enviando frame a Jetson: {e}")
+    if self.zmq_client is not None:
+      try:
+        self.zmq_client.send_image(jpeg_data)
+      except Exception as e:
+        print(f"Camerad: error enviando frame a Jetson: {e}")
 
   def _send_yuv(self, yuv, frame_id, pub_type, yuv_type):
     eof = int(frame_id * 0.05 * 1e9)

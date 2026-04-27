@@ -8,6 +8,7 @@ Cliente ZeroMQ para comunicación Comma <-> Jetson.
 
 Basado en el código proporcionado por el equipo de la Jetson.
 """
+import math
 import struct
 import threading
 import time
@@ -16,6 +17,40 @@ import zmq
 
 from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.swaglog import cloudlog
+
+
+def _parse_torque(data: bytes):
+  """Convierte el payload de la Jetson en un float, sea cual sea su formato.
+
+  Si elegimos un formato fijo y la Jetson manda otro (big-endian, double,
+  texto…), el resultado tipico es un valor denormal (~1e-44) que en la UI
+  sale como "0.00" — el sintoma de "imprime 0 aunque mande 0.5".
+
+  Probamos las representaciones razonables y nos quedamos con la primera
+  que caiga en el rango fisicamente posible para nuestro torque normalizado
+  [-1, 1] (con holgura). Los denormals quedan filtrados por |v| < 1e-30.
+  Devuelve None si nada cuadra.
+  """
+  candidates: list[float] = []
+  n = len(data)
+  if n == 4:
+    candidates.append(struct.unpack("<f", data)[0])
+    candidates.append(struct.unpack(">f", data)[0])
+  elif n == 8:
+    candidates.append(struct.unpack("<d", data)[0])
+    candidates.append(struct.unpack(">d", data)[0])
+  else:
+    try:
+      return float(data.decode().strip())
+    except Exception:
+      return None
+
+  for v in candidates:
+    if not math.isfinite(v):
+      continue
+    if v == 0.0 or 1e-30 < abs(v) < 100.0:
+      return v
+  return None
 
 
 class ZMQClient:
@@ -120,7 +155,17 @@ class ZMQClient:
     while self._running:
       try:
         data = self._torque_socket.recv()
-        torque = struct.unpack("f", data)[0]
+        torque = _parse_torque(data)
+        if torque is None:
+          # Payload irreconocible -> ignorar este mensaje (no escribimos
+          # nada en params, asi el watchdog de controlsd lo marcara stale
+          # y el volante quedara en 0 hasta que llegue un valor valido).
+          cloudlog.error(f"ZMQClient: payload de torque irreconocible bytes={data.hex()} len={len(data)}")
+          continue
+        # Log de cada torque recibido para verificacion empirica del formato
+        # y del valor que se publica al param. La Jetson va a ~5 Hz, asi que
+        # esto son ~5 lineas/seg en swaglog.
+        cloudlog.info(f"ZMQClient: torque recibido bytes={data.hex()} len={len(data)} -> {torque}")
         now = time.time()
         # Orden importante: primero el timestamp (marca que hay senal viva),
         # luego el valor. Si controlsd lee entre las dos escrituras, lee un
