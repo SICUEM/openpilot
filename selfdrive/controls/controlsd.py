@@ -1011,6 +1011,78 @@ class Controls:
           actuators.steer = jt
           #print("#######################################acctt####################################", actuators.steer)
 
+          # ╔══════════════════════════════════════════════════════════════╗
+          # ║ OTRAS VARIABLES *LATERALES* QUE EL MODO JETSON PUEDE TOCAR   ║
+          # ║ (ver /home/drago/Escritorio/CONTROL_VARIABLES_JETSON.md)     ║
+          # ╠══════════════════════════════════════════════════════════════╣
+          # ║ SOLO control LATERAL. Nada de gas/freno/accel/speed: el      ║
+          # ║ longitudinal lo lleva Comma sin tocarlo.                     ║
+          # ║                                                              ║
+          # ║ Hasta ahora la Jetson solo pisa `actuators.steer` (torque).  ║
+          # ║ Si el torque solo no esta funcionando, podemos tocar tambien ║
+          # ║ ALGUNA de estas variables (descomenta lo que quieras probar) ║
+          # ║                                                              ║
+          # ║ 1) self.desired_curvature  /  actuators.curvature  [1/m]     ║
+          # ║    - LA MAS POTENTE de las alternativas al torque.           ║
+          # ║    - Es el OBJETIVO geometrico de la trayectoria. Se calcula ║
+          # ║      en linea 875-879. Si tu Jetson predijera la curvatura   ║
+          # ║      (no el torque), aqui la inyectarias y dejas que el PID  ║
+          # ║      de Comma haga el cierre fino sobre el volante.          ║
+          # ║    - Rango tipico: [-0.1, +0.1] 1/m  (radios > 10m).         ║
+          # ║    - Ejemplo (curvatura proporcional al "torque" jetson):    ║
+          # ║        self.desired_curvature = jt * 0.05                    ║
+          # ║        actuators.curvature   = self.desired_curvature        ║
+          # ║      (en este caso, NO pisar tambien actuators.steer)        ║
+          # ║                                                              ║
+          # ║ 2) actuators.steeringAngleDeg  [grados del volante]          ║
+          # ║    - Lo produce LaC.update() arriba.                         ║
+          # ║    - En coches torque-based (el nuestro) el carcontroller NO ║
+          # ║      lo manda al EPS, pero SI lo loguea y SI lo usan algunas ║
+          # ║      alertas (steerSaturated mas abajo). Util para DEBUG y   ║
+          # ║      preparar futuro coche angle-based.                      ║
+          # ║    - Ejemplo:                                                ║
+          # ║        actuators.steeringAngleDeg = jt * 90.0                ║
+          # ║      (mismo rango que usa el modo joystick linea 1096)       ║
+          # ║                                                              ║
+          # ║ 3) self.steer_limited  [bool]  (anti-windup del PID)         ║
+          # ║    - Bandera que le dice al LaC que el EPS esta saturado.    ║
+          # ║    - Forzarla a True hace que el integrador del PID NO       ║
+          # ║      acumule "deuda" cuando la Jetson satura su salida, lo   ║
+          # ║      que reduce sobreoscilacion al volver al centro.         ║
+          # ║    - Ejemplo:  self.steer_limited = abs(jt) > 0.9            ║
+          # ║                                                              ║
+          # ║ 4) Params en VIVO que recalibran el LaC torque:              ║
+          # ║      "TorqueMaxLatAccel"  -> ganancia del feedforward        ║
+          # ║      "TorqueFriction"     -> termino de friccion (kicker)    ║
+          # ║    - Los relee LatControlTorque en cada update (~ linea 133  ║
+          # ║      de latcontrol_torque.py). Reescribirlos desde aqui      ║
+          # ║      "afina" el PID al vuelo segun lo que pida la Jetson.    ║
+          # ║    - OJO con escribir a 100 Hz: cachea el ultimo valor y     ║
+          # ║      solo escribe si cambia significativamente.              ║
+          # ║                                                              ║
+          # ║ 5) CC.latActive  [bool]  (informativo, no se toca aqui)      ║
+          # ║    - Si la Jetson detecta que su salida es basura, lo mas    ║
+          # ║      seguro es DEVOLVER el control al humano. El override    ║
+          # ║      real va por params/eventos, no aqui directamente, pero  ║
+          # ║      conviene saber que existe.                              ║
+          # ╚══════════════════════════════════════════════════════════════╝
+          # NOTA: descomenta SOLO una linea a la vez al probar. Mezclar
+          # varias fuentes laterales (torque + curvatura + angulo) sin
+          # entender la interaccion entre el LaC y el carcontroller
+          # produce oscilaciones rarisimas dificiles de debuguear.
+
+          # --- (a) Inyectar CURVATURA proporcional al torque jetson ---
+          #         (recomendado: requiere comentar la linea actuators.steer
+          #          de arriba para que mande de verdad la curvatura)
+          # self.desired_curvature = jt * 0.05
+          # actuators.curvature   = self.desired_curvature
+
+          # --- (b) Marcar tambien el ANGULO en logs/alertas (seguro) ---
+          # actuators.steeringAngleDeg = jt * 90.0
+
+          # --- (c) Avisar al LaC de saturacion (anti-windup) ---
+          # self.steer_limited = abs(jt) > 0.9
+
         elif steer_mode == 2:
           # FUENTE 3 (TEST MAX): torque fijo a -1.0 (derecha a tope) para
           # confirmar que este punto del codigo llega al EPS. Si en modo 2
