@@ -759,9 +759,9 @@ class DesireHelper:
             self.param_s.put("bsmLaneChangeStatus", "CARRIL_OCUPADO_IZQ")
           else:
             self.param_s.put("bsmLaneChangeStatus", "CARRIL_OCUPADO_DER")
-          # Resetear timer para que haya pequeno delay cuando BSM se libere
+          # Sin delay: cuando el BSM se libere, cambiar de carril inmediatamente
           if lane_change_auto_timer:
-            self.lane_change_wait_timer = min(self.lane_change_wait_timer, max(0, lane_change_auto_timer - 0.3))
+            self.lane_change_wait_timer = min(self.lane_change_wait_timer, max(0, lane_change_auto_timer - 0.0))
 
         elif (torque_applied or (auto_lane_change_allowed and not self.prev_lane_change and not self.prev_brake_pressed)):
           # BSM LIBRE + condiciones cumplidas -> ejecutar cambio de carril
