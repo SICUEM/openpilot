@@ -257,6 +257,26 @@ class MQTTEnvioGeneral:
       except Exception as e:
         print(f"[STEER MODE SYNC] ERROR leyendo param: {e}")
 
+      # Publicar JetsonObstacleStatus (modo 3 COMMA+JETSON) si cambió en controlsd
+      try:
+        obstacle_payload = self.params.get("JetsonObstacleStatusMqttPayload")
+        if obstacle_payload and len(obstacle_payload) > 2:
+          payload_str = obstacle_payload.decode('utf-8')
+          print(f"[OBSTACLE STATUS SYNC] Detectado payload: {payload_str[:200]}")
+          try:
+            # retain=False aquí: el status del esquive es transitorio, no
+            # queremos que un suscriptor que se conecte tarde reciba un
+            # "DODGING_RIGHT" de hace 10 minutos como si estuviera vivo.
+            result1 = self.mqttc.publish("jetson_obstacle_status/global", payload_str, qos=0, retain=False)
+            result2 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/jetson_obstacle_status", payload_str, qos=0, retain=False)
+            print(f"[OBSTACLE STATUS SYNC] Publicado a jetson_obstacle_status/global rc={result1.rc}")
+            print(f"[OBSTACLE STATUS SYNC] Publicado a telemetry_config/{self.DongleID}/jetson_obstacle_status rc={result2.rc}")
+          except Exception as e:
+            print(f"[OBSTACLE STATUS SYNC] ERROR publicando MQTT: {e}")
+          self.params.remove("JetsonObstacleStatusMqttPayload")
+      except Exception as e:
+        print(f"[OBSTACLE STATUS SYNC] ERROR leyendo param: {e}")
+
       for canal in self.enabled_items:
         nombre = canal["canal"]
         topic = canal["topic"].format(self.DongleID)
