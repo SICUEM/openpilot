@@ -176,7 +176,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"JetsonTorqueTimestamp", CLEAR_ON_MANAGER_START},  // Wall-clock time.time() del ultimo torque recibido. Watchdog: si es viejo, controlsd ignora JetsonTorque.
     {"JetsonConfigChanged", CLEAR_ON_MANAGER_START},  // Flag para recargar config_jetson.json desde UI
     {"JetsonConfigMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar config Jetson via MQTT
-    {"SteerTorqueMode", PERSISTENT},  // Selector: 0=modelo Comma, 1=Jetson, 2=test max (torque fijo al maximo)
+    {"SteerTorqueMode", PERSISTENT},  // Selector: 0=modelo Comma, 1=Jetson, 2=test max (torque fijo al maximo), 3=COMMA+JETSON (esquive de obstaculos)
     {"JetsonTorqueGain", PERSISTENT},  // DEPRECATED desde v3 proporcional: la Jetson ya publica en [-1,1], no se aplica ganancia ni /500.
     {"JetsonDeadZone", PERSISTENT},  // Dead-zone en unidades NORMALIZADAS [0,1] (default 0.02). Si abs(JetsonTorque) < este valor -> torque cero (filtra ruido).
     {"CommaSteerTorque", CLEAR_ON_MANAGER_START},  // Torque lateral calculado por el modelo Comma (antes de override Jetson/MAX), rango [-1.0, 1.0]
