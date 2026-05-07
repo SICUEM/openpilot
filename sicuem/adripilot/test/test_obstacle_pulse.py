@@ -37,7 +37,7 @@ class TestObstaclePulseState(unittest.TestCase):
     def test_offsets_proportional_to_intensity(self):
         s = ObstaclePulseState()
         s.ingest_new_message({"obstacle": True, "intensity": -0.5, "duration_ms": 1000}, now=10.0)
-        a, c, st = s.get_offsets(now=10.5, carstate=_carstate(), lat_active=True)
+        a, c, st = s.get_offsets(now=10.3, carstate=_carstate(), lat_active=True)  # 300ms gap < 400ms watchdog
         self.assertAlmostEqual(a, -0.5 * DEFAULT_MAX_ANGLE)
         self.assertAlmostEqual(c, -0.5 * DEFAULT_MAX_CURV)
         self.assertEqual(st, "DODGING_RIGHT")
@@ -45,7 +45,7 @@ class TestObstaclePulseState(unittest.TestCase):
     def test_offsets_left_status(self):
         s = ObstaclePulseState()
         s.ingest_new_message({"obstacle": True, "intensity": 0.7, "duration_ms": 1000}, now=10.0)
-        a, c, st = s.get_offsets(now=10.5, carstate=_carstate(), lat_active=True)
+        a, c, st = s.get_offsets(now=10.3, carstate=_carstate(), lat_active=True)
         self.assertGreater(a, 0)
         self.assertGreater(c, 0)
         self.assertEqual(st, "DODGING_LEFT")
@@ -53,8 +53,11 @@ class TestObstaclePulseState(unittest.TestCase):
     def test_natural_expiration(self):
         s = ObstaclePulseState()
         s.ingest_new_message({"obstacle": True, "intensity": -0.5, "duration_ms": 1000}, now=10.0)
-        a, _, _ = s.get_offsets(now=10.5, carstate=_carstate(), lat_active=True)
+        # En t=10.3 sigue activo (300ms < watchdog 400ms, 300ms < dur 1000ms)
+        a, _, _ = s.get_offsets(now=10.3, carstate=_carstate(), lat_active=True)
         self.assertNotEqual(a, 0)
+        # En t=11.1 expira por duración (1100ms > dur 1000ms) ANTES que por watchdog
+        # → debe devolver "" (idle), no CANCELED_STALE
         a, c, st = s.get_offsets(now=11.1, carstate=_carstate(), lat_active=True)
         self.assertEqual((a, c, st), (0.0, 0.0, ""))
         self.assertFalse(s.active)
@@ -62,7 +65,7 @@ class TestObstaclePulseState(unittest.TestCase):
     def test_cancel_steering_pressed(self):
         s = ObstaclePulseState()
         s.ingest_new_message({"obstacle": True, "intensity": -0.5, "duration_ms": 1000}, now=10.0)
-        a, c, st = s.get_offsets(now=10.5, carstate=_carstate(steering_pressed=True), lat_active=True)
+        a, c, st = s.get_offsets(now=10.3, carstate=_carstate(steering_pressed=True), lat_active=True)
         self.assertEqual((a, c), (0.0, 0.0))
         self.assertEqual(st, "CANCELED_DRIVER")
         self.assertFalse(s.active)
@@ -70,19 +73,20 @@ class TestObstaclePulseState(unittest.TestCase):
     def test_cancel_brake_pressed(self):
         s = ObstaclePulseState()
         s.ingest_new_message({"obstacle": True, "intensity": 0.5, "duration_ms": 1000}, now=10.0)
-        _, _, st = s.get_offsets(now=10.5, carstate=_carstate(brake_pressed=True), lat_active=True)
+        _, _, st = s.get_offsets(now=10.3, carstate=_carstate(brake_pressed=True), lat_active=True)
         self.assertEqual(st, "CANCELED_DRIVER")
 
     def test_cancel_watchdog_stale(self):
         s = ObstaclePulseState()
+        # dur=2000ms, gap=500ms → 500 > watchdog 400 → STALE (y dur no ha expirado)
         s.ingest_new_message({"obstacle": True, "intensity": -0.5, "duration_ms": 2000}, now=10.0)
-        _, _, st = s.get_offsets(now=10.6, carstate=_carstate(), lat_active=True)
+        _, _, st = s.get_offsets(now=10.5, carstate=_carstate(), lat_active=True)
         self.assertEqual(st, "CANCELED_STALE")
 
     def test_cancel_lat_inactive(self):
         s = ObstaclePulseState()
         s.ingest_new_message({"obstacle": True, "intensity": -0.5, "duration_ms": 1000}, now=10.0)
-        a, c, st = s.get_offsets(now=10.5, carstate=_carstate(), lat_active=False)
+        a, c, st = s.get_offsets(now=10.3, carstate=_carstate(), lat_active=False)
         self.assertEqual((a, c, st), (0.0, 0.0, ""))
         self.assertFalse(s.active)
 

@@ -21,7 +21,7 @@ from typing import Tuple
 
 # Defaults (sembrados al param la primera vez que se lee y devuelve None)
 DEFAULT_MAX_DURATION_MS = 2500.0   # ms — tope superior de duration_ms
-DEFAULT_WATCHDOG_MS     = 550.0    # ms — sin heartbeat durante esquive → cancelar
+DEFAULT_WATCHDOG_MS     = 400.0    # ms — sin heartbeat durante esquive → cancelar
 DEFAULT_MAX_ANGLE       = 25.0     # grados — para |intensity|=1.0
 DEFAULT_MAX_CURV        = 0.030    # 1/m  — para |intensity|=1.0
 
