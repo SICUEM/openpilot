@@ -1202,13 +1202,9 @@ class Controls:
       # activos a la vez (la cruceta es manual del usuario, el esquive es
       # automático del modelo Jetson) pero si lo estuvieran, los offsets
       # se sumarían y sería el peor caso de superposición.
-      if CC.latActive:
-        try:
-          steer_mode_int = int(self.params.get("SteerTorqueMode") or 0)
-        except (UnknownKeyName, ValueError, TypeError):
-          steer_mode_int = 0
-
-        if steer_mode_int == 3:
+      try:
+        if CC.latActive and steer_mode == 3:
+          # I-2: reusamos `steer_mode` ya leído por el selector arriba.
           now_pulse = time.time()
           self._refresh_obstacle_config(now_pulse)
 
@@ -1224,10 +1220,14 @@ class Controls:
               payload_raw = self.params.get("JetsonObstaclePulse")
               if payload_raw:
                 payload = json.loads(payload_raw)
-                self._obstacle_pulse_state.ingest_new_message(
-                  payload, now_pulse, max_duration_ms=self._obstacle_max_duration_ms
-                )
-            except (UnknownKeyName, ValueError, TypeError) as e:
+                # C-1: validar que el JSON es un dict antes de pasarlo
+                if isinstance(payload, dict):
+                  self._obstacle_pulse_state.ingest_new_message(
+                    payload, now_pulse, max_duration_ms=self._obstacle_max_duration_ms
+                  )
+                else:
+                  cloudlog.error(f"controlsd: ObstaclePulse JSON no es dict: {payload!r}")
+            except (UnknownKeyName, ValueError, TypeError, AttributeError) as e:
               cloudlog.error(f"controlsd: ObstaclePulse JSON inválido: {e}")
 
           angle_off, curv_off, status = self._obstacle_pulse_state.get_offsets(
@@ -1250,6 +1250,24 @@ class Controls:
             except UnknownKeyName:
               pass
             self._last_obstacle_status = status
+
+        elif self._obstacle_pulse_state.active:
+          # I-1 + I-4: salimos de modo 3 (o lat inactivo) con esquive activo
+          # → forzar reset y limpiar status para que la UI no quede colgada.
+          self._obstacle_pulse_state._reset()
+          if self._last_obstacle_status:
+            try:
+              self.params.put_nonblocking("JetsonObstacleStatus", "")
+              self.params.put_nonblocking(
+                "JetsonObstacleStatusMqttPayload",
+                json.dumps({"status": "", "ts": time.time(), "source": "comma"}),
+              )
+            except UnknownKeyName:
+              pass
+            self._last_obstacle_status = ""
+      except Exception as e:
+        # C-2: hot-path, ningún error puede propagarse al main loop.
+        cloudlog.error(f"controlsd: excepcion inesperada en bloque modo 3: {e}")
 
       if self.model_use_lateral_planner:
         actuators.curvature = self.desired_curvature
