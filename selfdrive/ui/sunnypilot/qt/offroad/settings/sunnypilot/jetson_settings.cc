@@ -157,11 +157,13 @@ void JetsonSettings::setupTorqueControlSection() {
     return b;
   };
 
-  btn_mode_model  = makeModeButton(tr("★ MODELO\nCOMMA\n(RECOMENDADO)"),  "#76B900");  // verde, recomendado
-  btn_mode_jetson = makeModeButton(tr("JETSON\n(PilotNet)"), "#F59E0B");  // naranja
-  btn_mode_test   = makeModeButton(tr("⚠ TEST MAX\n(PELIGROSO)"), "#EF4444");  // rojo
+  btn_mode_model        = makeModeButton(tr("★ MODELO\nCOMMA\n(RECOMENDADO)"),  "#76B900");  // verde, recomendado
+  btn_mode_comma_jetson = makeModeButton(tr("COMMA + JETSON\n(esquive obstaculos)"), "#3B82F6");  // azul
+  btn_mode_jetson       = makeModeButton(tr("JETSON\n(PilotNet)"), "#F59E0B");  // naranja
+  btn_mode_test         = makeModeButton(tr("⚠ TEST MAX\n(PELIGROSO)"), "#EF4444");  // rojo
 
   ml->addWidget(btn_mode_model);
+  ml->addWidget(btn_mode_comma_jetson);  // 2ª posición visual
   ml->addWidget(btn_mode_jetson);
   ml->addWidget(btn_mode_test);
   main_layout->addWidget(mode_row);
@@ -172,11 +174,21 @@ void JetsonSettings::setupTorqueControlSection() {
   torque_status_label->setWordWrap(true);
   main_layout->addWidget(torque_status_label);
 
-  // Conectar cada boton a su modo (0=modelo, 1=jetson, 2=test max)
+  // Indicador de estado del esquive (modo 3 - obstáculo Jetson)
+  obstacle_status_label = new QLabel();
+  obstacle_status_label->setStyleSheet(
+    "font-size: 28px; font-weight: 600; padding: 8px; border-radius: 8px; margin-top: 6px;"
+  );
+  obstacle_status_label->setWordWrap(true);
+  obstacle_status_label->setVisible(false);
+  main_layout->addWidget(obstacle_status_label);
+
+  // Conectar cada boton a su modo (0=modelo, 1=jetson, 2=test max, 3=comma+jetson)
   // Usamos tryChangeSteerMode que muestra un dialogo de confirmacion antes
-  connect(btn_mode_model,  &QPushButton::clicked, this, [this]() { tryChangeSteerMode(0); });
-  connect(btn_mode_jetson, &QPushButton::clicked, this, [this]() { tryChangeSteerMode(1); });
-  connect(btn_mode_test,   &QPushButton::clicked, this, [this]() { tryChangeSteerMode(2); });
+  connect(btn_mode_model,        &QPushButton::clicked, this, [this]() { tryChangeSteerMode(0); });
+  connect(btn_mode_comma_jetson, &QPushButton::clicked, this, [this]() { tryChangeSteerMode(3); });
+  connect(btn_mode_jetson,       &QPushButton::clicked, this, [this]() { tryChangeSteerMode(1); });
+  connect(btn_mode_test,         &QPushButton::clicked, this, [this]() { tryChangeSteerMode(2); });
 
   // Estado inicial: leer el param guardado y pintar los botones.
   // OJO: usamos updateSteerModeVisual (solo UI), NO onSteerModeChanged.
@@ -220,6 +232,35 @@ void JetsonSettings::setupTorqueControlSection() {
         }
       }
     }
+
+    // 3) Indicador de estado del esquive (modo 3 obstáculo)
+    std::string obs = Params().get("JetsonObstacleStatus");
+    if (obs.empty()) {
+      obstacle_status_label->setVisible(false);
+    } else {
+      QString text;
+      QString bg = "#3B82F622";
+      QString fg = "#3B82F6";
+      if (obs == "DODGING_LEFT") {
+        text = tr("🚨 ESQUIVANDO ←");
+        bg = "#F59E0B33"; fg = "#F59E0B";
+      } else if (obs == "DODGING_RIGHT") {
+        text = tr("🚨 ESQUIVANDO →");
+        bg = "#F59E0B33"; fg = "#F59E0B";
+      } else if (obs == "CANCELED_DRIVER") {
+        text = tr("⚠ Cancelado por conductor");
+        bg = "#9CA3AF33"; fg = "#9CA3AF";
+      } else if (obs == "CANCELED_STALE") {
+        text = tr("❌ Jetson sin respuesta");
+        bg = "#EF444433"; fg = "#EF4444";
+      }
+      obstacle_status_label->setText(text);
+      obstacle_status_label->setStyleSheet(
+        QString("background:%1; color:%2; font-size: 28px; font-weight: 600; padding: 8px; border-radius: 8px; margin-top: 6px;")
+        .arg(bg).arg(fg)
+      );
+      obstacle_status_label->setVisible(true);
+    }
   });
   // Se arranca/para en showEvent/hideEvent.
 }
@@ -235,6 +276,7 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
   btn_mode_model->setChecked(current == 0);
   btn_mode_jetson->setChecked(current == 1);
   btn_mode_test->setChecked(current == 2);
+  btn_mode_comma_jetson->setChecked(current == 3);
 
   if (mode == current) return;
 
@@ -270,6 +312,17 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
              "NO LO USES EN VIA PUBLICA.\n\n"
              "Deseas continuar?");
     confirmed = ConfirmationDialog::confirm(msg, tr("SI, ACTIVAR TEST MAX"), this);
+  } else if (mode == 3) {
+    // COMMA + JETSON - aviso medio, no peligroso
+    msg = tr("Activar COMMA + JETSON\n\n"
+             "El volante usara el torque calculado por el MODELO COMMA "
+             "(comportamiento normal). Si la Jetson detecta un obstaculo "
+             "en la carretera, aplicara temporalmente un esquive lateral "
+             "(maximo 2.5 segundos).\n\n"
+             "Requisitos:\n"
+             "- La Jetson conectada y enviando alertas por ZMQ\n"
+             "- Modelo de deteccion de obstaculos cargado en la Jetson");
+    confirmed = ConfirmationDialog::confirm(msg, tr("SI, activar COMMA+JETSON"), this);
   }
 
   if (confirmed) {
@@ -279,6 +332,7 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
     btn_mode_model->setChecked(current == 0);
     btn_mode_jetson->setChecked(current == 1);
     btn_mode_test->setChecked(current == 2);
+    btn_mode_comma_jetson->setChecked(current == 3);
   }
 }
 
@@ -291,6 +345,7 @@ void JetsonSettings::updateSteerModeVisual(int mode) {
   btn_mode_model->setChecked(mode == 0);
   btn_mode_jetson->setChecked(mode == 1);
   btn_mode_test->setChecked(mode == 2);
+  btn_mode_comma_jetson->setChecked(mode == 3);
 
   if (mode == 0) {
     torque_status_label->setText(tr("MODELO COMMA - El volante usa el torque del modelo interno (original)"));
@@ -301,6 +356,9 @@ void JetsonSettings::updateSteerModeVisual(int mode) {
   } else if (mode == 2) {
     torque_status_label->setText(tr("⚠⚠ TEST MAX - Torque FIJO al maximo hacia la derecha (para probar interceptacion)"));
     torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: rgba(239, 68, 68, 0.2); color: #EF4444; border: 2px solid #EF4444;");
+  } else if (mode == 3) {
+    torque_status_label->setText(tr("COMMA + JETSON - Comma manda; la Jetson puede esquivar obstaculos"));
+    torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: #3B82F622; color: #3B82F6; border: 2px solid #3B82F6;");
   }
 
   last_steer_mode_ui = mode;

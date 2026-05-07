@@ -52,9 +52,11 @@ private:
 
   QCheckBox* enabled_checkbox;
   QPushButton* btn_mode_model;
+  QPushButton* btn_mode_comma_jetson;
   QPushButton* btn_mode_jetson;
   QPushButton* btn_mode_test;
   QLabel* torque_status_label;
+  QLabel* obstacle_status_label;
   QLineEdit* ip_input;
   QLineEdit* comma_ip_input;
   QLineEdit* img_port_input;
