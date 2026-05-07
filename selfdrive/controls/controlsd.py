@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import json
 import os
 import math
 import time
@@ -36,6 +37,13 @@ from openpilot.system.hardware import HARDWARE
 from openpilot.sicuem.adripilot.mqtt_envio_general import MQTTEnvioGeneral
 from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_control_ultra_simple
 from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_ultra_simple
+from openpilot.sicuem.adripilot.adripilot_obstacle_pulse import (
+  ObstaclePulseState,
+  DEFAULT_MAX_DURATION_MS,
+  DEFAULT_WATCHDOG_MS,
+  DEFAULT_MAX_ANGLE,
+  DEFAULT_MAX_CURV,
+)
 
 
 
@@ -198,6 +206,15 @@ class Controls:
       pass  # Módulo no disponible, ignorar
     self.dynamic_experimental_control = False
 
+    # Modo 3 (COMMA+JETSON): estado del esquive y caché de config
+    self._obstacle_pulse_state = ObstaclePulseState()
+    self._last_obstacle_status = ""
+    self._obstacle_config_last_read = 0.0  # wall-clock; recachear cada 1s
+    self._obstacle_max_duration_ms = DEFAULT_MAX_DURATION_MS
+    self._obstacle_watchdog_ms = DEFAULT_WATCHDOG_MS
+    self._obstacle_max_angle = DEFAULT_MAX_ANGLE
+    self._obstacle_max_curv = DEFAULT_MAX_CURV
+
     self.live_torque = self.params.get_bool("LiveTorque")
     self.torqued_override = self.params.get_bool("TorquedOverride")
 
@@ -242,6 +259,31 @@ class Controls:
 
       if any(ps.controlsAllowed for ps in self.sm['pandaStates']):
         self.state = State.enabled
+
+  def _refresh_obstacle_config(self, now: float) -> None:
+    """Lee los 4 params de configuración del esquive con cache de 1s.
+
+    Si el param es None (primera vez), siembra el default. Esto hace que la
+    UI/app vea valores razonables al abrir los controles.
+    """
+    if now - self._obstacle_config_last_read < 1.0:
+      return
+    self._obstacle_config_last_read = now
+    for key, default, attr in (
+      ("JetsonObstacleMaxDurationMs", DEFAULT_MAX_DURATION_MS, "_obstacle_max_duration_ms"),
+      ("JetsonObstacleWatchdogMs",    DEFAULT_WATCHDOG_MS,     "_obstacle_watchdog_ms"),
+      ("JetsonObstacleMaxAngle",      DEFAULT_MAX_ANGLE,       "_obstacle_max_angle"),
+      ("JetsonObstacleMaxCurv",       DEFAULT_MAX_CURV,        "_obstacle_max_curv"),
+    ):
+      try:
+        raw = self.params.get(key)
+        if raw is None or raw == b"":
+          self.params.put_nonblocking(key, str(default))
+          setattr(self, attr, default)
+        else:
+          setattr(self, attr, float(raw))
+      except (UnknownKeyName, ValueError, TypeError):
+        setattr(self, attr, default)
 
   def update_events(self, CS):
     """Compute onroadEvents from carState"""
@@ -1089,6 +1131,11 @@ class Controls:
           # el volante no gira a tope, el problema esta aguas abajo
           # (carcontroller / panda / safety).
           actuators.steer = -1.0
+        elif steer_mode == 3:
+          # FUENTE 4 (COMMA+JETSON): no tocamos actuators.steer aquí.
+          # El torque base lo deja Comma. Más abajo (post-selector) sumamos
+          # los offsets de ángulo y curvatura cuando hay esquive activo.
+          pass
         # modo 0 (COMMA): no tocamos actuators.steer, queda lo del LaC.
 
       # ────────────────────────────────────────────────────────────────
@@ -1146,6 +1193,63 @@ class Controls:
       except Exception:
         # Error inesperado - silencioso para reducir memoria
         pass
+
+      # ────────────────────────────────────────────────────────────────
+      # MODO 3 (COMMA+JETSON): offsets de esquive por obstáculo
+      # ────────────────────────────────────────────────────────────────
+      # Coexiste con la cruceta de la app: ambos suman al mismo
+      # steeringAngleDeg / desired_curvature. En la práctica nunca están
+      # activos a la vez (la cruceta es manual del usuario, el esquive es
+      # automático del modelo Jetson) pero si lo estuvieran, los offsets
+      # se sumarían y sería el peor caso de superposición.
+      if CC.latActive:
+        try:
+          steer_mode_int = int(self.params.get("SteerTorqueMode") or 0)
+        except (UnknownKeyName, ValueError, TypeError):
+          steer_mode_int = 0
+
+        if steer_mode_int == 3:
+          now_pulse = time.time()
+          self._refresh_obstacle_config(now_pulse)
+
+          # Detectar mensaje nuevo (timestamp más reciente que el cached)
+          try:
+            payload_ts_raw = self.params.get("JetsonObstacleTimestamp")
+            payload_ts = float(payload_ts_raw) if payload_ts_raw else 0.0
+          except (UnknownKeyName, ValueError, TypeError):
+            payload_ts = 0.0
+
+          if payload_ts > self._obstacle_pulse_state.last_payload_ts:
+            try:
+              payload_raw = self.params.get("JetsonObstaclePulse")
+              if payload_raw:
+                payload = json.loads(payload_raw)
+                self._obstacle_pulse_state.ingest_new_message(
+                  payload, now_pulse, max_duration_ms=self._obstacle_max_duration_ms
+                )
+            except (UnknownKeyName, ValueError, TypeError) as e:
+              cloudlog.error(f"controlsd: ObstaclePulse JSON inválido: {e}")
+
+          angle_off, curv_off, status = self._obstacle_pulse_state.get_offsets(
+            now_pulse, CS, CC.latActive,
+            watchdog_ms=self._obstacle_watchdog_ms,
+            max_angle=self._obstacle_max_angle,
+            max_curv=self._obstacle_max_curv,
+          )
+          if angle_off or curv_off:
+            actuators.steeringAngleDeg += angle_off
+            self.desired_curvature += curv_off
+
+          if status != self._last_obstacle_status:
+            try:
+              self.params.put_nonblocking("JetsonObstacleStatus", status)
+              self.params.put_nonblocking(
+                "JetsonObstacleStatusMqttPayload",
+                json.dumps({"status": status, "ts": now_pulse, "source": "comma"}),
+              )
+            except UnknownKeyName:
+              pass
+            self._last_obstacle_status = status
 
       if self.model_use_lateral_planner:
         actuators.curvature = self.desired_curvature
