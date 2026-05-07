@@ -15,7 +15,6 @@ Convención de signo: negativo = derecha, positivo = izquierda
 (coherente con controlsd.py:894-897).
 """
 from __future__ import annotations
-import time
 from typing import Tuple
 
 
@@ -55,8 +54,8 @@ class ObstaclePulseState:
         if duration_ms > max_duration_ms:
             duration_ms = max_duration_ms
 
-        # obstacle=False es cancelación explícita
-        if not obstacle or duration_ms == 0.0:
+        # obstacle=False, intensity=0 o duration_ms=0 → cancelación / no-op
+        if not obstacle or duration_ms == 0.0 or intensity == 0.0:
             self.active = False
             self.intensity = 0.0
             self.duration_s = 0.0
@@ -80,6 +79,14 @@ class ObstaclePulseState:
         """
         if not self.active:
             return 0.0, 0.0, ""
+
+        # Cancellation priority order (highest to lowest):
+        #   1. lat_inactive — sistema sin control lateral, sin status visible
+        #   2. driver override (steering/brake) → CANCELED_DRIVER
+        #   3. natural expiry (duración cumplida) → "" (chequeado ANTES del
+        #      watchdog: si la Jetson manda un único mensaje y la duración
+        #      expira sin más mensajes, NO queremos marcar STALE)
+        #   4. watchdog (sin heartbeat aún dentro de la duración) → CANCELED_STALE
 
         # Cancelación: lat inactivo (no es del conductor, status vacío)
         if not lat_active:

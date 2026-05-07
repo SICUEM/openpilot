@@ -121,6 +121,18 @@ class TestObstaclePulseState(unittest.TestCase):
         self.assertAlmostEqual(s.duration_s, 1.5)
         self.assertAlmostEqual(s.start_ts, 10.3)
 
+    def test_zero_intensity_is_no_op(self):
+        s = ObstaclePulseState()
+        s.ingest_new_message(
+            {"obstacle": True, "intensity": 0.0, "duration_ms": 1000},
+            now=10.0,
+        )
+        self.assertFalse(s.active)
+        a, c, st = s.get_offsets(now=10.1, carstate=_carstate(), lat_active=True)
+        self.assertEqual(st, "")
+        self.assertEqual(a, 0.0)
+        self.assertEqual(c, 0.0)
+
 
 if __name__ == "__main__":
     unittest.main()
