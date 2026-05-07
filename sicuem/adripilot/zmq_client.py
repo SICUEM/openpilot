@@ -8,6 +8,7 @@ Cliente ZeroMQ para comunicación Comma <-> Jetson.
 
 Basado en el código proporcionado por el equipo de la Jetson.
 """
+import json
 import math
 import struct
 import threading
@@ -144,6 +145,42 @@ class ZMQClient:
       pass
     cloudlog.info("ZMQClient: detenido")
 
+  def _handle_obstacle_json(self, data: bytes) -> None:
+    """Parsea un mensaje JSON del modo 3 (COMMA+JETSON) y lo publica en Params.
+
+    El formato esperado es:
+      {"obstacle": bool, "intensity": float [-1,+1], "duration_ms": int}
+
+    Si el JSON está mal formado o le faltan campos clave, se loguea y se
+    descarta. NO se escribe en JetsonObstaclePulse para que el lado de
+    controlsd no detecte un mensaje nuevo erróneo.
+    """
+    try:
+      payload = json.loads(data.decode("utf-8"))
+    except (UnicodeDecodeError, ValueError) as e:
+      cloudlog.error(f"ZMQClient: JSON obstáculo no decodificable: {e} bytes={data[:50]!r}")
+      return
+
+    if not isinstance(payload, dict):
+      cloudlog.error(f"ZMQClient: JSON obstáculo no es objeto: {payload!r}")
+      return
+
+    intensity = payload.get("intensity")
+    if not isinstance(intensity, (int, float)):
+      cloudlog.error(f"ZMQClient: JSON obstáculo sin intensity numérico: {payload!r}")
+      return
+
+    now = time.time()
+    cloudlog.info(f"ZMQClient: pulso obstáculo {payload}")
+    # Orden: payload primero (json.dumps re-serializa para limpiar espacios y
+    # tipos raros), timestamp después → si controlsd lee entremedias, ve un
+    # ts viejo y procesa en el siguiente frame (no falsea sustitución).
+    try:
+      self._params.put("JetsonObstaclePulse", json.dumps(payload))
+      self._params.put("JetsonObstacleTimestamp", f"{now:.6f}")
+    except UnknownKeyName:
+      cloudlog.error("JetsonObstaclePulse / JetsonObstacleTimestamp no registrados. Recompila common/params.cc.")
+
   def _torque_listener(self):
     """Hilo daemon: espera torques de la Jetson y los guarda en Params.
 
@@ -155,6 +192,14 @@ class ZMQClient:
     while self._running:
       try:
         data = self._torque_socket.recv()
+
+        # Distinguir formato por longitud:
+        #   - len == 4  → torque clásico modo 1 (float empaquetado)
+        #   - len  > 4  → mensaje JSON modo 3 (esquive de obstáculo)
+        if len(data) > 4:
+          self._handle_obstacle_json(data)
+          continue
+
         torque = _parse_torque(data)
         if torque is None:
           # Payload irreconocible -> ignorar este mensaje (no escribimos
