@@ -753,7 +753,7 @@ class MQTTComandos:
         print(f"[STEER MODE SYNC] Valor invalido: {data.get('steer_torque_mode')}")
         return
 
-      if mode not in (0, 1, 2):
+      if mode not in (0, 1, 2, 3):
         print(f"[STEER MODE SYNC] Modo fuera de rango: {mode}")
         return
 
