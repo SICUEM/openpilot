@@ -254,12 +254,18 @@ void JetsonSettings::setupTorqueControlSection() {
         text = tr("❌ Jetson sin respuesta");
         bg = "#EF444433"; fg = "#EF4444";
       }
-      obstacle_status_label->setText(text);
-      obstacle_status_label->setStyleSheet(
-        QString("background:%1; color:%2; font-size: 28px; font-weight: 600; padding: 8px; border-radius: 8px; margin-top: 6px;")
-        .arg(bg).arg(fg)
-      );
-      obstacle_status_label->setVisible(true);
+      if (text.isEmpty()) {
+        // Valor de JetsonObstacleStatus desconocido (no es uno de los 4 esperados)
+        // → ocultar para evitar mostrar pill vacío
+        obstacle_status_label->setVisible(false);
+      } else {
+        obstacle_status_label->setText(text);
+        obstacle_status_label->setStyleSheet(
+          QString("background:%1; color:%2; font-size: 28px; font-weight: 600; padding: 8px; border-radius: 8px; margin-top: 6px;")
+          .arg(bg).arg(fg)
+        );
+        obstacle_status_label->setVisible(true);
+      }
     }
   });
   // Se arranca/para en showEvent/hideEvent.
