@@ -166,8 +166,8 @@ class ZMQClient:
       return
 
     intensity = payload.get("intensity")
-    if not isinstance(intensity, (int, float)):
-      cloudlog.error(f"ZMQClient: JSON obstáculo sin intensity numérico: {payload!r}")
+    if not isinstance(intensity, (int, float)) or not math.isfinite(intensity):
+      cloudlog.error(f"ZMQClient: JSON obstáculo intensity no válido (esperado float finito): {payload!r}")
       return
 
     now = time.time()
@@ -177,9 +177,13 @@ class ZMQClient:
     # ts viejo y procesa en el siguiente frame (no falsea sustitución).
     try:
       self._params.put("JetsonObstaclePulse", json.dumps(payload))
+    except UnknownKeyName:
+      cloudlog.error("JetsonObstaclePulse no registrado. Recompila common/params.cc.")
+      return
+    try:
       self._params.put("JetsonObstacleTimestamp", f"{now:.6f}")
     except UnknownKeyName:
-      cloudlog.error("JetsonObstaclePulse / JetsonObstacleTimestamp no registrados. Recompila common/params.cc.")
+      cloudlog.error("JetsonObstacleTimestamp no registrado. Recompila common/params.cc.")
 
   def _torque_listener(self):
     """Hilo daemon: espera torques de la Jetson y los guarda en Params.

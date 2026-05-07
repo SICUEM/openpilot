@@ -69,6 +69,20 @@ class TestObstacleZmqProtocol(unittest.TestCase):
         raw = self.params.get("JetsonObstaclePulse")
         self.assertEqual(raw, b"{}")
 
+    def test_nan_intensity_rejected(self):
+        # JSON acepta NaN como token válido — pero debe rechazarse
+        self.params.put("JetsonObstaclePulse", "{}")  # marcador
+        self.push.send_string('{"obstacle": true, "intensity": NaN, "duration_ms": 1000}')
+        time.sleep(0.3)
+        # Pulse no debe haberse sobrescrito
+        self.assertEqual(self.params.get("JetsonObstaclePulse"), b"{}")
+
+    def test_missing_intensity_rejected(self):
+        self.params.put("JetsonObstaclePulse", "{}")  # marcador
+        self.push.send_string('{"obstacle": true, "duration_ms": 1000}')
+        time.sleep(0.3)
+        self.assertEqual(self.params.get("JetsonObstaclePulse"), b"{}")
+
 
 if __name__ == "__main__":
     unittest.main()
