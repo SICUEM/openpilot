@@ -865,6 +865,45 @@ Deseas continuar?</source>
         <source>SI, ACTIVAR TEST MAX</source>
         <translation type="unfinished"></translation>
     </message>
+    <message>
+        <source>COMMA + JETSON
+(esquive obstaculos)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>🚨 ESQUIVANDO ←</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>🚨 ESQUIVANDO →</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>⚠ Cancelado por conductor</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>❌ Jetson sin respuesta</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Activar COMMA + JETSON
+
+El volante usara el torque calculado por el MODELO COMMA (comportamiento normal). Si la Jetson detecta un obstaculo en la carretera, aplicara temporalmente un esquive lateral (maximo 2.5 segundos).
+
+Requisitos:
+- La Jetson conectada y enviando alertas por ZMQ
+- Modelo de deteccion de obstaculos cargado en la Jetson</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>SI, activar COMMA+JETSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>COMMA + JETSON - Comma manda; la Jetson puede esquivar obstaculos</source>
+        <translation type="unfinished"></translation>
+    </message>
 </context>
 <context>
     <name>LaneChangeSettings</name>
