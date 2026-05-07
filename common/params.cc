@@ -182,6 +182,15 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"CommaSteerTorque", CLEAR_ON_MANAGER_START},  // Torque lateral calculado por el modelo Comma (antes de override Jetson/MAX), rango [-1.0, 1.0]
     {"AppliedSteerTorque", CLEAR_ON_MANAGER_START},  // Torque final que controlsd envia al carcontroller tras el selector. Debe coincidir con CT en modo 0, con -JT en modo 1, con -1.0 en modo 2.
     {"SteerTorqueModeMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar modo torque via MQTT
+    // Modo COMMA+JETSON (esquive de obstáculos)
+    {"JetsonObstaclePulse", CLEAR_ON_MANAGER_START},  // JSON crudo del último mensaje recibido de la Jetson (modo 3)
+    {"JetsonObstacleTimestamp", CLEAR_ON_MANAGER_START},  // Wall-clock del último mensaje. Lo usa el watchdog y la detección de mensaje nuevo.
+    {"JetsonObstacleStatus", CLEAR_ON_MANAGER_START},  // Estado del esquive: ""|"DODGING_LEFT"|"DODGING_RIGHT"|"CANCELED_DRIVER"|"CANCELED_STALE"
+    {"JetsonObstacleStatusMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON del status para mqtt_envio_general
+    {"JetsonObstacleMaxDurationMs", PERSISTENT},  // Tope superior de duration_ms (default 2500)
+    {"JetsonObstacleWatchdogMs", PERSISTENT},  // ms sin mensaje durante esquive activo → cancelar (default 400)
+    {"JetsonObstacleMaxAngle", PERSISTENT},  // Grados de offset para |intensity|=1.0 (default 25.0)
+    {"JetsonObstacleMaxCurv", PERSISTENT},  // Curvatura 1/m de offset para |intensity|=1.0 (default 0.030)
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)
     {"overtake_distancia_activacion", PERSISTENT},  // Distancia de activación del adelantamiento (metros, default 50)
     {"overtake_tiempo_carril_izq", PERSISTENT},  // Tiempo en carril izquierdo (segundos, default 15)
