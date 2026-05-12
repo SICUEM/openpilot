@@ -68,8 +68,8 @@ class CarState(CarStateBase):
     # carstate.update() se llama a 100Hz (DT_CTRL=0.01), asi que 200 frames = 2 segundos
     self._left_bsm_counter = 0
     self._right_bsm_counter = 0
-    # quitado el tiempo de retraso desde que se desactiva el BSM del coche 100 = 1 seg, 0 = 0 seg
-    self.BSM_PERSISTENCE_FRAMES = 0 
+    # bajado el tiempo de retraso desde que se desactiva el BSM del coche 100 = 1 seg a 50 = 0,5 seg
+    self.BSM_PERSISTENCE_FRAMES = 50 
     
   def get_main_enabled(self, ret) -> bool:
     if self.prev_main_buttons != 1 and self.main_buttons[-1] == 1:
