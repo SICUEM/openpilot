@@ -39,8 +39,6 @@ from openpilot.sicuem.adripilot.adripilot_control_ultra_simple import adripilot_
 from openpilot.sicuem.adripilot.adripilot_speed_ultra_simple import adripilot_speed_ultra_simple
 from openpilot.sicuem.adripilot.adripilot_obstacle_pulse import (
   ObstaclePulseState,
-  DEFAULT_MAX_DURATION_MS,
-  DEFAULT_WATCHDOG_MS,
   DEFAULT_MAX_ANGLE,
   DEFAULT_MAX_CURV,
 )
@@ -210,8 +208,6 @@ class Controls:
     self._obstacle_pulse_state = ObstaclePulseState()
     self._last_obstacle_status = ""
     self._obstacle_config_last_read = 0.0  # wall-clock; recachear cada 1s
-    self._obstacle_max_duration_ms = DEFAULT_MAX_DURATION_MS
-    self._obstacle_watchdog_ms = DEFAULT_WATCHDOG_MS
     self._obstacle_max_angle = DEFAULT_MAX_ANGLE
     self._obstacle_max_curv = DEFAULT_MAX_CURV
 
@@ -261,7 +257,7 @@ class Controls:
         self.state = State.enabled
 
   def _refresh_obstacle_config(self, now: float) -> None:
-    """Lee los 4 params de configuración del esquive con cache de 1s.
+    """Lee los params de configuración del esquive con cache de 1s.
 
     Si el param es None (primera vez), siembra el default. Esto hace que la
     UI/app vea valores razonables al abrir los controles.
@@ -270,8 +266,6 @@ class Controls:
       return
     self._obstacle_config_last_read = now
     for key, default, attr in (
-      ("JetsonObstacleMaxDurationMs", DEFAULT_MAX_DURATION_MS, "_obstacle_max_duration_ms"),
-      ("JetsonObstacleWatchdogMs",    DEFAULT_WATCHDOG_MS,     "_obstacle_watchdog_ms"),
       ("JetsonObstacleMaxAngle",      DEFAULT_MAX_ANGLE,       "_obstacle_max_angle"),
       ("JetsonObstacleMaxCurv",       DEFAULT_MAX_CURV,        "_obstacle_max_curv"),
     ):
@@ -1222,9 +1216,7 @@ class Controls:
                 payload = json.loads(payload_raw)
                 # C-1: validar que el JSON es un dict antes de pasarlo
                 if isinstance(payload, dict):
-                  self._obstacle_pulse_state.ingest_new_message(
-                    payload, now_pulse, max_duration_ms=self._obstacle_max_duration_ms
-                  )
+                  self._obstacle_pulse_state.ingest_new_message(payload, now_pulse)
                 else:
                   cloudlog.error(f"controlsd: ObstaclePulse JSON no es dict: {payload!r}")
             except (UnknownKeyName, ValueError, TypeError, AttributeError) as e:
@@ -1232,7 +1224,6 @@ class Controls:
 
           angle_off, curv_off, status = self._obstacle_pulse_state.get_offsets(
             now_pulse, CS, CC.latActive,
-            watchdog_ms=self._obstacle_watchdog_ms,
             max_angle=self._obstacle_max_angle,
             max_curv=self._obstacle_max_curv,
           )

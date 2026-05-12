@@ -184,11 +184,9 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"SteerTorqueModeMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON para sincronizar modo torque via MQTT
     // Modo COMMA+JETSON (esquive de obstáculos)
     {"JetsonObstaclePulse", CLEAR_ON_MANAGER_START},  // JSON crudo del último mensaje recibido de la Jetson (modo 3)
-    {"JetsonObstacleTimestamp", CLEAR_ON_MANAGER_START},  // Wall-clock del último mensaje. Lo usa el watchdog y la detección de mensaje nuevo.
-    {"JetsonObstacleStatus", CLEAR_ON_MANAGER_START},  // Estado del esquive: ""|"DODGING_LEFT"|"DODGING_RIGHT"|"CANCELED_DRIVER"|"CANCELED_STALE"
+    {"JetsonObstacleTimestamp", CLEAR_ON_MANAGER_START},  // Wall-clock del último mensaje. Lo usa la detección de mensaje nuevo en controlsd.
+    {"JetsonObstacleStatus", CLEAR_ON_MANAGER_START},  // Estado del esquive: ""|"DODGING_LEFT"|"DODGING_RIGHT"|"CANCELED_DRIVER"
     {"JetsonObstacleStatusMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON del status para mqtt_envio_general
-    {"JetsonObstacleMaxDurationMs", PERSISTENT},  // Tope superior de duration_ms (default 2500)
-    {"JetsonObstacleWatchdogMs", PERSISTENT},  // ms sin mensaje durante esquive activo → cancelar (default 400)
     {"JetsonObstacleMaxAngle", PERSISTENT},  // Grados de offset para |intensity|=1.0 (default 25.0)
     {"JetsonObstacleMaxCurv", PERSISTENT},  // Curvatura 1/m de offset para |intensity|=1.0 (default 0.030)
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)

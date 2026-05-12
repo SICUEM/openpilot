@@ -148,8 +148,14 @@ class ZMQClient:
   def _handle_obstacle_json(self, data: bytes) -> None:
     """Parsea un mensaje JSON del modo 3 (COMMA+JETSON) y lo publica en Params.
 
-    El formato esperado es:
-      {"obstacle": bool, "intensity": float [-1,+1], "duration_ms": int}
+    Modelo "estado continuo" (v3): el formato esperado es
+      {"obstacle": bool, "intensity": float [-1,+1]}
+    El Comma se queda con el último mensaje recibido indefinidamente:
+    obstacle=true → esquive activo con esa intensity hasta que llegue
+    otro mensaje, obstacle=false → idle.
+    Ya no existe `duration_ms` ni watchdog: si la Jetson se calla, el
+    último estado se mantiene. Las únicas cancelaciones automáticas son
+    volante / freno (CANCELED_DRIVER) y latActive=false.
 
     Si el JSON está mal formado o le faltan campos clave, se loguea y se
     descarta. NO se escribe en JetsonObstaclePulse para que el lado de

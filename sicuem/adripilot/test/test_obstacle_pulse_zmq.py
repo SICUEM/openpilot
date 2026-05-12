@@ -51,7 +51,8 @@ class TestObstacleZmqProtocol(unittest.TestCase):
         self.assertAlmostEqual(float(self.params.get("JetsonTorque")), 0.42, places=5)
 
     def test_json_obstacle_message(self):
-        msg = {"obstacle": True, "intensity": -0.7, "duration_ms": 1500}
+        # v2: el payload ya no lleva duration_ms (modelo estado continuo)
+        msg = {"obstacle": True, "intensity": -0.7}
         self.push.send_string(json.dumps(msg))
         time.sleep(0.3)
         raw = self.params.get("JetsonObstaclePulse")
@@ -59,7 +60,7 @@ class TestObstacleZmqProtocol(unittest.TestCase):
         parsed = json.loads(raw)
         self.assertEqual(parsed["obstacle"], True)
         self.assertAlmostEqual(parsed["intensity"], -0.7)
-        self.assertEqual(parsed["duration_ms"], 1500)
+        self.assertNotIn("duration_ms", parsed)
 
     def test_invalid_json_rejected(self):
         self.params.put("JetsonObstaclePulse", "{}")  # placeholder reconocible
@@ -72,14 +73,14 @@ class TestObstacleZmqProtocol(unittest.TestCase):
     def test_nan_intensity_rejected(self):
         # JSON acepta NaN como token válido — pero debe rechazarse
         self.params.put("JetsonObstaclePulse", "{}")  # marcador
-        self.push.send_string('{"obstacle": true, "intensity": NaN, "duration_ms": 1000}')
+        self.push.send_string('{"obstacle": true, "intensity": NaN}')
         time.sleep(0.3)
         # Pulse no debe haberse sobrescrito
         self.assertEqual(self.params.get("JetsonObstaclePulse"), b"{}")
 
     def test_missing_intensity_rejected(self):
         self.params.put("JetsonObstaclePulse", "{}")  # marcador
-        self.push.send_string('{"obstacle": true, "duration_ms": 1000}')
+        self.push.send_string('{"obstacle": true}')
         time.sleep(0.3)
         self.assertEqual(self.params.get("JetsonObstaclePulse"), b"{}")
 
