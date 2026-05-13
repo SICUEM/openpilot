@@ -1159,7 +1159,6 @@ class Controls:
         pulse_start, original_direction, is_active, phase, effective_direction = get_steering_pulse()
 
         if is_active and effective_direction in ["right", "left"] and CC.latActive:
-          import time
           current_time = time.time()
           elapsed = current_time - pulse_start
 
@@ -1228,8 +1227,8 @@ class Controls:
             max_curv=self._obstacle_max_curv,
           )
           if angle_off or curv_off:
-            actuators.steeringAngleDeg += angle_off
-            self.desired_curvature += curv_off
+            actuators.steeringAngleDeg += angle_off #aplicaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            self.desired_curvature += curv_off      #aplicaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
 
           if status != self._last_obstacle_status:
             try:
