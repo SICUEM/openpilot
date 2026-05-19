@@ -257,6 +257,22 @@ class MQTTEnvioGeneral:
       except Exception as e:
         print(f"[STEER MODE SYNC] ERROR leyendo param: {e}")
 
+      # Publicar JetsonObstacleApplyTarget si fue cambiado desde la UI del Comma
+      try:
+        apply_target_payload = self.params.get("JetsonObstacleApplyTargetMqttPayload")
+        if apply_target_payload and len(apply_target_payload) > 2:
+          payload_str = apply_target_payload.decode('utf-8')
+          print(f"[APPLY TARGET SYNC] Detectado payload: {payload_str[:200]}")
+          try:
+            # retain=True: que la app reciba el estado al reconectarse.
+            result1 = self.mqttc.publish(f"telemetry_config/{self.DongleID}/jetson_apply_target", payload_str, qos=0, retain=True)
+            print(f"[APPLY TARGET SYNC] Publicado (retained) a telemetry_config/{self.DongleID}/jetson_apply_target rc={result1.rc}")
+          except Exception as e:
+            print(f"[APPLY TARGET SYNC] ERROR publicando MQTT: {e}")
+          self.params.remove("JetsonObstacleApplyTargetMqttPayload")
+      except Exception as e:
+        print(f"[APPLY TARGET SYNC] ERROR leyendo param: {e}")
+
       # Publicar JetsonObstacleStatus (modo 3 COMMA+JETSON) si cambió en controlsd
       try:
         obstacle_payload = self.params.get("JetsonObstacleStatusMqttPayload")
