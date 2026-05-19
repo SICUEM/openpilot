@@ -757,14 +757,33 @@ class MQTTComandos:
         print(f"[STEER MODE SYNC] Modo fuera de rango: {mode}")
         return
 
+      # Para modo 3, exigir apply_target válido. Sin él no podemos
+      # determinar cómo aplicar el esquive -> rechazo limpio.
+      apply_target = None
+      if mode == 3:
+        apply_target = data.get("apply_target")
+        if apply_target not in ("curvature", "torque"):
+          print(f"[STEER MODE SYNC] mode=3 sin apply_target válido (recibido={apply_target!r}), payload ignorado")
+          return
+
       # Leer el valor actual para detectar cambios reales
       current = self.params.get("SteerTorqueMode")
       current_str = current.decode('utf-8') if current else ""
       new_str = str(mode)
 
-      if current_str == new_str:
-        print(f"[STEER MODE SYNC] Sin cambios (ya en modo {mode})")
+      # Sub-target: detectar también cambios sobre el mismo modo 3.
+      current_target = self.params.get("JetsonObstacleApplyTarget")
+      current_target_str = current_target.decode('utf-8') if current_target else ""
+      target_changed = (mode == 3) and (apply_target != current_target_str)
+
+      if current_str == new_str and not target_changed:
+        print(f"[STEER MODE SYNC] Sin cambios (ya en modo {mode}"
+              + (f", apply_target={apply_target}" if mode == 3 else "") + ")")
         return
+
+      if mode == 3:
+        self.params.put("JetsonObstacleApplyTarget", apply_target)
+        print(f"[STEER MODE SYNC] JetsonObstacleApplyTarget actualizado: {current_target_str!r} -> {apply_target!r}")
 
       self.params.put("SteerTorqueMode", new_str)
       print(f"[STEER MODE SYNC] SteerTorqueMode actualizado: {current_str} -> {new_str}")
