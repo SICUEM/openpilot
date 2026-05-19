@@ -887,9 +887,13 @@ Deseas continuar?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <source>SI, activar COMMA+JETSON</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <source>Activar COMMA + JETSON
 
-El volante usara el torque calculado por el MODELO COMMA (comportamiento normal). Si la Jetson detecta un obstaculo en la carretera, aplicara temporalmente un esquive lateral (maximo 2.5 segundos).
+El volante usara el torque calculado por el MODELO COMMA (comportamiento normal). Si la Jetson detecta un obstaculo en la carretera, aplicara temporalmente un esquive lateral.
 
 Requisitos:
 - La Jetson conectada y enviando alertas por ZMQ
@@ -897,11 +901,41 @@ Requisitos:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>SI, activar COMMA+JETSON</source>
+        <source>¿Cómo aplicar el esquive?</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>COMMA + JETSON - Comma manda; la Jetson puede esquivar obstaculos</source>
+        <source>¿Cómo debe esquivar la Jetson?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Elige qué variable de control modifica el esquive cuando la Jetson detecta un obstáculo:</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CURVATURA
+(comportamiento actual)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TORQUE
+(modo prueba)</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cancelar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>TORQUE</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>CURVATURA</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>COMMA + JETSON · esquive en %1 - Comma manda; la Jetson esquiva obstaculos</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
