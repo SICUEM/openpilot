@@ -248,6 +248,9 @@ void JetsonSettings::setupTorqueControlSection() {
       } else if (obs == "DODGING_RIGHT") {
         text = tr("🚨 ESQUIVANDO →");
         bg = "#F59E0B33"; fg = "#F59E0B";
+      } else if (obs == "DODGING_HOLD") {
+        text = tr("🚨 ESQUIVANDO · NEUTRO (intensity=0)");
+        bg = "#F59E0B33"; fg = "#F59E0B";
       } else if (obs == "CANCELED_DRIVER") {
         text = tr("⚠ Cancelado por conductor");
         bg = "#9CA3AF33"; fg = "#9CA3AF";

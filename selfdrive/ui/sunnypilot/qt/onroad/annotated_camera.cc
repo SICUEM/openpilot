@@ -1272,10 +1272,19 @@ if (adelantar) {
   // Label ESQUIVANDO (siempre visible, no solo en modoDebug): solo aparece
   // cuando estamos en COMMA+JETSON y la Jetson está esquivando un obstáculo
   // en este instante. CANCELED_* no se considera "esquivando activo".
+  // DODGING_HOLD = obstacle:true + intensity=0 (Jetson neutraliza el volante).
   if (steer_torque_mode == 3 &&
-      (jetson_obstacle_status == "DODGING_LEFT" || jetson_obstacle_status == "DODGING_RIGHT")) {
-    const bool left = (jetson_obstacle_status == "DODGING_LEFT");
-    QString esq_label = left ? QString("🚨 ESQUIVANDO  ←") : QString("🚨 ESQUIVANDO  →");
+      (jetson_obstacle_status == "DODGING_LEFT" ||
+       jetson_obstacle_status == "DODGING_RIGHT" ||
+       jetson_obstacle_status == "DODGING_HOLD")) {
+    QString esq_label;
+    if (jetson_obstacle_status == "DODGING_LEFT") {
+      esq_label = QString("🚨 ESQUIVANDO  ←");
+    } else if (jetson_obstacle_status == "DODGING_RIGHT") {
+      esq_label = QString("🚨 ESQUIVANDO  →");
+    } else {
+      esq_label = QString("🚨 ESQUIVANDO  · NEUTRO");
+    }
     p.setFont(InterFont(46, QFont::Bold));
     QRect tr = p.fontMetrics().boundingRect(esq_label);
     int pad_x = 28, pad_y = 14;

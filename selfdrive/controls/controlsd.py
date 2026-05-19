@@ -1239,26 +1239,32 @@ class Controls:
             except (UnknownKeyName, ValueError, TypeError, AttributeError) as e:
               cloudlog.error(f"controlsd: ObstaclePulse JSON inválido: {e}")
 
-          angle_off, curv_off, status = self._obstacle_pulse_state.get_offsets(
+          angle_tgt, curv_tgt, status = self._obstacle_pulse_state.get_offsets(
             now_pulse, CS, CC.latActive,
             max_angle=self._obstacle_max_angle,
             max_curv=self._obstacle_max_curv,
           )
-          if angle_off or curv_off:
+          # Gate por `active`, NO por (angle_tgt or curv_tgt): con la
+          # semántica OVERRIDE absoluta queremos aplicar el target aunque
+          # sea 0 (intensity=0 → torque/curvatura forzados a 0, volante
+          # neutralizado / línea recta). Solo cuando obstacle:false → active
+          # pasa a False → este bloque no entra → manda Comma.
+          if self._obstacle_pulse_state.active:
             if self._obstacle_apply_target == "torque":
-              # Sub-modo torque: sustituimos actuators.steer por intensity
-              # (clamped a [-1,1]). Análogo al modo 1 JETSON pero gateado por
-              # obstacle=true. NO tocamos curvature ni angle: cuando obstacle
-              # pase a false, el if no entra y el modelo Comma recupera el
-              # control "de golpe" (mismo patrón que el sub-modo curvature).
+              # Sub-modo torque: OVERRIDE absoluto de actuators.steer con
+              # intensity ∈ [-1,1] (clamped). intensity=0 → torque 0
+              # (volante relajado). Cuando llegue obstacle:false → active
+              # pasa a False → no entramos aquí → manda Comma.
               intensity = self._obstacle_pulse_state.intensity
               if math.isnan(intensity):
                 intensity = 0.0
               actuators.steer = max(-1.0, min(1.0, intensity))
             else:
-              # Sub-modo curvature (default, comportamiento histórico).
-              actuators.steeringAngleDeg += angle_off
-              self.desired_curvature += curv_off
+              # Sub-modo curvature: OVERRIDE absoluto (no offset). El target
+              # = intensity * max_*. intensity=0 → curvatura/ángulo 0 →
+              # línea recta. Simétrico con torque mode.
+              actuators.steeringAngleDeg = angle_tgt
+              self.desired_curvature = curv_tgt
 
           if status != self._last_obstacle_status:
             try:
