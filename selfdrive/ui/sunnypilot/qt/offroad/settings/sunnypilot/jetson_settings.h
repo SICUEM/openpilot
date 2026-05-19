@@ -39,6 +39,11 @@ private slots:
   void updateSteerModeVisual(int mode);
 
 private:
+  // Pregunta al usuario "¿curvature o torque?" tras pulsar COMMA+JETSON.
+  // Devuelve "curvature", "torque" o "" si cancela. No escribe params ni publica MQTT.
+  QString askObstacleApplyTarget();
+
+private:
   QVBoxLayout* main_layout;
 
   // UI elements

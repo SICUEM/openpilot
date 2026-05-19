@@ -1,4 +1,5 @@
 #include "selfdrive/ui/sunnypilot/qt/offroad/settings/sunnypilot/jetson_settings.h"
+#include <QDialog>
 #include <QFileInfo>
 #include <QDir>
 #include <QSpacerItem>
@@ -284,7 +285,10 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
   btn_mode_test->setChecked(current == 2);
   btn_mode_comma_jetson->setChecked(current == 3);
 
-  if (mode == current) return;
+  // Excepción para mode==3: si ya estás en COMMA+JETSON y vuelves a pulsar,
+  // saltamos el confirm de cambio de modo pero SÍ abrimos el sub-diálogo
+  // (siempre se pregunta al pulsar COMMA+JETSON).
+  if (mode == current && mode != 3) return;
 
   // Preparar mensaje segun el modo destino
   QString msg;
@@ -319,19 +323,53 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
              "Deseas continuar?");
     confirmed = ConfirmationDialog::confirm(msg, tr("SI, ACTIVAR TEST MAX"), this);
   } else if (mode == 3) {
-    // COMMA + JETSON - aviso medio, no peligroso
-    msg = tr("Activar COMMA + JETSON\n\n"
-             "El volante usara el torque calculado por el MODELO COMMA "
-             "(comportamiento normal). Si la Jetson detecta un obstaculo "
-             "en la carretera, aplicara temporalmente un esquive lateral "
-             "(maximo 2.5 segundos).\n\n"
-             "Requisitos:\n"
-             "- La Jetson conectada y enviando alertas por ZMQ\n"
-             "- Modelo de deteccion de obstaculos cargado en la Jetson");
-    confirmed = ConfirmationDialog::confirm(msg, tr("SI, activar COMMA+JETSON"), this);
+    // COMMA + JETSON - aviso medio, no peligroso. Solo se pide confirm
+    // si venimos de OTRO modo. Si ya estamos en 3, saltamos directos al
+    // sub-diálogo (re-pulsar = cambiar sub-target).
+    if (current == 3) {
+      confirmed = true;
+    } else {
+      msg = tr("Activar COMMA + JETSON\n\n"
+               "El volante usara el torque calculado por el MODELO COMMA "
+               "(comportamiento normal). Si la Jetson detecta un obstaculo "
+               "en la carretera, aplicara temporalmente un esquive lateral.\n\n"
+               "Requisitos:\n"
+               "- La Jetson conectada y enviando alertas por ZMQ\n"
+               "- Modelo de deteccion de obstaculos cargado en la Jetson");
+      confirmed = ConfirmationDialog::confirm(msg, tr("SI, activar COMMA+JETSON"), this);
+    }
   }
 
-  if (confirmed) {
+  if (confirmed && mode == 3) {
+    // Sub-elección obligatoria: "curvature" o "torque". Si cancela, no
+    // cambiamos nada.
+    QString target = askObstacleApplyTarget();
+    if (target.isEmpty()) {
+      // Restaurar visual al estado previo (no cambia modo)
+      btn_mode_model->setChecked(current == 0);
+      btn_mode_jetson->setChecked(current == 1);
+      btn_mode_test->setChecked(current == 2);
+      btn_mode_comma_jetson->setChecked(current == 3);
+      return;
+    }
+
+    // Persistir el sub-target y publicar MQTT.
+    params.put("JetsonObstacleApplyTarget", target.toStdString());
+
+    QString dongle_id = QString::fromStdString(params.get("DongleId"));
+    if (!dongle_id.isEmpty()) {
+      QJsonObject payload;
+      payload["dongle_id"] = dongle_id;
+      payload["apply_target"] = target;
+      payload["source"] = "comma_ui";
+      payload["ts"] = QString::number(QDateTime::currentMSecsSinceEpoch());
+      QJsonDocument doc(payload);
+      params.put("JetsonObstacleApplyTargetMqttPayload",
+                 doc.toJson(QJsonDocument::Compact).toStdString());
+    }
+
+    onSteerModeChanged(mode);  // idempotente si current ya era 3
+  } else if (confirmed) {
     onSteerModeChanged(mode);
   } else {
     // Restaurar visual al estado previo
@@ -340,6 +378,86 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
     btn_mode_test->setChecked(current == 2);
     btn_mode_comma_jetson->setChecked(current == 3);
   }
+}
+
+// Diálogo modal con dos botones grandes (CURVATURA / TORQUE) + Cancelar.
+// Devuelve "curvature" | "torque" | "" (cancelado). NO toca params ni
+// publica MQTT — eso lo hace el caller.
+QString JetsonSettings::askObstacleApplyTarget() {
+  QDialog dlg(this);
+  dlg.setWindowTitle(tr("¿Cómo aplicar el esquive?"));
+  dlg.setModal(true);
+  dlg.setStyleSheet("QDialog { background-color: #1B1B1B; }");
+
+  QVBoxLayout* layout = new QVBoxLayout(&dlg);
+  layout->setContentsMargins(30, 30, 30, 30);
+  layout->setSpacing(20);
+
+  QLabel* title = new QLabel(tr("¿Cómo debe esquivar la Jetson?"));
+  title->setStyleSheet("font-size: 42px; font-weight: 700; color: white;");
+  title->setWordWrap(true);
+  layout->addWidget(title);
+
+  QLabel* explain = new QLabel(tr(
+    "Elige qué variable de control modifica el esquive cuando la Jetson "
+    "detecta un obstáculo:"));
+  explain->setStyleSheet("font-size: 28px; color: #BDBDBD;");
+  explain->setWordWrap(true);
+  layout->addWidget(explain);
+
+  // Botón CURVATURA (azul, comportamiento actual)
+  QPushButton* btn_curv = new QPushButton(
+    tr("CURVATURA\n(comportamiento actual)"));
+  btn_curv->setMinimumHeight(140);
+  btn_curv->setStyleSheet(R"(
+    QPushButton {
+      font-size: 34px; font-weight: 700;
+      background-color: #3B82F6; color: white;
+      border-radius: 15px; padding: 20px;
+    }
+    QPushButton:pressed { background-color: #2563EB; }
+  )");
+  layout->addWidget(btn_curv);
+
+  // Botón TORQUE (naranja, modo prueba)
+  QPushButton* btn_torque = new QPushButton(
+    tr("TORQUE\n(modo prueba)"));
+  btn_torque->setMinimumHeight(140);
+  btn_torque->setStyleSheet(R"(
+    QPushButton {
+      font-size: 34px; font-weight: 700;
+      background-color: #F59E0B; color: white;
+      border-radius: 15px; padding: 20px;
+    }
+    QPushButton:pressed { background-color: #D97706; }
+  )");
+  layout->addWidget(btn_torque);
+
+  // Botón Cancelar
+  QPushButton* btn_cancel = new QPushButton(tr("Cancelar"));
+  btn_cancel->setMinimumHeight(70);
+  btn_cancel->setStyleSheet(R"(
+    QPushButton {
+      font-size: 28px; color: #BDBDBD;
+      background-color: transparent; border: 2px solid #555555;
+      border-radius: 10px;
+    }
+  )");
+  layout->addWidget(btn_cancel);
+
+  QString result;
+  QObject::connect(btn_curv, &QPushButton::clicked, [&]() {
+    result = "curvature"; dlg.accept();
+  });
+  QObject::connect(btn_torque, &QPushButton::clicked, [&]() {
+    result = "torque"; dlg.accept();
+  });
+  QObject::connect(btn_cancel, &QPushButton::clicked, [&]() {
+    result = ""; dlg.reject();
+  });
+
+  dlg.exec();
+  return result;
 }
 
 // Refresco VISUAL puro: actualiza botones + label de estado.
@@ -363,7 +481,9 @@ void JetsonSettings::updateSteerModeVisual(int mode) {
     torque_status_label->setText(tr("⚠⚠ TEST MAX - Torque FIJO al maximo hacia la derecha (para probar interceptacion)"));
     torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: rgba(239, 68, 68, 0.2); color: #EF4444; border: 2px solid #EF4444;");
   } else if (mode == 3) {
-    torque_status_label->setText(tr("COMMA + JETSON - Comma manda; la Jetson puede esquivar obstaculos"));
+    std::string tgt = Params().get("JetsonObstacleApplyTarget");
+    QString tgt_label = (tgt == "torque") ? tr("TORQUE") : tr("CURVATURA");
+    torque_status_label->setText(tr("COMMA + JETSON · esquive en %1 - Comma manda; la Jetson esquiva obstaculos").arg(tgt_label));
     torque_status_label->setStyleSheet("font-size: 34px; font-weight: 600; padding: 12px; border-radius: 10px; background-color: #3B82F622; color: #3B82F6; border: 2px solid #3B82F6;");
   }
 
