@@ -281,7 +281,7 @@ class Controls:
         setattr(self, attr, default)
 
     # Sub-target del esquive (string, no float). Validamos contra el conjunto
-    # permitido; cualquier otro valor -> fallback a "curvature".
+    # permitido; cualquier otro valor -> fallback a "curvature" con log.
     try:
       raw = self.params.get("JetsonObstacleApplyTarget")
       if raw is None or raw == b"":
@@ -289,7 +289,11 @@ class Controls:
         self._obstacle_apply_target = "curvature"
       else:
         val = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
-        self._obstacle_apply_target = val if val in ("curvature", "torque") else "curvature"
+        if val in ("curvature", "torque"):
+          self._obstacle_apply_target = val
+        else:
+          cloudlog.warning(f"controlsd: JetsonObstacleApplyTarget invalido: {val!r}, fallback curvature")
+          self._obstacle_apply_target = "curvature"
     except (UnknownKeyName, ValueError, TypeError):
       self._obstacle_apply_target = "curvature"
 
