@@ -725,7 +725,8 @@ class MQTTComandos:
     Payload esperado:
     {
       "dongle_id": "xxx",
-      "steer_torque_mode": 0|1|2,
+      "steer_torque_mode": 0|1|2|3,
+      "apply_target": "curvature"|"torque",   # obligatorio cuando mode == 3
       "source": "app" | "comma_ui"
     }
 
@@ -733,6 +734,12 @@ class MQTTComandos:
       0 = MODELO COMMA
       1 = JETSON
       2 = TEST MAX
+      3 = COMMA + JETSON (esquive obstaculos)
+
+    Para mode == 3, apply_target indica donde se aplica el esquive:
+      - "curvature": suma offset a desired_curvature (comportamiento histórico).
+      - "torque":    pisa actuators.steer cuando obstacle=true.
+    Si mode == 3 llega sin apply_target válido, el payload se descarta.
     """
     try:
       import json as json_mod
