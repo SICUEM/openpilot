@@ -122,5 +122,85 @@ class TestObstaclePulseState(unittest.TestCase):
         self.assertEqual(c, 0.0)
 
 
+class TestObstacleApplyTargetBranch(unittest.TestCase):
+    """Tests de la bifurcación apply_target en controlsd modo 3.
+
+    No invocan controlsd directamente (demasiado pesado). Replican la
+    lógica del bloque modificado en una función auxiliar y verifican
+    sus tres ramas:
+      - target='curvature' + active=True  -> suma offsets a curvature/angle
+      - target='torque'    + active=True  -> pisa actuators.steer
+      - active=False                       -> no toca nada
+    """
+
+    @staticmethod
+    def _apply(target, angle_off, curv_off, intensity, actuators, state_dc):
+        """Réplica de la lógica de aplicación de controlsd.py modo 3.
+        Espejo de lo que está implementado en controlsd.py — si cambia
+        allá, también cambia aquí.
+        """
+        import math
+        if angle_off or curv_off:
+            if target == "torque":
+                i = intensity
+                if math.isnan(i):
+                    i = 0.0
+                actuators.steer = max(-1.0, min(1.0, i))
+            else:
+                actuators.steeringAngleDeg += angle_off
+                state_dc["desired_curvature"] += curv_off
+        return actuators, state_dc
+
+    def test_curvature_target_sums_offsets(self):
+        act = MagicMock()
+        act.steer = 0.0
+        act.steeringAngleDeg = 5.0
+        state = {"desired_curvature": 0.02}
+        self._apply("curvature", angle_off=-2.0, curv_off=-0.01,
+                    intensity=-0.5, actuators=act, state_dc=state)
+        self.assertAlmostEqual(act.steeringAngleDeg, 3.0)
+        self.assertAlmostEqual(state["desired_curvature"], 0.01)
+        self.assertEqual(act.steer, 0.0)  # no se toca
+
+    def test_torque_target_overwrites_steer(self):
+        act = MagicMock()
+        act.steer = 0.3   # lo que dejó el LaC
+        act.steeringAngleDeg = 5.0
+        state = {"desired_curvature": 0.02}
+        self._apply("torque", angle_off=-2.0, curv_off=-0.01,
+                    intensity=-0.4, actuators=act, state_dc=state)
+        self.assertAlmostEqual(act.steer, -0.4)
+        self.assertAlmostEqual(act.steeringAngleDeg, 5.0)  # no se toca
+        self.assertAlmostEqual(state["desired_curvature"], 0.02)  # no se toca
+
+    def test_torque_target_clips_intensity(self):
+        act = MagicMock()
+        act.steer = 0.0
+        self._apply("torque", angle_off=0.0, curv_off=0.05,
+                    intensity=1.7, actuators=act,
+                    state_dc={"desired_curvature": 0.0})
+        self.assertAlmostEqual(act.steer, 1.0)
+
+    def test_torque_target_nan_intensity_becomes_zero(self):
+        act = MagicMock()
+        act.steer = 0.0
+        self._apply("torque", angle_off=0.0, curv_off=0.05,
+                    intensity=float("nan"), actuators=act,
+                    state_dc={"desired_curvature": 0.0})
+        self.assertEqual(act.steer, 0.0)
+
+    def test_inactive_does_not_touch_anything(self):
+        act = MagicMock()
+        act.steer = 0.3
+        act.steeringAngleDeg = 5.0
+        state = {"desired_curvature": 0.02}
+        # active=False -> get_offsets devuelve (0,0,"") -> no entramos al if
+        self._apply("torque", angle_off=0.0, curv_off=0.0,
+                    intensity=0.5, actuators=act, state_dc=state)
+        self.assertAlmostEqual(act.steer, 0.3)
+        self.assertAlmostEqual(act.steeringAngleDeg, 5.0)
+        self.assertAlmostEqual(state["desired_curvature"], 0.02)
+
+
 if __name__ == "__main__":
     unittest.main()
