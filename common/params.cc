@@ -189,6 +189,8 @@ std::unordered_map<std::string, uint32_t> keys = {
     {"JetsonObstacleStatusMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON del status para mqtt_envio_general
     {"JetsonObstacleMaxAngle", PERSISTENT},  // Grados de offset para |intensity|=1.0 (default 25.0)
     {"JetsonObstacleMaxCurv", PERSISTENT},  // Curvatura 1/m de offset para |intensity|=1.0 (default 0.030)
+    {"JetsonObstacleApplyTarget", PERSISTENT},  // "curvature" (default, suma curv_off a desired_curvature) o "torque" (pisa actuators.steer cuando obstacle=true)
+    {"JetsonObstacleApplyTargetMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON Comma->App con el sub-target elegido desde la UI Comma
     {"overtakingActive", CLEAR_ON_MANAGER_START},  // Estado activo del adelantamiento (para controlsd)
     {"overtake_distancia_activacion", PERSISTENT},  // Distancia de activación del adelantamiento (metros, default 50)
     {"overtake_tiempo_carril_izq", PERSISTENT},  // Tiempo en carril izquierdo (segundos, default 15)
