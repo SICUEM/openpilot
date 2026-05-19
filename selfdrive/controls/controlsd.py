@@ -210,6 +210,7 @@ class Controls:
     self._obstacle_config_last_read = 0.0  # wall-clock; recachear cada 1s
     self._obstacle_max_angle = DEFAULT_MAX_ANGLE
     self._obstacle_max_curv = DEFAULT_MAX_CURV
+    self._obstacle_apply_target = "curvature"  # "curvature" | "torque"
 
     self.live_torque = self.params.get_bool("LiveTorque")
     self.torqued_override = self.params.get_bool("TorquedOverride")
@@ -278,6 +279,19 @@ class Controls:
           setattr(self, attr, float(raw))
       except (UnknownKeyName, ValueError, TypeError):
         setattr(self, attr, default)
+
+    # Sub-target del esquive (string, no float). Validamos contra el conjunto
+    # permitido; cualquier otro valor -> fallback a "curvature".
+    try:
+      raw = self.params.get("JetsonObstacleApplyTarget")
+      if raw is None or raw == b"":
+        self.params.put_nonblocking("JetsonObstacleApplyTarget", "curvature")
+        self._obstacle_apply_target = "curvature"
+      else:
+        val = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
+        self._obstacle_apply_target = val if val in ("curvature", "torque") else "curvature"
+    except (UnknownKeyName, ValueError, TypeError):
+      self._obstacle_apply_target = "curvature"
 
   def update_events(self, CS):
     """Compute onroadEvents from carState"""
@@ -1227,8 +1241,20 @@ class Controls:
             max_curv=self._obstacle_max_curv,
           )
           if angle_off or curv_off:
-            actuators.steeringAngleDeg += angle_off #aplicaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-            self.desired_curvature += curv_off      #aplicaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+            if self._obstacle_apply_target == "torque":
+              # Sub-modo torque: sustituimos actuators.steer por intensity
+              # (clamped a [-1,1]). Análogo al modo 1 JETSON pero gateado por
+              # obstacle=true. NO tocamos curvature ni angle: cuando obstacle
+              # pase a false, el if no entra y el modelo Comma recupera el
+              # control "de golpe" (mismo patrón que el sub-modo curvature).
+              intensity = self._obstacle_pulse_state.intensity
+              if math.isnan(intensity):
+                intensity = 0.0
+              actuators.steer = max(-1.0, min(1.0, intensity))
+            else:
+              # Sub-modo curvature (default, comportamiento histórico).
+              actuators.steeringAngleDeg += angle_off
+              self.desired_curvature += curv_off
 
           if status != self._last_obstacle_status:
             try:
