@@ -181,18 +181,31 @@ class ZMQClient:
     # Orden: payload primero (json.dumps re-serializa para limpiar espacios y
     # tipos raros), timestamp después → si controlsd lee entremedias, ve un
     # ts viejo y procesa en el siguiente frame (no falsea sustitución).
+    # put_nonblocking: el writer es un hilo aparte con cola FIFO, así no
+    # bloqueamos el listener en disco. La FIFO preserva el orden pulse→ts.
     try:
-      self._params.put("JetsonObstaclePulse", json.dumps(payload))
+      self._params.put_nonblocking("JetsonObstaclePulse", json.dumps(payload))
     except UnknownKeyName:
       cloudlog.error("JetsonObstaclePulse no registrado. Recompila common/params.cc.")
       return
     try:
-      self._params.put("JetsonObstacleTimestamp", f"{now:.6f}")
+      self._params.put_nonblocking("JetsonObstacleTimestamp", f"{now:.6f}")
     except UnknownKeyName:
       cloudlog.error("JetsonObstacleTimestamp no registrado. Recompila common/params.cc.")
 
   def _torque_listener(self):
-    """Hilo daemon: espera torques de la Jetson y los guarda en Params.
+    """Hilo daemon: espera torques/obstáculos de la Jetson y los guarda en Params.
+
+    Drain pattern (estado-continuo):
+      Cada `recv()` bloqueante despierta el hilo; acto seguido drenamos la
+      cola ZMQ en modo no-bloqueante y nos quedamos SOLO con el ÚLTIMO
+      mensaje de cada tipo (torque vs obstáculo). Ambos canales son
+      estado-continuo (controlsd lee el último valor del param), así que
+      procesar mensajes intermedios solo gasta CPU/I-O.
+
+      Sin esto: si la Jetson manda `obstacle:true` a 30 Hz y luego un
+      `obstacle:false`, el `false` quedaba al final de la cola y tardaba
+      varios segundos en aplicarse (= "tarda en volver al modelo Comma").
 
     Guarda tambien un timestamp (wall-clock) por cada torque recibido. Eso
     permite a controlsd detectar que la Jetson se ha caido (watchdog): si el
@@ -202,40 +215,6 @@ class ZMQClient:
     while self._running:
       try:
         data = self._torque_socket.recv()
-
-        # Distinguir formato por longitud:
-        #   - len == 4  → torque clásico modo 1 (float empaquetado)
-        #   - len  > 4  → mensaje JSON modo 3 (esquive de obstáculo)
-        if len(data) > 4:
-          self._handle_obstacle_json(data)
-          continue
-
-        torque = _parse_torque(data)
-        if torque is None:
-          # Payload irreconocible -> ignorar este mensaje (no escribimos
-          # nada en params, asi el watchdog de controlsd lo marcara stale
-          # y el volante quedara en 0 hasta que llegue un valor valido).
-          cloudlog.error(f"ZMQClient: payload de torque irreconocible bytes={data.hex()} len={len(data)}")
-          continue
-        # Log de cada torque recibido para verificacion empirica del formato
-        # y del valor que se publica al param. La Jetson va a ~5 Hz, asi que
-        # esto son ~5 lineas/seg en swaglog.
-        cloudlog.info(f"ZMQClient: torque recibido bytes={data.hex()} len={len(data)} -> {torque}")
-        now = time.time()
-        # Orden importante: primero el timestamp (marca que hay senal viva),
-        # luego el valor. Si controlsd lee entre las dos escrituras, lee un
-        # ts nuevo pero torque viejo -> aplica el valor anterior (seguro).
-        # Si JetsonTorqueTimestamp no esta registrado en params.cc (no se
-        # recompilo), seguimos publicando JetsonTorque para no romper la
-        # UI, pero el watchdog en controlsd no podra validar frescura y
-        # marcara stale -> torque=0 (fail-safe).
-        try:
-          self._params.put("JetsonTorqueTimestamp", f"{now:.6f}")
-        except UnknownKeyName:
-          if not getattr(self, "_warned_ts_param", False):
-            cloudlog.error("JetsonTorqueTimestamp no registrado. Recompila common/params.cc para habilitar el watchdog del modo Jetson.")
-            self._warned_ts_param = True
-        self._params.put("JetsonTorque", str(torque))
       except zmq.Again:
         # RCVTIMEO cumplido sin datos. Volvemos a comprobar _running y
         # seguimos esperando. Es el mecanismo que permite a stop() romper
@@ -245,5 +224,70 @@ class ZMQClient:
         if e.errno == zmq.ETERM:
           break
         cloudlog.warning(f"ZMQClient: error recibiendo torque: {e}")
+        continue
       except Exception as e:
         cloudlog.error(f"ZMQClient: error inesperado: {e}")
+        continue
+
+      # Drenar la cola: solo el ÚLTIMO mensaje de cada tipo nos importa.
+      # Distinguimos por longitud (heredado del protocolo): len==4 → torque
+      # clásico (float empaquetado, modo 1); len>4 → JSON modo 3.
+      latest_torque: bytes | None = None
+      latest_obstacle: bytes | None = None
+      if len(data) > 4:
+        latest_obstacle = data
+      else:
+        latest_torque = data
+      # Bound defensivo para evitar bucle largo si llegan mensajes
+      # continuamente más rápido de lo que drenamos (no debería pasar, pero
+      # nunca dejes una recv-loop sin techo).
+      drained_extra = 0
+      while drained_extra < 1024:
+        try:
+          d = self._torque_socket.recv(zmq.NOBLOCK)
+        except zmq.Again:
+          break
+        except zmq.ZMQError as e:
+          if e.errno == zmq.ETERM:
+            return
+          cloudlog.warning(f"ZMQClient: error drenando cola: {e}")
+          break
+        drained_extra += 1
+        if len(d) > 4:
+          latest_obstacle = d
+        else:
+          latest_torque = d
+      if drained_extra > 0:
+        cloudlog.info(f"ZMQClient: drenados {drained_extra} mensajes (backlog), procesando solo el último de cada tipo")
+
+      # Procesar obstáculo (si lo hay): el handler ya hace put_nonblocking.
+      if latest_obstacle is not None:
+        self._handle_obstacle_json(latest_obstacle)
+
+      # Procesar torque clásico (si lo hay).
+      if latest_torque is not None:
+        torque = _parse_torque(latest_torque)
+        if torque is None:
+          # Payload irreconocible -> ignorar este mensaje (no escribimos
+          # nada en params, asi el watchdog de controlsd lo marcara stale
+          # y el volante quedara en 0 hasta que llegue un valor valido).
+          cloudlog.error(f"ZMQClient: payload de torque irreconocible bytes={latest_torque.hex()} len={len(latest_torque)}")
+          continue
+        # Log de cada torque "efectivo" (post-drain) para verificacion del
+        # formato y del valor que se publica al param.
+        cloudlog.info(f"ZMQClient: torque recibido bytes={latest_torque.hex()} len={len(latest_torque)} -> {torque}")
+        now = time.time()
+        # Orden importante: primero el timestamp (marca que hay senal viva),
+        # luego el valor. Si controlsd lee entre las dos escrituras, lee un
+        # ts nuevo pero torque viejo -> aplica el valor anterior (seguro).
+        # Si JetsonTorqueTimestamp no esta registrado en params.cc (no se
+        # recompilo), seguimos publicando JetsonTorque para no romper la
+        # UI, pero el watchdog en controlsd no podra validar frescura y
+        # marcara stale -> torque=0 (fail-safe).
+        try:
+          self._params.put_nonblocking("JetsonTorqueTimestamp", f"{now:.6f}")
+        except UnknownKeyName:
+          if not getattr(self, "_warned_ts_param", False):
+            cloudlog.error("JetsonTorqueTimestamp no registrado. Recompila common/params.cc para habilitar el watchdog del modo Jetson.")
+            self._warned_ts_param = True
+        self._params.put_nonblocking("JetsonTorque", str(torque))

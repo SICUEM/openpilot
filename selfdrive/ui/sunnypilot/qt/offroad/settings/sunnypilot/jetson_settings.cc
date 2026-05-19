@@ -380,84 +380,154 @@ void JetsonSettings::tryChangeSteerMode(int mode) {
   }
 }
 
-// Diálogo modal con dos botones grandes (CURVATURA / TORQUE) + Cancelar.
+// Subclase de DialogBase para que exec() llame a setMainWindow() y la
+// superficie Wayland se rote correctamente (WL_OUTPUT_TRANSFORM_270) en
+// el comma. Un QDialog plano aparece girado y fuera de pantalla.
+namespace {
+class ObstacleApplyTargetDialog : public DialogBase {
+public:
+  explicit ObstacleApplyTargetDialog(QWidget *parent) : DialogBase(parent) {}
+  QString result;
+};
+}  // namespace
+
+// Helper: construye una "tarjeta clicable" para una opción del esquive.
+// Layout: badge superior + título grande + descripción. Click -> on_clicked.
+static QPushButton* makeTargetCard(const QString& title,
+                                   const QString& subtitle,
+                                   const QString& badge,
+                                   const QString& accent_hex,
+                                   const QString& accent_dark_hex) {
+  QPushButton* btn = new QPushButton();
+  btn->setMinimumHeight(260);
+  btn->setCursor(Qt::PointingHandCursor);
+
+  // Layout interno sobre el botón
+  QVBoxLayout* col = new QVBoxLayout(btn);
+  col->setContentsMargins(28, 24, 28, 24);
+  col->setSpacing(10);
+
+  QLabel* badge_lbl = new QLabel(badge, btn);
+  badge_lbl->setStyleSheet(QString(
+    "background-color: rgba(255,255,255,0.18); color: white; "
+    "font-size: 22px; font-weight: 700; padding: 6px 14px; border-radius: 12px;"
+  ));
+  badge_lbl->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+  badge_lbl->setFixedHeight(40);
+  badge_lbl->setSizePolicy(QSizePolicy::Maximum, QSizePolicy::Fixed);
+  col->addWidget(badge_lbl, 0, Qt::AlignLeft);
+
+  QLabel* title_lbl = new QLabel(title, btn);
+  title_lbl->setStyleSheet("color: white; font-size: 52px; font-weight: 800; background: transparent;");
+  col->addWidget(title_lbl);
+
+  QLabel* sub_lbl = new QLabel(subtitle, btn);
+  sub_lbl->setStyleSheet("color: rgba(255,255,255,0.88); font-size: 28px; background: transparent;");
+  sub_lbl->setWordWrap(true);
+  col->addWidget(sub_lbl);
+
+  col->addStretch(1);
+
+  btn->setStyleSheet(QString(R"(
+    QPushButton {
+      background-color: %1;
+      border: none;
+      border-radius: 18px;
+      text-align: left;
+    }
+    QPushButton:pressed { background-color: %2; }
+  )").arg(accent_hex, accent_dark_hex));
+
+  return btn;
+}
+
+// Diálogo modal con dos tarjetas grandes (CURVATURA / TORQUE) + Cancelar.
 // Devuelve "curvature" | "torque" | "" (cancelado). NO toca params ni
 // publica MQTT — eso lo hace el caller.
 QString JetsonSettings::askObstacleApplyTarget() {
-  QDialog dlg(this);
-  dlg.setWindowTitle(tr("¿Cómo aplicar el esquive?"));
-  dlg.setModal(true);
-  dlg.setStyleSheet("QDialog { background-color: #1B1B1B; }");
+  ObstacleApplyTargetDialog dlg(this);
+  dlg.setStyleSheet("ObstacleApplyTargetDialog { background-color: #141414; }");
 
   QVBoxLayout* layout = new QVBoxLayout(&dlg);
-  layout->setContentsMargins(30, 30, 30, 30);
-  layout->setSpacing(20);
+  layout->setContentsMargins(60, 60, 60, 40);
+  layout->setSpacing(22);
+
+  // Header: eyebrow + título
+  QLabel* eyebrow = new QLabel(tr("COMMA + JETSON · sub-modo"));
+  eyebrow->setStyleSheet("color: #3B82F6; font-size: 28px; font-weight: 700; letter-spacing: 2px;");
+  layout->addWidget(eyebrow);
 
   QLabel* title = new QLabel(tr("¿Cómo debe esquivar la Jetson?"));
-  title->setStyleSheet("font-size: 42px; font-weight: 700; color: white;");
+  title->setStyleSheet("font-size: 60px; font-weight: 800; color: white;");
   title->setWordWrap(true);
   layout->addWidget(title);
 
   QLabel* explain = new QLabel(tr(
-    "Elige qué variable de control modifica el esquive cuando la Jetson "
-    "detecta un obstáculo:"));
-  explain->setStyleSheet("font-size: 28px; color: #BDBDBD;");
+    "Cuando la Jetson detecte un obstáculo, ¿qué variable de control debe "
+    "modificar para esquivarlo?"));
+  explain->setStyleSheet("font-size: 30px; color: #9CA3AF;");
   explain->setWordWrap(true);
   layout->addWidget(explain);
 
-  // Botón CURVATURA (azul, comportamiento actual)
-  QPushButton* btn_curv = new QPushButton(
-    tr("CURVATURA\n(comportamiento actual)"));
-  btn_curv->setMinimumHeight(140);
-  btn_curv->setStyleSheet(R"(
-    QPushButton {
-      font-size: 34px; font-weight: 700;
-      background-color: #3B82F6; color: white;
-      border-radius: 15px; padding: 20px;
-    }
-    QPushButton:pressed { background-color: #2563EB; }
-  )");
+  // Separador
+  QFrame* sep = new QFrame();
+  sep->setFrameShape(QFrame::HLine);
+  sep->setStyleSheet("color: #2A2A2A; background-color: #2A2A2A; min-height: 2px; max-height: 2px;");
+  layout->addWidget(sep);
+
+  layout->addSpacing(6);
+
+  // Tarjeta CURVATURA (azul, comportamiento actual / recomendado)
+  QPushButton* btn_curv = makeTargetCard(
+    tr("CURVATURA"),
+    tr("Suma un offset a la curvatura deseada. Comportamiento histórico, "
+       "más suave y predecible."),
+    tr("✓ RECOMENDADO"),
+    "#2563EB",   // azul
+    "#1D4ED8"
+  );
   layout->addWidget(btn_curv);
 
-  // Botón TORQUE (naranja, modo prueba)
-  QPushButton* btn_torque = new QPushButton(
-    tr("TORQUE\n(modo prueba)"));
-  btn_torque->setMinimumHeight(140);
-  btn_torque->setStyleSheet(R"(
-    QPushButton {
-      font-size: 34px; font-weight: 700;
-      background-color: #F59E0B; color: white;
-      border-radius: 15px; padding: 20px;
-    }
-    QPushButton:pressed { background-color: #D97706; }
-  )");
+  // Tarjeta TORQUE (naranja, modo prueba / beta)
+  QPushButton* btn_torque = makeTargetCard(
+    tr("TORQUE"),
+    tr("Pisa directamente el torque del volante mientras dura el esquive. "
+       "Reacción más fuerte e inmediata."),
+    tr("⚡ BETA"),
+    "#D97706",   // naranja
+    "#B45309"
+  );
   layout->addWidget(btn_torque);
 
-  // Botón Cancelar
+  layout->addStretch(1);
+
+  // Botón Cancelar (ghost)
   QPushButton* btn_cancel = new QPushButton(tr("Cancelar"));
-  btn_cancel->setMinimumHeight(70);
+  btn_cancel->setMinimumHeight(110);
+  btn_cancel->setCursor(Qt::PointingHandCursor);
   btn_cancel->setStyleSheet(R"(
     QPushButton {
-      font-size: 28px; color: #BDBDBD;
-      background-color: transparent; border: 2px solid #555555;
-      border-radius: 10px;
+      font-size: 34px; font-weight: 600; color: #D1D5DB;
+      background-color: transparent;
+      border: 2px solid #404040;
+      border-radius: 14px;
     }
+    QPushButton:pressed { background-color: #1F1F1F; }
   )");
   layout->addWidget(btn_cancel);
 
-  QString result;
   QObject::connect(btn_curv, &QPushButton::clicked, [&]() {
-    result = "curvature"; dlg.accept();
+    dlg.result = "curvature"; dlg.accept();
   });
   QObject::connect(btn_torque, &QPushButton::clicked, [&]() {
-    result = "torque"; dlg.accept();
+    dlg.result = "torque"; dlg.accept();
   });
   QObject::connect(btn_cancel, &QPushButton::clicked, [&]() {
-    result = ""; dlg.reject();
+    dlg.result = ""; dlg.reject();
   });
 
   dlg.exec();
-  return result;
+  return dlg.result;
 }
 
 // Refresco VISUAL puro: actualiza botones + label de estado.

@@ -249,7 +249,10 @@ bool forceLaneChangeRight = false;//adri
   int jetson_img_port = 0;
   int jetson_torque_port = 0;
   bool jetson_enabled = false;
-  int steer_torque_mode = 0;  // 0=MODELO COMMA, 1=JETSON, 2=TEST MAX
+  int steer_torque_mode = 0;  // 0=MODELO COMMA, 1=JETSON, 2=TEST MAX, 3=COMMA+JETSON
+  // Estado del esquive por obstáculo (param JetsonObstacleStatus).
+  // ∈ {"", "DODGING_LEFT", "DODGING_RIGHT", "CANCELED_DRIVER", "CANCELED_STALE"}.
+  QString jetson_obstacle_status = "";
 
 protected:
   //void resizeEvent(QResizeEvent *event) override;

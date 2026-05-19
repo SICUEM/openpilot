@@ -901,25 +901,7 @@ Requisitos:
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <source>¿Cómo aplicar el esquive?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
         <source>¿Cómo debe esquivar la Jetson?</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>Elige qué variable de control modifica el esquive cuando la Jetson detecta un obstáculo:</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>CURVATURA
-(comportamiento actual)</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <source>TORQUE
-(modo prueba)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -936,6 +918,30 @@ Requisitos:
     </message>
     <message>
         <source>COMMA + JETSON · esquive en %1 - Comma manda; la Jetson esquiva obstaculos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>COMMA + JETSON · sub-modo</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Cuando la Jetson detecte un obstáculo, ¿qué variable de control debe modificar para esquivarlo?</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Suma un offset a la curvatura deseada. Comportamiento histórico, más suave y predecible.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>✓ RECOMENDADO</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>Pisa directamente el torque del volante mientras dura el esquive. Reacción más fuerte e inmediata.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <source>⚡ BETA</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

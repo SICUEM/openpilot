@@ -439,7 +439,7 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
     }
   }
 
-  // update SteerTorqueMode (0=MODELO COMMA, 1=JETSON, 2=TEST MAX)
+  // update SteerTorqueMode (0=MODELO COMMA, 1=JETSON, 2=TEST MAX, 3=COMMA+JETSON)
   {
     std::string stm = params.get("SteerTorqueMode");
     try {
@@ -447,6 +447,14 @@ if (lead_file.open(QIODevice::WriteOnly | QIODevice::Truncate)) {
     } catch (...) {
       steer_torque_mode = 0;
     }
+  }
+
+  // update JetsonObstacleStatus (solo relevante en modo 3). Lo leemos siempre
+  // y luego el dibujado decide si mostrarlo: así, si el modo cambia mid-frame
+  // y el param queda con un valor viejo (p.ej. DODGING_LEFT) no aparece label.
+  {
+    std::string obs = params.get("JetsonObstacleStatus");
+    jetson_obstacle_status = QString::fromStdString(obs);
   }
 
   // update Jetson config info (solo en modo debug, cada ~2s via frame count)
@@ -1261,6 +1269,30 @@ if (adelantar) {
     }
   }
 
+  // Label ESQUIVANDO (siempre visible, no solo en modoDebug): solo aparece
+  // cuando estamos en COMMA+JETSON y la Jetson está esquivando un obstáculo
+  // en este instante. CANCELED_* no se considera "esquivando activo".
+  if (steer_torque_mode == 3 &&
+      (jetson_obstacle_status == "DODGING_LEFT" || jetson_obstacle_status == "DODGING_RIGHT")) {
+    const bool left = (jetson_obstacle_status == "DODGING_LEFT");
+    QString esq_label = left ? QString("🚨 ESQUIVANDO  ←") : QString("🚨 ESQUIVANDO  →");
+    p.setFont(InterFont(46, QFont::Bold));
+    QRect tr = p.fontMetrics().boundingRect(esq_label);
+    int pad_x = 28, pad_y = 14;
+    int box_w = tr.width() + pad_x * 2;
+    int box_h = tr.height() + pad_y * 2;
+    int box_x = rect().center().x() - box_w / 2;
+    int box_y = rect().top() + 30;  // banda superior, no estorba al HUD
+
+    // Fondo semitransparente naranja para máxima visibilidad
+    p.setPen(QPen(QColor(245, 158, 11, 255), 3));
+    p.setBrush(QColor(245, 158, 11, 180));
+    p.drawRoundedRect(QRect(box_x, box_y, box_w, box_h), 14, 14);
+
+    p.setPen(QColor(255, 255, 255, 255));
+    p.drawText(QRect(box_x, box_y, box_w, box_h), Qt::AlignCenter, esq_label);
+  }
+
   // Jetson debug info (solo en modo debug, centrado abajo)
   if (modoDebug) {
     // Linea 1: Modo de torque activo (siempre visible en modo debug)
@@ -1274,6 +1306,10 @@ if (adelantar) {
       case 2:
         mode_label = QString("TORQUE -> TEST MAX (⚠ PELIGROSO)");
         mode_color = QColor(239, 68, 68, 230);   // rojo
+        break;
+      case 3:
+        mode_label = QString("TORQUE -> COMMA + JETSON (esquive obstaculos)");
+        mode_color = QColor(59, 130, 246, 230);  // azul
         break;
       default:
         mode_label = QString("TORQUE -> MODELO COMMA (original)");
