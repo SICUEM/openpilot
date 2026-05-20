@@ -28,13 +28,7 @@ def register(show_spinner=False) -> str | None:
   IMEI = params.get("IMEI", encoding='utf8')
   HardwareSerial = params.get("HardwareSerial", encoding='utf8')
   dongle_id: str | None = params.get("DongleId", encoding='utf8')
-  # Forzar re-registración si: faltan params, O si el dongle quedó pegado
-  # en UNREGISTERED_DONGLE_ID por un fallo previo. Sin esto, una registración
-  # fallida en el primer boot deja al dispositivo en "UnregisteredDevice"
-  # PERMANENTEMENTE (manager.py:227 mete uploader y manage_athenad en
-  # ignore → nada se sube nunca a comma).
-  needs_registration = (None in (IMEI, HardwareSerial, dongle_id)
-                        or dongle_id == UNREGISTERED_DONGLE_ID)
+  needs_registration = None in (IMEI, HardwareSerial, dongle_id)
 
   pubkey = Path(Paths.persist_root()+"/comma/id_rsa.pub")
   if not pubkey.is_file():
@@ -50,20 +44,23 @@ def register(show_spinner=False) -> str | None:
       public_key = f1.read()
       private_key = f2.read()
 
-    # Block until we get the imei. NO timeout aquí: en hardware real el IMEI
-    # llega cuando el módem termina de bootear (segundos a 1-2 min en redes
-    # lentas). Devolver UNREGISTERED en mitad de un boot lento mataba el
-    # upload para siempre porque el valor malo se persistía en params.
+    # Block until we get the imei
     serial = HARDWARE.get_serial()
     start_time = time.monotonic()
     imei1: str | None = None
     imei2: str | None = None
+    imei_timeout = 120  # 2 minutos máximo esperando IMEI
     while imei1 is None and imei2 is None:
       try:
         imei1, imei2 = HARDWARE.get_imei(0), HARDWARE.get_imei(1)
       except Exception:
         cloudlog.exception("Error getting imei, trying again...")
         time.sleep(1)
+    
+      if time.monotonic() - start_time > imei_timeout:
+        cloudlog.error("Timeout waiting for IMEI, aborting registration.")
+        return UNREGISTERED_DONGLE_ID
+
 
       if time.monotonic() - start_time > 60 and show_spinner:
         spinner.update(f"registering device - serial: {serial}, IMEI: ({imei1}, {imei2})")
@@ -94,19 +91,14 @@ def register(show_spinner=False) -> str | None:
 
       if time.monotonic() - start_time > 60 and show_spinner:
         spinner.update(f"registering device - serial: {serial}, IMEI: ({imei1}, {imei2})")
-        # NO return UNREGISTERED aquí: dejamos que reintente con backoff. Si
-        # devolvíamos UNREGISTERED, el valor malo se persistía en
-        # params (line ~99) y el dispositivo quedaba muerto para siempre.
 
+        return UNREGISTERED_DONGLE_ID  # hotfix to prevent an infinite wait for registration
+    
     if show_spinner:
       spinner.close()
 
   if dongle_id:
-    # Solo persistir DongleId si es un valor VÁLIDO. Persistir
-    # UNREGISTERED_DONGLE_ID convierte un fallo transitorio en permanente
-    # (manager.py:227 deja fuera al uploader y athena para siempre).
-    if dongle_id != UNREGISTERED_DONGLE_ID:
-      params.put("DongleId", dongle_id)
+    params.put("DongleId", dongle_id)
     set_offroad_alert("Offroad_UnofficialHardware", (dongle_id == UNREGISTERED_DONGLE_ID) and not PC)
   return dongle_id
 
