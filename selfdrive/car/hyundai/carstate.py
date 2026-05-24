@@ -69,8 +69,8 @@ class CarState(CarStateBase):
     self._left_bsm_counter = 0
     self._right_bsm_counter = 0
     # bajado el tiempo de retraso desde que se desactiva el BSM del coche 100 = 1 seg a 50 = 0,5 seg
-    self.BSM_PERSISTENCE_FRAMES = 50 
-    
+    self.BSM_PERSISTENCE_FRAMES = 1
+
   def get_main_enabled(self, ret) -> bool:
     if self.prev_main_buttons != 1 and self.main_buttons[-1] == 1:
       self.mainEnabled = not self.mainEnabled
