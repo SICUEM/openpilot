@@ -185,7 +185,7 @@ std::unordered_map<std::string, uint32_t> keys = {
     // Modo COMMA+JETSON (esquive de obstáculos)
     {"JetsonObstaclePulse", CLEAR_ON_MANAGER_START},  // JSON crudo del último mensaje recibido de la Jetson (modo 3)
     {"JetsonObstacleTimestamp", CLEAR_ON_MANAGER_START},  // Wall-clock del último mensaje. Lo usa la detección de mensaje nuevo en controlsd.
-    {"JetsonObstacleStatus", CLEAR_ON_MANAGER_START},  // Estado del esquive: ""|"DODGING_LEFT"|"DODGING_RIGHT"|"CANCELED_DRIVER"
+    {"JetsonObstacleStatus", CLEAR_ON_MANAGER_START},  // Estado del esquive: ""|"DODGING_LEFT"|"DODGING_RIGHT"|"DODGING_HOLD"|"CANCELED_DRIVER"|"BSM_BLOCKED_LEFT"|"BSM_BLOCKED_RIGHT"
     {"JetsonObstacleStatusMqttPayload", CLEAR_ON_MANAGER_START},  // Payload JSON del status para mqtt_envio_general
     {"JetsonObstacleMaxAngle", PERSISTENT},  // Grados de offset para |intensity|=1.0 (default 25.0)
     {"JetsonObstacleMaxCurv", PERSISTENT},  // Curvatura 1/m de offset para |intensity|=1.0 (default 0.030)

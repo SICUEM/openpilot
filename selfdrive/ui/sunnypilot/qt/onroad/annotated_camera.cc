@@ -1269,21 +1269,33 @@ if (adelantar) {
     }
   }
 
-  // Label ESQUIVANDO (siempre visible, no solo en modoDebug): solo aparece
-  // cuando estamos en COMMA+JETSON y la Jetson está esquivando un obstáculo
-  // en este instante. CANCELED_* no se considera "esquivando activo".
+  // Label ESQUIVANDO / BSM BLOQUEA (siempre visible, no solo en modoDebug):
+  // solo aparece en COMMA+JETSON cuando la Jetson está esquivando un
+  // obstáculo en este instante, o cuando el BSM ha bloqueado un esquive.
+  // CANCELED_* no se considera "esquivando activo".
   // DODGING_HOLD = obstacle:true + intensity=0 (Jetson neutraliza el volante).
+  // BSM_BLOCKED_* = la Jetson quiso esquivar a ese lado, pero el BSM detectó
+  // un coche → NO se esquiva, manda el modelo de Comma; lo avisamos en UI.
   if (steer_torque_mode == 3 &&
       (jetson_obstacle_status == "DODGING_LEFT" ||
        jetson_obstacle_status == "DODGING_RIGHT" ||
-       jetson_obstacle_status == "DODGING_HOLD")) {
+       jetson_obstacle_status == "DODGING_HOLD" ||
+       jetson_obstacle_status == "BSM_BLOCKED_LEFT" ||
+       jetson_obstacle_status == "BSM_BLOCKED_RIGHT")) {
     QString esq_label;
+    bool bsm_block = false;
     if (jetson_obstacle_status == "DODGING_LEFT") {
       esq_label = QString("🚨 ESQUIVANDO  ←");
     } else if (jetson_obstacle_status == "DODGING_RIGHT") {
       esq_label = QString("🚨 ESQUIVANDO  →");
-    } else {
+    } else if (jetson_obstacle_status == "DODGING_HOLD") {
       esq_label = QString("🚨 ESQUIVANDO  · NEUTRO");
+    } else if (jetson_obstacle_status == "BSM_BLOCKED_LEFT") {
+      esq_label = QString("🚫 BSM BLOQUEA  ←");
+      bsm_block = true;
+    } else {
+      esq_label = QString("🚫 BSM BLOQUEA  →");
+      bsm_block = true;
     }
     p.setFont(InterFont(46, QFont::Bold));
     QRect tr = p.fontMetrics().boundingRect(esq_label);
@@ -1293,9 +1305,11 @@ if (adelantar) {
     int box_x = rect().center().x() - box_w / 2;
     int box_y = rect().top() + 30;  // banda superior, no estorba al HUD
 
-    // Fondo semitransparente naranja para máxima visibilidad
-    p.setPen(QPen(QColor(245, 158, 11, 255), 3));
-    p.setBrush(QColor(245, 158, 11, 180));
+    // Naranja para ESQUIVANDO, rojo para BSM BLOQUEA (más urgente).
+    QColor border = bsm_block ? QColor(220, 38, 38, 255) : QColor(245, 158, 11, 255);
+    QColor fill   = bsm_block ? QColor(220, 38, 38, 180) : QColor(245, 158, 11, 180);
+    p.setPen(QPen(border, 3));
+    p.setBrush(fill);
     p.drawRoundedRect(QRect(box_x, box_y, box_w, box_h), 14, 14);
 
     p.setPen(QColor(255, 255, 255, 255));

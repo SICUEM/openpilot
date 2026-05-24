@@ -16,10 +16,13 @@ from openpilot.sicuem.adripilot.adripilot_obstacle_pulse import (
 )
 
 
-def _carstate(steering_pressed=False, brake_pressed=False):
+def _carstate(steering_pressed=False, brake_pressed=False,
+              left_blindspot=False, right_blindspot=False):
     cs = MagicMock()
     cs.steeringPressed = steering_pressed
     cs.brakePressed = brake_pressed
+    cs.leftBlindspot = left_blindspot
+    cs.rightBlindspot = right_blindspot
     return cs
 
 
@@ -110,6 +113,78 @@ class TestObstaclePulseState(unittest.TestCase):
         s.ingest_new_message({"obstacle": True, "intensity": 0.8}, now=10.3)
         self.assertAlmostEqual(s.intensity, 0.8)
         self.assertAlmostEqual(s.last_payload_ts, 10.3)
+
+    def test_bsm_blocks_dodge_left(self):
+        """Jetson quiere esquivar a la izquierda + BSM izq ocupado → no esquiva."""
+        s = ObstaclePulseState()
+        s.ingest_new_message({"obstacle": True, "intensity": 0.6}, now=10.0)
+        a, c, st = s.get_offsets(now=10.1,
+                                 carstate=_carstate(left_blindspot=True),
+                                 lat_active=True)
+        self.assertEqual((a, c), (0.0, 0.0))
+        self.assertEqual(st, "BSM_BLOCKED_LEFT")
+        # El estado activo se mantiene: cuando el BSM se libere, vuelve a esquivar.
+        self.assertTrue(s.active)
+
+    def test_bsm_blocks_dodge_right(self):
+        """Jetson quiere esquivar a la derecha + BSM der ocupado → no esquiva."""
+        s = ObstaclePulseState()
+        s.ingest_new_message({"obstacle": True, "intensity": -0.4}, now=10.0)
+        a, c, st = s.get_offsets(now=10.1,
+                                 carstate=_carstate(right_blindspot=True),
+                                 lat_active=True)
+        self.assertEqual((a, c), (0.0, 0.0))
+        self.assertEqual(st, "BSM_BLOCKED_RIGHT")
+        self.assertTrue(s.active)
+
+    def test_bsm_opposite_side_does_not_block(self):
+        """Jetson esquiva a la izquierda + BSM derecho ocupado → sí esquiva."""
+        s = ObstaclePulseState()
+        s.ingest_new_message({"obstacle": True, "intensity": 0.6}, now=10.0)
+        a, c, st = s.get_offsets(now=10.1,
+                                 carstate=_carstate(right_blindspot=True),
+                                 lat_active=True)
+        self.assertEqual(st, "DODGING_LEFT")
+        self.assertAlmostEqual(a, 0.6 * DEFAULT_MAX_ANGLE)
+
+    def test_bsm_does_not_block_hold(self):
+        """intensity=0 (NEUTRO) no implica giro a ningún lado → BSM no aplica."""
+        s = ObstaclePulseState()
+        s.ingest_new_message({"obstacle": True, "intensity": 0.0}, now=10.0)
+        a, c, st = s.get_offsets(now=10.1,
+                                 carstate=_carstate(left_blindspot=True,
+                                                    right_blindspot=True),
+                                 lat_active=True)
+        self.assertEqual(st, "DODGING_HOLD")
+        self.assertEqual((a, c), (0.0, 0.0))
+
+    def test_bsm_releases_dodge_resumes(self):
+        """BSM bloquea, luego se libera → siguiente frame vuelve a esquivar."""
+        s = ObstaclePulseState()
+        s.ingest_new_message({"obstacle": True, "intensity": 0.5}, now=10.0)
+        # frame 1: BSM izq ocupado
+        _, _, st1 = s.get_offsets(now=10.1,
+                                  carstate=_carstate(left_blindspot=True),
+                                  lat_active=True)
+        self.assertEqual(st1, "BSM_BLOCKED_LEFT")
+        # frame 2: BSM libre → esquiva con la última intensity recibida
+        a2, c2, st2 = s.get_offsets(now=10.2,
+                                    carstate=_carstate(left_blindspot=False),
+                                    lat_active=True)
+        self.assertEqual(st2, "DODGING_LEFT")
+        self.assertAlmostEqual(a2, 0.5 * DEFAULT_MAX_ANGLE)
+        self.assertAlmostEqual(c2, 0.5 * DEFAULT_MAX_CURV)
+
+    def test_bsm_missing_attrs_does_not_block(self):
+        """Coche sin atributos BSM (getattr → False) → nunca bloquea."""
+        s = ObstaclePulseState()
+        s.ingest_new_message({"obstacle": True, "intensity": 0.5}, now=10.0)
+        # carstate sin leftBlindspot/rightBlindspot
+        cs = MagicMock(spec=['steeringPressed', 'brakePressed'])
+        cs.steeringPressed = False
+        cs.brakePressed = False
+        _, _, st = s.get_offsets(now=10.1, carstate=cs, lat_active=True)
+        self.assertEqual(st, "DODGING_LEFT")
 
     def test_zero_intensity_obstacle_true_is_active_hold(self):
         """obstacle=true + intensity=0 → active=True, status DODGING_HOLD.

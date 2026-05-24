@@ -90,8 +90,12 @@ class ObstaclePulseState:
         targets son 0 → torque 0 / curvatura 0.
 
         status ∈ {"", "DODGING_LEFT", "DODGING_RIGHT", "DODGING_HOLD",
-                  "CANCELED_DRIVER"}
+                  "CANCELED_DRIVER", "BSM_BLOCKED_LEFT", "BSM_BLOCKED_RIGHT"}
           - DODGING_HOLD: obstacle=true + intensity=0 (volante neutralizado).
+          - BSM_BLOCKED_*: la Jetson quería esquivar a ese lado pero el BSM
+            detectó un coche; el caller NO debe aplicar el override (deja
+            que mande el modelo de Comma). El estado activo se mantiene:
+            si el BSM se libera en el siguiente frame, vuelve a aplicar.
         """
         if not self.active:
             return 0.0, 0.0, ""
@@ -99,6 +103,7 @@ class ObstaclePulseState:
         # Cancellation priority order (highest to lowest):
         #   1. lat_inactive — sistema sin control lateral, sin status visible
         #   2. driver override (steering/brake) → CANCELED_DRIVER
+        #   3. BSM bloquea el lado al que se quiere esquivar → BSM_BLOCKED_*
         # Sin watchdog: mientras no llegue obstacle=false ni se desactive
         # lateral ni intervenga el conductor, el esquive se mantiene con
         # el último valor recibido.
@@ -113,10 +118,21 @@ class ObstaclePulseState:
             self._reset()
             return 0.0, 0.0, "CANCELED_DRIVER"
 
+        # BSM: si la Jetson quiere esquivar a un lado y el BSM detecta un
+        # coche en ese lado, NO esquivamos. Mismo criterio que el cambio de
+        # carril manual en desire_helper.py: si el coche no tiene BSM
+        # disponible, getattr devuelve False → no bloquea.
+        # Convención: intensity > 0 → izquierda, < 0 → derecha, 0 → recto.
+        left_bs = bool(getattr(carstate, 'leftBlindspot', False))
+        right_bs = bool(getattr(carstate, 'rightBlindspot', False))
+        if self.intensity > 0.0 and left_bs:
+            return 0.0, 0.0, "BSM_BLOCKED_LEFT"
+        if self.intensity < 0.0 and right_bs:
+            return 0.0, 0.0, "BSM_BLOCKED_RIGHT"
+
         # Valor target absoluto proporcional a intensity (0 incluido).
         angle_tgt = self.intensity * max_angle
         curv_tgt  = self.intensity * max_curv
-        # Convención: negativo = derecha, positivo = izquierda, 0 = recto.
         if self.intensity == 0.0:
             status = "DODGING_HOLD"
         elif self.intensity < 0.0:

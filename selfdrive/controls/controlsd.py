@@ -43,6 +43,11 @@ from openpilot.sicuem.adripilot.adripilot_obstacle_pulse import (
   DEFAULT_MAX_CURV,
 )
 
+# Anti-flicker: cuando JetsonObstacleStatus pasa de activo a "" lo mantenemos
+# en el param durante este tiempo (segundos) para que la UI (a ~20Hz, 50ms/cycle)
+# no se pierda dodges breves. Lo suficiente para garantizar ~6 ciclos de la UI.
+OBSTACLE_STATUS_HOLD_S = 0.30
+
 
 
 SOFT_DISABLE_TIME = 3  # seconds
@@ -207,6 +212,11 @@ class Controls:
     # Modo 3 (COMMA+JETSON): estado del esquive y caché de config
     self._obstacle_pulse_state = ObstaclePulseState()
     self._last_obstacle_status = ""
+    # Anti-flicker para la UI: cuando el status pasa de activo a "" lo
+    # mantenemos publicado durante OBSTACLE_STATUS_HOLD_S para que la UI
+    # (que lee Params a ~20Hz) no se pierda dodges muy breves (<50ms).
+    self._obstacle_status_hold_until = 0.0   # wall-clock hasta el que mantenemos el último activo
+    self._obstacle_status_held_value = ""    # último status activo que estamos manteniendo
     self._obstacle_config_last_read = 0.0  # wall-clock; recachear cada 1s
     self._obstacle_max_angle = DEFAULT_MAX_ANGLE
     self._obstacle_max_curv = DEFAULT_MAX_CURV
@@ -1249,7 +1259,11 @@ class Controls:
           # sea 0 (intensity=0 → torque/curvatura forzados a 0, volante
           # neutralizado / línea recta). Solo cuando obstacle:false → active
           # pasa a False → este bloque no entra → manda Comma.
-          if self._obstacle_pulse_state.active:
+          # Excepción: si BSM bloquea el esquive (BSM_BLOCKED_*), NO pisamos
+          # la dirección — deja que mande el modelo de Comma. El status se
+          # publica igual para que la UI lo muestre.
+          bsm_blocked = status in ("BSM_BLOCKED_LEFT", "BSM_BLOCKED_RIGHT")
+          if self._obstacle_pulse_state.active and not bsm_blocked:
             if self._obstacle_apply_target == "torque":
               # Sub-modo torque: OVERRIDE absoluto de actuators.steer con
               # intensity ∈ [-1,1] (clamped). intensity=0 → torque 0
@@ -1266,21 +1280,46 @@ class Controls:
               actuators.steeringAngleDeg = angle_tgt
               self.desired_curvature = curv_tgt
 
-          if status != self._last_obstacle_status:
+          # Anti-flicker: si el status acaba de pasar a "" (o "CANCELED_DRIVER",
+          # que también es un evento de cierre), mantenemos el último status
+          # activo en el param durante OBSTACLE_STATUS_HOLD_S para que la UI
+          # (≈20Hz) no pierda dodges muy breves. Sin esto, un obstacle:true
+          # seguido a los pocos ms de obstacle:false hacía que el param
+          # transitase "" → DODGING_LEFT → "" en <50ms y la UI no veía nada.
+          if status in ("DODGING_LEFT", "DODGING_RIGHT", "DODGING_HOLD",
+                        "BSM_BLOCKED_LEFT", "BSM_BLOCKED_RIGHT"):
+            # Status activo: refresca el hold y publica este valor.
+            self._obstacle_status_held_value = status
+            self._obstacle_status_hold_until = now_pulse + OBSTACLE_STATUS_HOLD_S
+            published = status
+          elif self._obstacle_status_held_value and now_pulse < self._obstacle_status_hold_until:
+            # Transición a "" / CANCELED_DRIVER pero aún dentro de la ventana
+            # de hold → seguimos publicando el último activo.
+            published = self._obstacle_status_held_value
+          else:
+            # Fuera de la ventana de hold: publicamos el status real
+            # (puede ser "" o "CANCELED_DRIVER").
+            self._obstacle_status_held_value = ""
+            published = status
+
+          if published != self._last_obstacle_status:
             try:
-              self.params.put_nonblocking("JetsonObstacleStatus", status)
+              self.params.put_nonblocking("JetsonObstacleStatus", published)
               self.params.put_nonblocking(
                 "JetsonObstacleStatusMqttPayload",
-                json.dumps({"status": status, "ts": now_pulse, "source": "comma"}),
+                json.dumps({"status": published, "ts": now_pulse, "source": "comma"}),
               )
             except UnknownKeyName:
               pass
-            self._last_obstacle_status = status
+            self._last_obstacle_status = published
 
-        elif self._obstacle_pulse_state.active:
+        elif self._obstacle_pulse_state.active or self._obstacle_status_held_value or self._last_obstacle_status:
           # I-1 + I-4: salimos de modo 3 (o lat inactivo) con esquive activo
-          # → forzar reset y limpiar status para que la UI no quede colgada.
+          # o con un status pendiente de hold → forzar reset y limpiar status
+          # para que la UI no quede colgada.
           self._obstacle_pulse_state._reset()
+          self._obstacle_status_held_value = ""
+          self._obstacle_status_hold_until = 0.0
           if self._last_obstacle_status:
             try:
               self.params.put_nonblocking("JetsonObstacleStatus", "")
