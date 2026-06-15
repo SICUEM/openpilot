@@ -19,7 +19,20 @@ void JpegEncoder::pushThumbnail(VisionBuf *buf, const VisionIpcBufExtra &extra) 
   generateThumbnail(buf->y, buf->uv, buf->width, buf->height, buf->stride);
 
   MessageBuilder msg;
-  auto thumbnaild = msg.initEvent().initThumbnail();
+  // IMPORTANTE: el SubMaster despacha por Event.which(), no por el nombre del socket.
+  // Si enviamos por el socket "driverThumbnail"/"jetsonThumbnail" pero inicializamos
+  // Event.thumbnail, el SubMaster lo trata como "thumbnail" y el suscriptor del canal
+  // dedicado nunca recibe update. El campo del union DEBE coincidir con el socket.
+  auto event = msg.initEvent();
+  cereal::Thumbnail::Builder thumbnaild = [&]() {
+    if (publish_name == "driverThumbnail") {
+      return event.initDriverThumbnail();
+    } else if (publish_name == "jetsonThumbnail") {
+      return event.initJetsonThumbnail();
+    } else {
+      return event.initThumbnail();
+    }
+  }();
   thumbnaild.setFrameId(extra.frame_id);
   thumbnaild.setTimestampEof(extra.timestamp_eof);
   thumbnaild.setThumbnail({out_buffer, out_size});

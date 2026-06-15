@@ -96,8 +96,8 @@ def process_nmea_port_messages(device:str="/dev/ttyUSB1") -> NoReturn:
       with open(device) as nmeaport:
         for line in nmeaport:
           line = line.strip()
-          if DEBUG:
-            print(line)
+          # if DEBUG:
+          #   print(line)  # Comentado para reducir uso de memoria
           if not line.startswith("$"): # all NMEA messages start with $
             continue
           if not nmea_checksum_ok(line):
@@ -108,13 +108,14 @@ def process_nmea_port_messages(device:str="/dev/ttyUSB1") -> NoReturn:
             case "$GNCLK":
               # fields at end are reserved (not used)
               gnss_clock = GnssClockNmeaPort(*fields[1:10])
-              print(gnss_clock)
+              # print(gnss_clock)  # Comentado para reducir uso de memoria
             case "$GNMEAS":
               # fields at end are reserved (not used)
               gnss_meas = GnssMeasNmeaPort(*fields[1:14])
-              print(gnss_meas)
-    except Exception as e:
-      print(e)
+              # print(gnss_meas)  # Comentado para reducir uso de memoria
+    except Exception:
+      # Error silenciado para reducir uso de memoria, pero mantenemos el sleep(1)
+      # para NO entrar en un busy-loop si el dispositivo desaparece.
       sleep(1)
 
 def main() -> NoReturn:

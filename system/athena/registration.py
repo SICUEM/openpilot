@@ -35,6 +35,12 @@ def register(show_spinner=False) -> str | None:
   params = Params()
 
   dongle_id: str | None = params.get("DongleId")
+  # Si el dongle quedó pegado en UNREGISTERED_DONGLE_ID por un fallo previo
+  # (boot lento del módem, red caída en el primer arranque), forzamos la
+  # re-registración tratándolo como None. Sin esto el dispositivo se queda en
+  # "UnregisteredDevice" PERMANENTEMENTE.
+  if dongle_id == UNREGISTERED_DONGLE_ID:
+    dongle_id = None
   if dongle_id is None and Path(Paths.persist_root()+"/comma/dongle_id").is_file():
     # not all devices will have this; added early in comma 3X production (2/28/24)
     with open(Paths.persist_root()+"/comma/dongle_id") as f:
@@ -91,13 +97,20 @@ def register(show_spinner=False) -> str | None:
 
       if time.monotonic() - start_time > 60 and show_spinner:
         spinner.update(f"registering device - serial: {serial}, IMEI: ({imei1}, {imei2})")
-        return UNREGISTERED_DONGLE_ID  # hotfix to prevent an infinite wait for registration
+        # NO devolvemos UNREGISTERED aquí: dejamos que reintente con backoff. Si
+        # devolvíamos UNREGISTERED, el valor malo se persistía en params (abajo) y
+        # el dispositivo quedaba muerto para siempre (manager.py deja fuera al
+        # uploader y athena → nada se sube nunca a comma).
 
     if show_spinner:
       spinner.close()
 
   if dongle_id:
-    params.put("DongleId", dongle_id, block=True)
+    # Solo persistir DongleId si es un valor VÁLIDO. Persistir
+    # UNREGISTERED_DONGLE_ID convierte un fallo transitorio (boot lento del módem,
+    # red caída) en permanente.
+    if dongle_id != UNREGISTERED_DONGLE_ID:
+      params.put("DongleId", dongle_id, block=True)
     set_offroad_alert("Offroad_UnregisteredHardware", (dongle_id == UNREGISTERED_DONGLE_ID) and not PC)
   return dongle_id
 

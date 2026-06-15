@@ -278,4 +278,96 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"TorqueParamsOverrideEnabled", {PERSISTENT | BACKUP, BOOL, "0"}},
     {"TorqueParamsOverrideFriction", {PERSISTENT | BACKUP, FLOAT, "0.1"}},
     {"TorqueParamsOverrideLatAccelFactor", {PERSISTENT | BACKUP, FLOAT, "2.5"}},
+
+    // ============================================================================
+    // SIC-UEM / AdriPilot (TFG) — Jetson torque, esquive, overtake, MQTT, telemetría
+    // ============================================================================
+    // Selector de torque lateral y bridge Jetson (ZMQ)
+    {"SteerTorqueMode", {PERSISTENT, INT, "0"}},                       // 0=Comma 1=Jetson 2=TestMax 3=Comma+Jetson
+    {"JetsonTorque", {CLEAR_ON_MANAGER_START, STRING}},                // torque normalizado [-1,1] recibido de la Jetson
+    {"JetsonTorqueTimestamp", {CLEAR_ON_MANAGER_START, STRING}},       // wall-clock del último torque (watchdog)
+    {"JetsonTorqueGain", {PERSISTENT, STRING}},                        // DEPRECATED
+    {"JetsonDeadZone", {PERSISTENT, FLOAT, "0.02"}},                   // dead-zone normalizada
+    {"CommaSteerTorque", {CLEAR_ON_MANAGER_START, STRING}},            // torque del modelo Comma (diagnóstico UI)
+    {"AppliedSteerTorque", {CLEAR_ON_MANAGER_START, STRING}},          // torque final aplicado (diagnóstico UI)
+    {"SteerTorqueModeMqttPayload", {CLEAR_ON_MANAGER_START, JSON}},    // sync modo torque vía MQTT
+    {"JetsonConfigChanged", {CLEAR_ON_MANAGER_START, BOOL}},           // flag recarga config_jetson.json
+    {"JetsonConfigMqttPayload", {CLEAR_ON_MANAGER_START, JSON}},       // sync config jetson vía MQTT
+    // Modo 3 (COMMA+JETSON, esquive de obstáculos)
+    {"JetsonObstaclePulse", {CLEAR_ON_MANAGER_START, JSON}},           // JSON crudo del último pulso de la Jetson
+    {"JetsonObstacleTimestamp", {CLEAR_ON_MANAGER_START, STRING}},     // wall-clock del último pulso
+    {"JetsonObstacleStatus", {CLEAR_ON_MANAGER_START, STRING}},        // DODGING_LEFT/RIGHT/HOLD/CANCELED_DRIVER/BSM_BLOCKED_*
+    {"JetsonObstacleStatusMqttPayload", {CLEAR_ON_MANAGER_START, JSON}},
+    {"JetsonObstacleApplyTargetMqttPayload", {CLEAR_ON_MANAGER_START, JSON}},
+    {"JetsonObstacleMaxAngle", {PERSISTENT, FLOAT, "25.0"}},           // grados de offset para |intensity|=1
+    {"JetsonObstacleMaxCurv", {PERSISTENT, FLOAT, "0.030"}},           // curvatura 1/m de offset para |intensity|=1
+    {"JetsonObstacleApplyTarget", {PERSISTENT, STRING, "curvature"}},  // "curvature" | "torque"
+    // Cambio de carril por MQTT + overtake
+    {"ForceLaneChangeLeft", {PERSISTENT, BOOL}},
+    {"ForceLaneChangeRight", {PERSISTENT, BOOL}},
+    {"c_carril", {PERSISTENT, BOOL}},
+    {"cambiar_a_izq", {PERSISTENT, BOOL}},
+    {"cambiar_a_der", {PERSISTENT, BOOL}},
+    {"ForceLeftBlinker", {PERSISTENT, BOOL}},
+    {"GirarALaDerecha", {PERSISTENT, BOOL}},
+    {"bsmLaneChangeStatus", {CLEAR_ON_MANAGER_START, STRING}},
+    {"overtakeStatus", {CLEAR_ON_MANAGER_START, STRING}},
+    {"overtakingActive", {CLEAR_ON_MANAGER_START, BOOL}},              // dedup: una sola entrada (era doble en origen)
+    {"waitingToReturn", {PERSISTENT, BOOL}},
+    {"returningRight", {PERSISTENT, BOOL}},
+    {"OvertakeTargetSpeedKph", {CLEAR_ON_MANAGER_START, FLOAT, "0"}},
+    {"test_overtake_simulador", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"sic_adelantar", {PERSISTENT | CLEAR_ON_MANAGER_START, BOOL}},
+    {"sic_adelantar_bsm", {PERSISTENT | CLEAR_ON_MANAGER_START, BOOL}},     // DEPRECATED compat
+    {"sic_adelantar_nobsm", {PERSISTENT | CLEAR_ON_MANAGER_START, BOOL}},   // DEPRECATED compat
+    {"overtake_distancia_activacion", {PERSISTENT, FLOAT, "50"}},
+    {"overtake_tiempo_carril_izq", {PERSISTENT, FLOAT, "15"}},
+    {"overtake_incremento_velocidad", {PERSISTENT, FLOAT, "15"}},
+    {"adelantamiento_vel_diff", {PERSISTENT, FLOAT, "10"}},
+    {"adelantamiento_distancia", {PERSISTENT, FLOAT, "50"}},
+    {"ActivateEvent", {PERSISTENT, BOOL}},
+    // Frenado / longitudinal
+    {"brutebreak_active", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"brutebreak_intensidad", {PERSISTENT, FLOAT, "-3.5"}},
+    {"DisableLongControl", {PERSISTENT, BOOL}},
+    {"intervalos_toggle", {PERSISTENT, BOOL}},
+    // Velocidad
+    {"Velocidad_C1", {PERSISTENT, STRING}},
+    {"Velocidad_C2", {PERSISTENT, STRING}},
+    {"Velocidad_C3", {PERSISTENT, STRING}},
+    {"Velocidad_C4", {PERSISTENT, STRING}},
+    {"vel_adel", {CLEAR_ON_MANAGER_START, STRING}},
+    {"adripilot_speed_increment", {PERSISTENT, FLOAT, "5"}},
+    // Comandos de bajo nivel (fallback bools escritos por mqtt_comandos)
+    {"adripilot_forward", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"adripilot_break", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"adripilot_tright", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"adripilot_tleft", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"adripilot_speed_increase", {CLEAR_ON_MANAGER_START, BOOL}},
+    {"adripilot_speed_decrease", {CLEAR_ON_MANAGER_START, BOOL}},
+    // Toggles UI / telemetría
+    {"telemetria_uem", {PERSISTENT, BOOL}},
+    {"modo_debug", {PERSISTENT | BACKUP, BOOL}},
+    {"show_blindspot", {PERSISTENT, BOOL}},
+    {"carState_toggle", {PERSISTENT, BOOL}},
+    {"carControl_toggle", {PERSISTENT, BOOL}},
+    {"controlsState_toggle", {PERSISTENT, BOOL}},
+    {"liveCalibration_toggle", {PERSISTENT, BOOL}},
+    {"lider_toggle", {PERSISTENT, BOOL}},
+    {"gpsLocationExternal_toggle", {PERSISTENT, BOOL}},
+    {"drivingModelData_toggle", {PERSISTENT, BOOL}},
+    {"radarState_toggle", {PERSISTENT, BOOL}},
+    {"navInstruction_toggle", {PERSISTENT, BOOL}},
+    {"mapbox_toggle", {PERSISTENT, BOOL}},
+    // Navegación (distancias de maniobra) + sender UEM
+    {"roundabout_distance", {PERSISTENT, STRING}},
+    {"intersection_distance", {PERSISTENT, STRING}},
+    {"merge_distance", {PERSISTENT, STRING}},
+    {"turn_distance", {PERSISTENT, STRING}},
+    {"off_road_distance", {PERSISTENT, STRING}},
+    {"on_road_distance", {PERSISTENT, STRING}},
+    {"sender_uem_up", {PERSISTENT, BOOL}},
+    {"sender_uem_down", {PERSISTENT, BOOL}},
+    {"sender_uem_left", {PERSISTENT, BOOL}},
+    {"sender_uem_right", {PERSISTENT, BOOL}},
 };

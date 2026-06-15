@@ -1,5 +1,6 @@
 from cereal import log, custom
 from openpilot.common.constants import CV
+from openpilot.common.params import Params
 from openpilot.common.realtime import DT_MDL
 from openpilot.sunnypilot.selfdrive.controls.lib.auto_lane_change import AutoLaneChangeController, AutoLaneChangeMode
 from openpilot.sunnypilot.selfdrive.controls.lib.lane_turn_desire import LaneTurnController
@@ -51,6 +52,7 @@ class DesireHelper:
     self.alc = AutoLaneChangeController(self)
     self.lane_turn_controller = LaneTurnController(self)
     self.lane_turn_direction = TurnDirection.none
+    self.params = Params()  # [AdriPilot] cambio de carril forzado por MQTT
 
   @staticmethod
   def get_lane_change_direction(CS):
@@ -68,10 +70,34 @@ class DesireHelper:
                                                left_blinker=carstate.leftBlinker, right_blinker=carstate.rightBlinker, v_ego=v_ego)
     self.lane_turn_direction = self.lane_turn_controller.get_turn_direction()
 
+    # [AdriPilot] cambio de carril forzado por MQTT (ForceLaneChangeLeft/Right).
+    # Consumimos el flag (one-shot). El esquema completo de auto-adelantamiento
+    # (detección de lead + ajuste de velocidad) queda pendiente: requiere cablear
+    # radarState en el SubMaster de modeld y validación en coche.
+    forced_dir = None
+    try:
+      if self.params.get_bool("ForceLaneChangeLeft"):
+        forced_dir = LaneChangeDirection.left
+        self.params.put_bool("ForceLaneChangeLeft", False)
+      elif self.params.get_bool("ForceLaneChangeRight"):
+        forced_dir = LaneChangeDirection.right
+        self.params.put_bool("ForceLaneChangeRight", False)
+    except Exception:
+      forced_dir = None
+
     if not lateral_active or self.lane_change_timer > LANE_CHANGE_TIME_MAX or self.alc.lane_change_set_timer == AutoLaneChangeMode.OFF:
       self.lane_change_state = LaneChangeState.off
       self.lane_change_direction = LaneChangeDirection.none
     else:
+      # [AdriPilot] inyectar el inicio del cambio de carril forzado (respeta BSM y velocidad mínima)
+      if forced_dir is not None and not below_lane_change_speed:
+        forced_bs = (carstate.leftBlindspot and forced_dir == LaneChangeDirection.left) or \
+                    (carstate.rightBlindspot and forced_dir == LaneChangeDirection.right)
+        if not forced_bs:
+          self.lane_change_direction = forced_dir
+          self.lane_change_state = LaneChangeState.laneChangeStarting
+          self.lane_change_ll_prob = 1.0
+
       # LaneChangeState.off
       if self.lane_change_state == LaneChangeState.off and one_blinker and not self.prev_one_blinker and not below_lane_change_speed:
         self.lane_change_state = LaneChangeState.preLaneChange

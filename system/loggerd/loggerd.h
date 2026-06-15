@@ -56,6 +56,13 @@ class EncoderInfo {
 public:
   const char *publish_name;
   const char *thumbnail_name = NULL;
+  // Cada cuantos frames se emite el thumbnail lento (default 1200 -> ~60s a 20 FPS,
+  // que es lo que va al qlog). El driverThumbnail usa 100 (~0.2 Hz) para coincidir
+  // con la frecuencia declarada en services.py sin inflar el qlog.
+  int thumbnail_period = 1200;
+  // Canal de thumbnail rapido dedicado (~5 Hz). Independiente del thumbnail_name
+  // original. Usado para alimentar la Jetson sin inflar el qlog que sube a comma.
+  const char *fast_thumbnail_name = NULL;
   const char *filename = NULL;
   bool record = true;
   bool include_audio = false;
@@ -81,6 +88,7 @@ public:
 const EncoderInfo main_road_encoder_info = {
   .publish_name = "roadEncodeData",
   .thumbnail_name = "thumbnail",
+  .fast_thumbnail_name = "jetsonThumbnail",
   .filename = "fcamera.hevc",
   .get_settings = [](int in_width){return EncoderSettings::MainEncoderSettings(in_width);},
   INIT_ENCODE_FUNCTIONS(RoadEncode),
@@ -95,6 +103,8 @@ const EncoderInfo main_wide_road_encoder_info = {
 
 const EncoderInfo main_driver_encoder_info = {
   .publish_name = "driverEncodeData",
+  .thumbnail_name = "driverThumbnail",
+  .thumbnail_period = 100,  // ~0.2 Hz a 20 FPS, coincide con services.py
   .filename = "dcamera.hevc",
   .record = Params().getBool("RecordFront"),
   .get_settings = [](int in_width){return EncoderSettings::MainEncoderSettings(in_width);},

@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 import math
+import json
+import time
 from numbers import Number
 
 from cereal import car, log
 import cereal.messaging as messaging
 from openpilot.common.constants import CV
-from openpilot.common.params import Params
+from openpilot.common.params import Params, UnknownKeyName
 from openpilot.common.realtime import config_realtime_process, DT_CTRL, Priority, Ratekeeper
 from openpilot.common.swaglog import cloudlog
 
@@ -21,6 +23,19 @@ from openpilot.selfdrive.modeld.modeld import LAT_SMOOTH_SECONDS
 from openpilot.selfdrive.locationd.helpers import PoseCalibrator, Pose
 
 from openpilot.sunnypilot.selfdrive.controls.controlsd_ext import ControlsExt
+
+# [AdriPilot] Modo 3 (COMMA+JETSON): estado del esquive de obstáculos
+try:
+  from openpilot.sicuem.adripilot.adripilot_obstacle_pulse import ObstaclePulseState, DEFAULT_MAX_ANGLE, DEFAULT_MAX_CURV
+  _ADRIPILOT_OBSTACLE = True
+except Exception:
+  ObstaclePulseState = None
+  DEFAULT_MAX_ANGLE, DEFAULT_MAX_CURV = 25.0, 0.030
+  _ADRIPILOT_OBSTACLE = False
+
+# Anti-flicker: cuando JetsonObstacleStatus pasa de activo a "" lo mantenemos
+# publicado este tiempo para que la UI (~20 Hz) no pierda dodges muy breves.
+OBSTACLE_STATUS_HOLD_S = 0.30
 
 State = log.SelfdriveState.OpenpilotState
 LaneChangeState = log.LaneChangeState
@@ -65,6 +80,57 @@ class Controls(ControlsExt):
       self.LaC = LatControlTorque(self.CP, self.CP_SP, self.CI, DT_CTRL)
 
     self.LaC = ControlsExt.initialize_lateral_control(self, self.LaC, self.CI, DT_CTRL)
+
+    # [AdriPilot] limpiar cualquier pulso de dirección (cruceta MQTT) pendiente al iniciar
+    try:
+      from openpilot.sicuem.adripilot.adripilot_steering_pulse import clear_steering_pulse
+      clear_steering_pulse()
+    except Exception:
+      pass
+
+    # [AdriPilot] Modo 3 (COMMA+JETSON): estado del esquive y caché de config
+    self._obstacle_pulse_state = ObstaclePulseState() if _ADRIPILOT_OBSTACLE else None
+    self._last_obstacle_status = ""
+    self._obstacle_status_hold_until = 0.0   # wall-clock hasta el que mantenemos el último activo
+    self._obstacle_status_held_value = ""    # último status activo que estamos manteniendo
+    self._obstacle_config_last_read = 0.0    # wall-clock; recachear cada 1s
+    self._obstacle_max_angle = DEFAULT_MAX_ANGLE
+    self._obstacle_max_curv = DEFAULT_MAX_CURV
+    self._obstacle_apply_target = "curvature"  # "curvature" | "torque"
+
+  def _refresh_obstacle_config(self, now: float) -> None:
+    """Lee los params de configuración del esquive con cache de 1s. Siembra el default si falta."""
+    if now - self._obstacle_config_last_read < 1.0:
+      return
+    self._obstacle_config_last_read = now
+    for key, default, attr in (
+      ("JetsonObstacleMaxAngle", DEFAULT_MAX_ANGLE, "_obstacle_max_angle"),
+      ("JetsonObstacleMaxCurv", DEFAULT_MAX_CURV, "_obstacle_max_curv"),
+    ):
+      try:
+        raw = self.params.get(key)
+        if raw is None or raw == b"":
+          self.params.put_nonblocking(key, str(default))
+          setattr(self, attr, default)
+        else:
+          setattr(self, attr, float(raw))
+      except (UnknownKeyName, ValueError, TypeError):
+        setattr(self, attr, default)
+
+    try:
+      raw = self.params.get("JetsonObstacleApplyTarget")
+      if raw is None or raw == b"":
+        self.params.put_nonblocking("JetsonObstacleApplyTarget", "curvature")
+        self._obstacle_apply_target = "curvature"
+      else:
+        val = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
+        if val in ("curvature", "torque"):
+          self._obstacle_apply_target = val
+        else:
+          cloudlog.warning(f"controlsd: JetsonObstacleApplyTarget invalido: {val!r}, fallback curvature")
+          self._obstacle_apply_target = "curvature"
+    except (UnknownKeyName, ValueError, TypeError):
+      self._obstacle_apply_target = "curvature"
 
   def update(self):
     self.sm.update(15)
@@ -133,6 +199,25 @@ class Controls(ControlsExt):
     pid_accel_limits = self.CI.get_pid_accel_limits(self.CP, self.CP_SP, CS.vEgo, CS.vCruise * CV.KPH_TO_MS)
     actuators.accel = float(self.LoC.update(CC.longActive, CS, long_plan.aTarget, long_plan.shouldStop, pid_accel_limits))
 
+    # [AdriPilot] Brutebreak: frenado de emergencia brusco por comando MQTT.
+    # Solo tiene efecto si CC.longActive (Comma controla longitudinal). Auto-clear con vEgo<0.5.
+    try:
+      if self.params.get_bool("brutebreak_active"):
+        intensidad_frenado = -3.5
+        try:
+          intensidad_raw = self.params.get("brutebreak_intensidad")
+          if intensidad_raw:
+            intensidad = float(intensidad_raw.decode("utf-8") if isinstance(intensidad_raw, bytes) else intensidad_raw)
+            if -10.0 <= intensidad <= -1.0:
+              intensidad_frenado = intensidad
+        except Exception:
+          pass
+        actuators.accel = max(intensidad_frenado, pid_accel_limits[0])
+        if CS.vEgo < 0.5:
+          self.params.put_bool("brutebreak_active", False)
+    except Exception:
+      pass  # hot-path: nunca propagar
+
     # Steering PID loop and lateral MPC
     # Reset desired curvature to current to avoid violating the limits on engage
     if self.sm.valid['lateralManeuverPlan']:
@@ -148,6 +233,138 @@ class Controls(ControlsExt):
                                                        self.calibrated_pose, curvature_limited, lat_delay)
     actuators.torque = float(steer)
     actuators.steeringAngleDeg = float(steeringAngleDeg)
+
+    # ════════════════════════════════════════════════════════════════
+    # [AdriPilot] SELECTOR DE FUENTE DE TORQUE LATERAL (param SteerTorqueMode)
+    #   0=Comma (sin tocar)  1=Jetson (JetsonTorque)  2=TEST MAX (-1.0)  3=Comma+Jetson (esquive)
+    # NOTA: en este sunnypilot el campo es actuators.torque (antes actuators.steer).
+    # ════════════════════════════════════════════════════════════════
+    steer_mode = 0
+    if CC.latActive:
+      try:
+        self.params.put_nonblocking("CommaSteerTorque", f"{float(actuators.torque):.4f}")
+      except Exception:
+        pass
+      try:
+        mode_raw = self.params.get("SteerTorqueMode")
+      except UnknownKeyName:
+        cloudlog.error("SteerTorqueMode no registrado en params_keys.h.")
+        mode_raw = None
+      try:
+        steer_mode = int(mode_raw) if mode_raw else 0
+      except (ValueError, TypeError):
+        steer_mode = 0
+
+      if steer_mode == 1:
+        # FUENTE JETSON: torque ya normalizado [-1,1] que publica zmq_client.py en JetsonTorque.
+        # FAIL-SAFE: si no se puede leer -> 0.0 (volante sin fuerza), nunca dejar pasar Comma en silencio.
+        try:
+          jt = float(self.params.get("JetsonTorque") or 0.0)
+        except (UnknownKeyName, ValueError, TypeError):
+          jt = 0.0
+        actuators.torque = jt
+      elif steer_mode == 2:
+        actuators.torque = -1.0  # TEST MAX (banco), tras confirmación en la UI
+      elif steer_mode == 3:
+        pass  # COMMA+JETSON: el torque base lo deja Comma; abajo se aplican los offsets de esquive
+
+      try:
+        self.params.put_nonblocking("AppliedSteerTorque", f"{float(actuators.torque):.4f}")
+      except UnknownKeyName:
+        pass
+
+    # [AdriPilot] Pulso temporal de dirección (cruceta MQTT): +/- ángulo y curvatura mientras está activo
+    try:
+      from openpilot.sicuem.adripilot.adripilot_steering_pulse import get_steering_pulse, adripilot_steering_pulse_angle
+      pulse_start, original_direction, is_active, phase, effective_direction = get_steering_pulse()
+      if is_active and effective_direction in ("right", "left") and CC.latActive:
+        if effective_direction == "right":
+          actuators.steeringAngleDeg = float(actuators.steeringAngleDeg) + adripilot_steering_pulse_angle
+          self.desired_curvature += 0.008
+        else:
+          actuators.steeringAngleDeg = float(actuators.steeringAngleDeg) - adripilot_steering_pulse_angle
+          self.desired_curvature -= 0.008
+        actuators.curvature = self.desired_curvature
+    except ImportError:
+      pass
+    except Exception:
+      pass
+
+    # [AdriPilot] MODO 3 (COMMA+JETSON): offsets de esquive por obstáculo (override absoluto)
+    try:
+      if CC.latActive and steer_mode == 3 and self._obstacle_pulse_state is not None:
+        now_pulse = time.time()
+        self._refresh_obstacle_config(now_pulse)
+        try:
+          payload_ts_raw = self.params.get("JetsonObstacleTimestamp")
+          payload_ts = float(payload_ts_raw) if payload_ts_raw else 0.0
+        except (UnknownKeyName, ValueError, TypeError):
+          payload_ts = 0.0
+
+        if payload_ts > self._obstacle_pulse_state.last_payload_ts:
+          try:
+            payload_raw = self.params.get("JetsonObstaclePulse")
+            if payload_raw:
+              payload = json.loads(payload_raw)
+              if isinstance(payload, dict):
+                self._obstacle_pulse_state.ingest_new_message(payload, now_pulse)
+              else:
+                cloudlog.error(f"controlsd: ObstaclePulse JSON no es dict: {payload!r}")
+          except (UnknownKeyName, ValueError, TypeError, AttributeError) as e:
+            cloudlog.error(f"controlsd: ObstaclePulse JSON inválido: {e}")
+
+        angle_tgt, curv_tgt, status = self._obstacle_pulse_state.get_offsets(
+          now_pulse, CS, CC.latActive,
+          max_angle=self._obstacle_max_angle,
+          max_curv=self._obstacle_max_curv,
+        )
+        bsm_blocked = status in ("BSM_BLOCKED_LEFT", "BSM_BLOCKED_RIGHT")
+        if self._obstacle_pulse_state.active and not bsm_blocked:
+          if self._obstacle_apply_target == "torque":
+            intensity = self._obstacle_pulse_state.intensity
+            if math.isnan(intensity):
+              intensity = 0.0
+            actuators.torque = max(-1.0, min(1.0, intensity))
+          else:
+            actuators.steeringAngleDeg = angle_tgt
+            self.desired_curvature = curv_tgt
+            actuators.curvature = self.desired_curvature
+
+        if status in ("DODGING_LEFT", "DODGING_RIGHT", "DODGING_HOLD", "BSM_BLOCKED_LEFT", "BSM_BLOCKED_RIGHT"):
+          self._obstacle_status_held_value = status
+          self._obstacle_status_hold_until = now_pulse + OBSTACLE_STATUS_HOLD_S
+          published = status
+        elif self._obstacle_status_held_value and now_pulse < self._obstacle_status_hold_until:
+          published = self._obstacle_status_held_value
+        else:
+          self._obstacle_status_held_value = ""
+          published = status
+
+        if published != self._last_obstacle_status:
+          try:
+            self.params.put_nonblocking("JetsonObstacleStatus", published)
+            self.params.put_nonblocking("JetsonObstacleStatusMqttPayload",
+                                        json.dumps({"status": published, "ts": now_pulse, "source": "comma"}))
+          except UnknownKeyName:
+            pass
+          self._last_obstacle_status = published
+
+      elif self._obstacle_pulse_state is not None and \
+           (self._obstacle_pulse_state.active or self._obstacle_status_held_value or self._last_obstacle_status):
+        self._obstacle_pulse_state._reset()
+        self._obstacle_status_held_value = ""
+        self._obstacle_status_hold_until = 0.0
+        if self._last_obstacle_status:
+          try:
+            self.params.put_nonblocking("JetsonObstacleStatus", "")
+            self.params.put_nonblocking("JetsonObstacleStatusMqttPayload",
+                                        json.dumps({"status": "", "ts": time.time(), "source": "comma"}))
+          except UnknownKeyName:
+            pass
+          self._last_obstacle_status = ""
+    except Exception as e:
+      cloudlog.error(f"controlsd: excepcion inesperada en bloque modo 3: {e}")
+
     # Ensure no NaNs/Infs
     for p in ACTUATOR_FIELDS:
       attr = getattr(actuators, p)

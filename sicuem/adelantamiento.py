@@ -1,0 +1,47 @@
+from cereal import log
+from openpilot.common.params import Params
+
+LaneChangeDirection = log.LaneChangeDirection
+LaneChangeState = log.LaneChangeState
+
+params = Params()  # dispositivo Comma (antes Params("/tmp"), solo-desarrollo)
+
+def get_param_float(name: str, default: float) -> float:
+  try:
+    val = params.get(name, encoding='utf-8')
+    return float(val) if val is not None else default
+  except Exception:
+    return default
+
+def should_start_overtake(carstate, radarstate):
+  """
+  Decide si se debe iniciar el adelantamiento automático.
+  - Diferencia de velocidad (v_ref - v_ego) > umbral (por defecto 15 km/h)
+  - Distancia al lead < umbral (por defecto 50 m)
+  - Si está activado BSM, también requiere que no haya ángulo muerto izquierdo
+  """
+  if not params.get_bool("sic_adelantar"):
+    return False
+
+  # 🚘 Lead válido
+  lead = radarstate.leads[0] if len(radarstate.leads) > 0 else None
+  if lead is None or not lead.status:
+    return False
+
+  # 🧠 Datos relevantes
+  v_ego = carstate.vEgo
+  v_ref = carstate.cruiseSpeed
+  d_rel = lead.dRel
+
+  # 🛠 Parámetros ajustables
+  vel_diff_threshold = get_param_float("adelantamiento_vel_diff", 15.0) / 3.6  # km/h → m/s
+  distancia_threshold = get_param_float("adelantamiento_distancia", 50.0)
+
+  diff_vel_ok = (v_ref - v_ego) > vel_diff_threshold
+  distancia_ok = d_rel < distancia_threshold
+  sin_bsm = not carstate.leftBlindspot if params.get_bool("sic_adelantar_bsm") else True
+
+  return diff_vel_ok and distancia_ok and sin_bsm
+
+def get_overtake_command():
+  return LaneChangeDirection.left, LaneChangeState.laneChangeStarting

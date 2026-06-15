@@ -2478,6 +2478,10 @@ struct Event {
     liveDelay @146 : LiveDelayData;
     cameraOdometry @63 :CameraOdometry;
     thumbnail @66: Thumbnail;
+    # AdriPilot: thumbnail cámara driver (0.2 Hz, logueado)
+    driverThumbnail @152 :Thumbnail;
+    # AdriPilot: thumbnail rápido para la Jetson (~5 Hz, NO logueado, canal dedicado)
+    jetsonThumbnail @153 :Thumbnail;
     onroadEvents @134: List(OnroadEvent);
     carParams @69: Car.CarParams;
     driverMonitoringState @151 :DriverMonitoringState;

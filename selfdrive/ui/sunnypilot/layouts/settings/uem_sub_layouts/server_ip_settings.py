@@ -1,0 +1,175 @@
+"""
+Copyright (c) 2021-, Haibin Wen, sunnypilot, and a number of other contributors.
+
+This file is part of sunnypilot and is licensed under the MIT License.
+See the LICENSE.md file in the root directory for more details.
+
+ServerIpSettings sub-panel (SIC-UEM / AdriPilot).
+
+Port of the old Qt ServerIpSettings (selfdrive/ui/sunnypilot/qt/offroad/settings/
+sunnypilot/server_ip_settings.cc).
+
+Edits two server IPs, preserving all other keys in each JSON file:
+  - AdriPilot MQTT broker: key "broker" in sicuem/adripilot/config_mqtt.json
+  - SICUEM server:         config.IpServer.value in sicuem/config.json
+
+Paths resolve under BASEDIR/sicuem/... with a /data/openpilot fallback.
+"""
+import json
+import os
+import tempfile
+from collections.abc import Callable
+
+import pyray as rl
+
+from openpilot.common.basedir import BASEDIR
+from openpilot.system.ui.lib.multilang import tr
+from openpilot.system.ui.sunnypilot.widgets.input_dialog import InputDialogSP
+from openpilot.system.ui.sunnypilot.widgets.list_view import button_item_sp, LineSeparatorSP
+from openpilot.system.ui.widgets import Widget, DialogResult
+from openpilot.system.ui.widgets.network import NavButton
+from openpilot.system.ui.widgets.scroller_tici import Scroller
+
+
+def _resolve_path(rel: str) -> str:
+  candidates = [
+    os.path.join(BASEDIR, rel),
+    os.path.join("/data/openpilot", rel),
+  ]
+  for path in candidates:
+    if os.path.exists(path):
+      return path
+  return candidates[0]
+
+
+def _load_json(path: str) -> dict:
+  try:
+    with open(path) as f:
+      data = json.load(f)
+    if isinstance(data, dict):
+      return data
+  except (OSError, ValueError):
+    pass
+  return {}
+
+
+def _save_json(path: str, root: dict) -> bool:
+  directory = os.path.dirname(path)
+  try:
+    os.makedirs(directory, exist_ok=True)
+    fd, tmp_path = tempfile.mkstemp(dir=directory, suffix=".tmp")
+    try:
+      with os.fdopen(fd, "w") as f:
+        json.dump(root, f, indent=4)
+      os.replace(tmp_path, path)
+    except Exception:
+      if os.path.exists(tmp_path):
+        os.remove(tmp_path)
+      raise
+  except OSError:
+    return False
+  return True
+
+
+class ServerIpSettingsLayout(Widget):
+  def __init__(self, back_btn_callback: Callable):
+    super().__init__()
+    self._back_button = NavButton(tr("Back"))
+    self._back_button.set_click_callback(back_btn_callback)
+
+    self._adripilot_path = _resolve_path("sicuem/adripilot/config_mqtt.json")
+    self._sicuem_path = _resolve_path("sicuem/config.json")
+
+    items = self._initialize_items()
+    self._scroller = Scroller(items, line_separator=False, spacing=0)
+
+  def _initialize_items(self):
+    self._adripilot_button = button_item_sp(
+      title=lambda: tr("Servidor AdriPilot (broker MQTT)"),
+      button_text=lambda: tr("EDITAR"),
+      description=lambda: tr("IP actual:") + f" {self._read_adripilot_ip() or '-'}",
+      callback=self._edit_adripilot,
+    )
+    self._sicuem_button = button_item_sp(
+      title=lambda: tr("Servidor SICUEM (Universidad Europea)"),
+      button_text=lambda: tr("EDITAR"),
+      description=lambda: tr("IP actual:") + f" {self._read_sicuem_ip() or '-'}",
+      callback=self._edit_sicuem,
+    )
+
+    return [
+      self._adripilot_button,
+      LineSeparatorSP(40),
+      self._sicuem_button,
+    ]
+
+  # ---------------------------------------------------------------- reads
+  def _read_adripilot_ip(self) -> str:
+    root = _load_json(self._adripilot_path)
+    broker = root.get("broker")
+    return broker if isinstance(broker, str) else ""
+
+  def _read_sicuem_ip(self) -> str:
+    root = _load_json(self._sicuem_path)
+    config = root.get("config")
+    if isinstance(config, dict):
+      ip_server = config.get("IpServer")
+      if isinstance(ip_server, dict):
+        value = ip_server.get("value")
+        if isinstance(value, str):
+          return value
+    return ""
+
+  # ---------------------------------------------------------------- edits
+  def _edit_adripilot(self):
+    current = self._read_adripilot_ip()
+
+    def on_input(result: DialogResult, text: str):
+      if result != DialogResult.CONFIRM:
+        return
+      text = text.strip()
+      if not text:
+        return
+      root = _load_json(self._adripilot_path)  # preserve broker_port and any other keys
+      root["broker"] = text
+      _save_json(self._adripilot_path, root)
+
+    InputDialogSP(tr("IP Servidor AdriPilot"), current_text=current, min_text_size=1, callback=on_input).show()
+
+  def _edit_sicuem(self):
+    current = self._read_sicuem_ip()
+
+    def on_input(result: DialogResult, text: str):
+      if result != DialogResult.CONFIRM:
+        return
+      text = text.strip()
+      if not text:
+        return
+      root = _load_json(self._sicuem_path)  # preserve speed/send/etc.
+      config = root.get("config")
+      if not isinstance(config, dict):
+        config = {}
+      ip_server = config.get("IpServer")
+      if not isinstance(ip_server, dict):
+        ip_server = {}
+      ip_server["value"] = text
+      config["IpServer"] = ip_server
+      root["config"] = config
+      _save_json(self._sicuem_path, root)
+
+    InputDialogSP(tr("IP Servidor SICUEM"), current_text=current, min_text_size=1, callback=on_input).show()
+
+  # ------------------------------------------------------------- lifecycle
+  def _render(self, rect):
+    self._back_button.set_position(self._rect.x, self._rect.y + 20)
+    self._back_button.render()
+    content_rect = rl.Rectangle(
+      rect.x,
+      rect.y + self._back_button.rect.height + 40,
+      rect.width,
+      rect.height - self._back_button.rect.height - 40,
+    )
+    self._scroller.render(content_rect)
+
+  def show_event(self):
+    self._scroller.show_event()

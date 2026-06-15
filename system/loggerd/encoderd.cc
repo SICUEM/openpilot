@@ -64,7 +64,8 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
 
   VisionIpcClient vipc_client = VisionIpcClient("camerad", cam_info.stream_type, false);
 
-  std::unique_ptr<JpegEncoder> jpeg_encoder;
+  std::unique_ptr<JpegEncoder> jpeg_encoder;       // thumbnail lento (~0.2 Hz), va al qlog/canal dedicado
+  std::unique_ptr<JpegEncoder> fast_jpeg_encoder;  // thumbnail rapido (~5 Hz) para la Jetson
 
   int cur_seg = 0;
   while (!do_exit) {
@@ -87,6 +88,10 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
       // Only one thumbnail can be generated per camera stream
       if (auto thumbnail_name = cam_info.encoder_infos[0].thumbnail_name) {
         jpeg_encoder = std::make_unique<JpegEncoder>(thumbnail_name, buf_info.width / 4, buf_info.height / 4);
+      }
+      // Canal de thumbnail rapido dedicado (~5 Hz, p.ej. "jetsonThumbnail" en la road cam).
+      if (auto fast_thumbnail_name = cam_info.encoder_infos[0].fast_thumbnail_name) {
+        fast_jpeg_encoder = std::make_unique<JpegEncoder>(fast_thumbnail_name, buf_info.width / 4, buf_info.height / 4);
       }
     }
 
@@ -132,8 +137,14 @@ void encoder_thread(EncoderdState *s, const LogCameraInfo &cam_info) {
         }
       }
 
-      if (jpeg_encoder && (extra.frame_id % 1200 == 100)) {
+      const int thumb_period = cam_info.encoder_infos[0].thumbnail_period;
+      if (jpeg_encoder && (extra.frame_id % thumb_period == 100 % thumb_period)) {
         jpeg_encoder->pushThumbnail(buf, extra);
+      }
+      // Thumbnail rapido (~5 Hz a 20 FPS -> cada 4 frames) para la Jetson. Canal
+      // separado para no inflar el qlog que sube a comma.
+      if (fast_jpeg_encoder && (extra.frame_id % (MAIN_FPS / 5) == 0)) {
+        fast_jpeg_encoder->pushThumbnail(buf, extra);
       }
     }
   }

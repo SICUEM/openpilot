@@ -24,6 +24,16 @@ from openpilot.system.hardware import PC
 
 from openpilot.sunnypilot.system.params_migration import run_migration
 
+# [Start Bemposta] SIC-UEM / AdriPilot — hilos MQTT (import guardado: nunca debe brickear el arranque)
+try:
+  from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
+  from openpilot.sicuem.adripilot.mqtt_envio_general import MQTTEnvioGeneral
+except Exception:
+  cloudlog.exception("[Bemposta] no se pudieron importar los hilos MQTT SIC-UEM")
+  SicMqttHilo2 = None
+  MQTTEnvioGeneral = None
+# [End Bemposta]
+
 
 def manager_init() -> None:
   save_bootlog()
@@ -141,6 +151,19 @@ def manager_thread() -> None:
 
   write_onroad_params(False, params)
   ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore)
+
+  # [Start Bemposta] arrancar hilos MQTT SIC-UEM / AdriPilot (referencia local persiste en el while True)
+  bemposta_threads = []
+  for _name, _cls in (("SicMqttHilo2", SicMqttHilo2), ("MQTTEnvioGeneral", MQTTEnvioGeneral)):
+    if _cls is not None:
+      try:
+        _inst = _cls()
+        _inst.start()
+        bemposta_threads.append(_inst)
+        cloudlog.info(f"[Bemposta] {_name} iniciado")
+      except Exception:
+        cloudlog.exception(f"[Bemposta] fallo iniciando {_name}")
+  # [End Bemposta]
 
   started_prev = False
   ignition_prev = False

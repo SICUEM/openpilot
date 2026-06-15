@@ -243,4 +243,21 @@ EVENTS_SP: dict[int, dict[str, Alert | AlertCallbackType]] = {
       AlertStatus.normal, AlertSize.none,
       Priority.MID, VisualAlert.none, AudibleAlert.prompt, 3.),
   },
+
+  # [AdriPilot] cambio de carril bloqueado por ángulo muerto (BSM) — direccional
+  EventNameSP.laneChangeBlockedLeft: {
+    ET.WARNING: Alert(
+      "Cambio a IZQ bloqueado",
+      "Ángulo muerto detectado",
+      AlertStatus.userPrompt, AlertSize.small,
+      Priority.MID, VisualAlert.none, AudibleAlert.warningSoft, 2.5),
+  },
+
+  EventNameSP.laneChangeBlockedRight: {
+    ET.WARNING: Alert(
+      "Cambio a DER bloqueado",
+      "Ángulo muerto detectado",
+      AlertStatus.userPrompt, AlertSize.small,
+      Priority.MID, VisualAlert.none, AudibleAlert.warningSoft, 2.5),
+  },
 }

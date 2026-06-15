@@ -8,7 +8,9 @@ import pyray as rl
 
 from openpilot.common.constants import CV
 from openpilot.selfdrive.ui.mici.onroad.torque_bar import TorqueBar
+from openpilot.selfdrive.ui.sunnypilot.onroad.debug_panel import DebugPanelRenderer
 from openpilot.selfdrive.ui.sunnypilot.onroad.developer_ui import DeveloperUiRenderer, DeveloperUiState, get_bottom_dev_ui_offset
+from openpilot.selfdrive.ui.sunnypilot.onroad.jetson_overlays import JetsonObstacleRenderer
 from openpilot.selfdrive.ui.sunnypilot.onroad.road_name import RoadNameRenderer
 from openpilot.selfdrive.ui.sunnypilot.onroad.rocket_fuel import RocketFuel
 from openpilot.selfdrive.ui.sunnypilot.onroad.speed_limit import SpeedLimitRenderer
@@ -37,6 +39,8 @@ class HudRendererSP(HudRenderer):
     self.circular_alerts_renderer = CircularAlertsRenderer()
     self.speed_renderer = SpeedRenderer()
     self._torque_bar = TorqueBar(scale=3.0, always=True)
+    self.jetson_obstacle_renderer = JetsonObstacleRenderer()
+    self.debug_panel_renderer = DebugPanelRenderer()
 
     self.pcm_cruise_speed: bool = True
     self.show_icbm_status: bool = False
@@ -60,6 +64,8 @@ class HudRendererSP(HudRenderer):
     self.turn_signal_controller.update()
     self.circular_alerts_renderer.update()
     self.speed_renderer.update()
+    self.jetson_obstacle_renderer.update()
+    self.debug_panel_renderer.update()
 
   def _get_icbm_status(self):
     if not self.pcm_cruise_speed and ui_state.sm['carControl'].enabled:
@@ -144,3 +150,5 @@ class HudRendererSP(HudRenderer):
     self.turn_signal_controller.render(rect)
     self.circular_alerts_renderer.render(rect)
     self.rocket_fuel.render(rect, ui_state.sm)
+    self.jetson_obstacle_renderer.render(rect)
+    self.debug_panel_renderer.render(rect)

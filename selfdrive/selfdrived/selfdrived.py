@@ -324,6 +324,15 @@ class SelfdriveD(CruiseHelper):
       if (CS.leftBlindspot and direction == LaneChangeDirection.left) or \
          (CS.rightBlindspot and direction == LaneChangeDirection.right):
         self.events.add(EventName.laneChangeBlocked)
+        # [AdriPilot] evento direccional de ángulo muerto en cambio de carril (param c_carril)
+        try:
+          if self.params.get_bool("c_carril"):
+            if CS.leftBlindspot and direction == LaneChangeDirection.left:
+              self.events_sp.add(custom.OnroadEventSP.EventName.laneChangeBlockedLeft)
+            elif CS.rightBlindspot and direction == LaneChangeDirection.right:
+              self.events_sp.add(custom.OnroadEventSP.EventName.laneChangeBlockedRight)
+        except Exception:
+          pass
       else:
         if direction == LaneChangeDirection.left:
           self.events.add(EventName.preLaneChangeLeft)
@@ -545,6 +554,17 @@ class SelfdriveD(CruiseHelper):
     alerts_sp = self.events_sp.create_alerts(self.state_machine.current_alert_types, callback_args)
 
     self.AM.add_many(self.sm.frame, alerts + alerts_sp)
+
+    # [AdriPilot] espejo de alertas por MQTT (la creación de alertas vive en selfdrived, no en controlsd;
+    # events_mqtt aplica su propio cooldown por evento y usa un cliente MQTT persistente no bloqueante)
+    try:
+      from openpilot.sicuem.adripilot import events_mqtt
+      for _a in (alerts + alerts_sp):
+        if getattr(_a, "alert_type", ""):
+          events_mqtt.send_alert(_a)
+    except Exception:
+      pass
+
     self.AM.process_alerts(self.sm.frame, clear_event_types)
 
   def publish_selfdriveState(self, CS):
