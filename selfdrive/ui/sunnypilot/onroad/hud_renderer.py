@@ -11,6 +11,10 @@ from openpilot.selfdrive.ui.mici.onroad.torque_bar import TorqueBar
 from openpilot.selfdrive.ui.sunnypilot.onroad.debug_panel import DebugPanelRenderer
 from openpilot.selfdrive.ui.sunnypilot.onroad.developer_ui import DeveloperUiRenderer, DeveloperUiState, get_bottom_dev_ui_offset
 from openpilot.selfdrive.ui.sunnypilot.onroad.jetson_overlays import JetsonObstacleRenderer
+from openpilot.selfdrive.ui.sunnypilot.onroad.overtake_overlay import OvertakeRenderer
+from openpilot.selfdrive.ui.sunnypilot.onroad.torque_hud import TorqueHudRenderer
+from openpilot.selfdrive.ui.sunnypilot.onroad.blindspot_overlay import BlindspotRenderer
+from openpilot.selfdrive.ui.sunnypilot.onroad.bsm_lane_change_overlay import BsmLaneChangeRenderer
 from openpilot.selfdrive.ui.sunnypilot.onroad.road_name import RoadNameRenderer
 from openpilot.selfdrive.ui.sunnypilot.onroad.rocket_fuel import RocketFuel
 from openpilot.selfdrive.ui.sunnypilot.onroad.speed_limit import SpeedLimitRenderer
@@ -41,6 +45,10 @@ class HudRendererSP(HudRenderer):
     self._torque_bar = TorqueBar(scale=3.0, always=True)
     self.jetson_obstacle_renderer = JetsonObstacleRenderer()
     self.debug_panel_renderer = DebugPanelRenderer()
+    self.overtake_renderer = OvertakeRenderer()
+    self.torque_hud_renderer = TorqueHudRenderer()
+    self.blindspot_renderer = BlindspotRenderer()
+    self.bsm_lane_change_renderer = BsmLaneChangeRenderer()
 
     self.pcm_cruise_speed: bool = True
     self.show_icbm_status: bool = False
@@ -66,6 +74,10 @@ class HudRendererSP(HudRenderer):
     self.speed_renderer.update()
     self.jetson_obstacle_renderer.update()
     self.debug_panel_renderer.update()
+    self.overtake_renderer.update()
+    self.torque_hud_renderer.update()
+    self.blindspot_renderer.update()
+    self.bsm_lane_change_renderer.update()
 
   def _get_icbm_status(self):
     if not self.pcm_cruise_speed and ui_state.sm['carControl'].enabled:
@@ -150,5 +162,9 @@ class HudRendererSP(HudRenderer):
     self.turn_signal_controller.render(rect)
     self.circular_alerts_renderer.render(rect)
     self.rocket_fuel.render(rect, ui_state.sm)
+    self.torque_hud_renderer.render(rect)
+    self.blindspot_renderer.render(rect)
+    self.overtake_renderer.render(rect)
+    self.bsm_lane_change_renderer.render(rect)
     self.jetson_obstacle_renderer.render(rect)
     self.debug_panel_renderer.render(rect)

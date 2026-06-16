@@ -37,6 +37,7 @@ from openpilot.system.ui.sunnypilot.widgets.input_dialog import InputDialogSP
 from openpilot.system.ui.sunnypilot.widgets.list_view import (
   multiple_button_item_sp,
   button_item_sp,
+  toggle_item_sp,
   ListItemSP,
   LineSeparatorSP,
 )
@@ -87,6 +88,7 @@ class JetsonSettingsLayout(Widget):
     self._config_path = _resolve_config_path()
     self._config: dict = {}
     self._load_config()
+    self._config_mtime = self._current_mtime()
 
     # Throttle / live state
     self._frame = 0
@@ -97,6 +99,17 @@ class JetsonSettingsLayout(Widget):
 
   # ---------------------------------------------------------------- items
   def _initialize_items(self):
+    self._jetson_enabled_toggle = toggle_item_sp(
+      title=lambda: tr("Activar envio a la Jetson"),
+      description=lambda: tr("Habilita el envio de imagenes a la Jetson y la recepcion de su torque."),
+      initial_state=bool(self._config.get("jetson_enabled", False)),
+      callback=self._on_jetson_enabled,
+    )
+    self._enabled_status = ListItemSP(
+      title=lambda: self._jetson_enabled_status_text(),
+      description="",
+    )
+
     self._mode_selector = multiple_button_item_sp(
       title=lambda: tr("Control del volante"),
       description=lambda: tr("Selecciona de donde sale el torque que se aplica al volante "
@@ -141,10 +154,13 @@ class JetsonSettingsLayout(Widget):
       title=lambda: tr("Calidad de imagen (10-100)"),
       button_text=lambda: tr("EDITAR"),
       callback=lambda: self._edit_config_field("jpeg_quality", tr("Calidad de imagen (10-100)"), is_int=True,
-                                               clamp=(10, 100)),
+                                               clamp=(10, 100), step=10),
     )
 
     items = [
+      self._jetson_enabled_toggle,
+      self._enabled_status,
+      LineSeparatorSP(40),
       self._mode_selector,
       self._mode_status,
       self._obstacle_label,
@@ -326,7 +342,26 @@ class JetsonSettingsLayout(Widget):
     }
     ui_state.params.put("JetsonObstacleApplyTargetMqttPayload", json.dumps(payload))
 
+  # --------------------------------------------------------- jetson enabled
+  def _on_jetson_enabled(self, enabled: bool):
+    self._config["jetson_enabled"] = bool(enabled)
+    self._save_config()
+
+  def _jetson_enabled_status_text(self) -> str:
+    return tr("Estado: ACTIVA") if self._config.get("jetson_enabled", False) else tr("Estado: INACTIVA")
+
+  def _sync_jetson_enabled(self):
+    toggle = getattr(self, "_jetson_enabled_toggle", None)
+    if toggle is not None:
+      toggle.action_item.toggle.set_state(bool(self._config.get("jetson_enabled", False)))
+
   # ------------------------------------------------------------- config IO
+  def _current_mtime(self) -> float:
+    try:
+      return os.path.getmtime(self._config_path)
+    except OSError:
+      return 0.0
+
   def _load_config(self):
     self._config = dict(CONFIG_DEFAULTS)
     try:
@@ -357,6 +392,8 @@ class JetsonSettingsLayout(Widget):
     except OSError:
       return
 
+    # Record our own write so the live-reload check does not treat it as external.
+    self._config_mtime = self._current_mtime()
     ui_state.params.put_bool("JetsonConfigChanged", True)
     self._write_config_payload(version_ms)
 
@@ -378,7 +415,8 @@ class JetsonSettingsLayout(Widget):
     }
     ui_state.params.put("JetsonConfigMqttPayload", json.dumps(payload))
 
-  def _edit_config_field(self, key: str, title: str, is_int: bool, clamp: tuple[int, int] | None = None):
+  def _edit_config_field(self, key: str, title: str, is_int: bool, clamp: tuple[int, int] | None = None,
+                         step: int | None = None):
     current = str(self._config.get(key, CONFIG_DEFAULTS.get(key, "")))
 
     def on_input(result: DialogResult, text: str):
@@ -392,6 +430,8 @@ class JetsonSettingsLayout(Widget):
           value = int(text)
         except ValueError:
           return
+        if step:
+          value = int(round(value / step) * step)
         if clamp:
           value = max(clamp[0], min(clamp[1], value))
         self._config[key] = value
@@ -410,6 +450,14 @@ class JetsonSettingsLayout(Widget):
       obs = ui_state.params.get("JetsonObstacleStatus")
       self._obstacle_status = obs if obs else ""
       self._sync_selector()
+      # Live-reload config_jetson.json if an external writer (e.g. MQTT bridge)
+      # changed it while the panel is open. Saving merges keys, so this is safe
+      # even mid-edit; our own writes update _config_mtime to avoid self-triggering.
+      mtime = self._current_mtime()
+      if mtime and mtime != self._config_mtime:
+        self._config_mtime = mtime
+        self._load_config()
+        self._sync_jetson_enabled()
     # Hide the obstacle status row unless there is something to show.
     self._obstacle_label.set_visible(bool(self._obstacle_status_text()))
 
@@ -426,6 +474,8 @@ class JetsonSettingsLayout(Widget):
 
   def show_event(self):
     self._load_config()
+    self._config_mtime = self._current_mtime()
+    self._sync_jetson_enabled()
     self._sync_selector()
     obs = ui_state.params.get("JetsonObstacleStatus")
     self._obstacle_status = obs if obs else ""

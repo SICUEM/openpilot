@@ -13,18 +13,21 @@ pattern from steering.py.
 """
 from enum import IntEnum
 
+from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.system.ui.lib.multilang import tr
-from openpilot.system.ui.sunnypilot.widgets.list_view import toggle_item_sp, simple_button_item_sp, LineSeparatorSP
+from openpilot.system.ui.sunnypilot.widgets.list_view import toggle_item_sp, simple_button_item_sp, ListItemSP, LineSeparatorSP
 from openpilot.system.ui.widgets import Widget
 from openpilot.system.ui.widgets.scroller_tici import Scroller
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.uem_sub_layouts.jetson_settings import JetsonSettingsLayout
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.uem_sub_layouts.server_ip_settings import ServerIpSettingsLayout
+from openpilot.selfdrive.ui.sunnypilot.layouts.settings.uem_sub_layouts.teluem_settings import TelUemSettingsLayout
 
 
 class PanelType(IntEnum):
   UEM = 0
   JETSON = 1
   SERVER_IP = 2
+  TELUEM = 3
 
 
 class UemLayout(Widget):
@@ -34,11 +37,19 @@ class UemLayout(Widget):
     self._current_panel = PanelType.UEM
     self._jetson_layout = JetsonSettingsLayout(lambda: self._set_current_panel(PanelType.UEM))
     self._server_ip_layout = ServerIpSettingsLayout(lambda: self._set_current_panel(PanelType.UEM))
+    self._teluem_layout = TelUemSettingsLayout(lambda: self._set_current_panel(PanelType.UEM))
 
     items = self._initialize_items()
     self._scroller = Scroller(items, line_separator=False, spacing=0)
 
   def _initialize_items(self):
+    self._header_label = ListItemSP(
+      title=lambda: tr("Configuracion UEM"),
+      description=lambda: tr("Ajustes y utilidades del sistema UEM."),
+    )
+    self._funciones_label = ListItemSP(title=lambda: tr("Funciones"), description="")
+    self._config_label = ListItemSP(title=lambda: tr("Configuracion"), description="")
+
     self._telemetria_toggle = toggle_item_sp(
       param="telemetria_uem",
       title=lambda: tr("TELEMETRIA UEM"),
@@ -65,6 +76,12 @@ class UemLayout(Widget):
       description=lambda: tr("Ejecuta la rutina de prueba de adelantamiento en el simulador (sin coches)."),
     )
 
+    self._teluem_button = simple_button_item_sp(
+      button_text=lambda: tr("Conf. TELEMETRIA UEM"),
+      button_width=800,
+      callback=lambda: self._set_current_panel(PanelType.TELUEM),
+      enabled=lambda: ui_state.params.get_bool("telemetria_uem"),
+    )
     self._jetson_button = simple_button_item_sp(
       button_text=lambda: tr("Conf. NVIDIA Jetson"),
       button_width=800,
@@ -77,12 +94,16 @@ class UemLayout(Widget):
     )
 
     return [
+      self._header_label,
+      self._funciones_label,
       self._telemetria_toggle,
+      self._teluem_button,
       self._c_carril_toggle,
       self._show_blindspot_toggle,
       self._modo_debug_toggle,
       self._test_overtake_toggle,
       LineSeparatorSP(40),
+      self._config_label,
       self._jetson_button,
       self._server_ip_button,
     ]
@@ -95,6 +116,8 @@ class UemLayout(Widget):
       self._jetson_layout.render(rect)
     elif self._current_panel == PanelType.SERVER_IP:
       self._server_ip_layout.render(rect)
+    elif self._current_panel == PanelType.TELUEM:
+      self._teluem_layout.render(rect)
     else:
       self._scroller.render(rect)
 
