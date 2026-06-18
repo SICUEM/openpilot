@@ -34,7 +34,7 @@ def _ensure_loaded():
   try:
     from openpilot.common.params import Params
     dongle = Params().get("DongleId")
-    _DONGLE_ID = dongle.decode("utf-8") if dongle else "UnregisteredDevice"
+    _DONGLE_ID = dongle if dongle else "UnregisteredDevice"
   except Exception:
     _DONGLE_ID = "UnregisteredDevice"
 

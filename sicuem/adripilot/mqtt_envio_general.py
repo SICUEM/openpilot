@@ -5,6 +5,7 @@ import time
 import threading
 import paho.mqtt.client as mqtt
 import cereal.messaging as messaging
+from cereal.services import SERVICE_LIST
 from openpilot.common.params import Params
 import os
 from .mqtt_comandos import MQTTComandos
@@ -21,7 +22,7 @@ class MQTTEnvioGeneral:
     self.pause_event.set()
     self.stop_event = threading.Event()
     self.params = Params()
-    self.DongleID = self.params.get("DongleId").decode("utf-8") if self.params.get("DongleId") else "DongleID"
+    self.DongleID = self.params.get("DongleId") if self.params.get("DongleId") else "DongleID"  # Params.get() ya devuelve str
     self.conectado = False
     self.load_config()
     self.cargar_canales()
@@ -40,7 +41,14 @@ class MQTTEnvioGeneral:
   def cargar_canales(self):
     with open(self.jsonCanales, "r") as f:
       data = json.load(f)
-    self.enabled_items = [item for item in data["canales"] if item.get("enable") == 1]
+    enabled = [item for item in data["canales"] if item.get("enable") == 1]
+    # Solo suscribir a canales que sean servicios cereal reales en este build
+    # ('navInstruction' ya no existe en el sunnypilot nuevo). Evita el KeyError
+    # del SubMaster y el acceso posterior self.sm[canal].
+    self.enabled_items = [item for item in enabled if item["canal"] in SERVICE_LIST]
+    dropped = [item["canal"] for item in enabled if item["canal"] not in SERVICE_LIST]
+    if dropped:
+      print(f"[Bemposta] canales sin servicio cereal, ignorados: {dropped}")
     self.lista_suscripciones = [item["canal"] for item in self.enabled_items]
     self.keys_importantes_por_canal = {
       item["canal"]: item.get("keys_importantes", [])
@@ -222,7 +230,7 @@ class MQTTEnvioGeneral:
       try:
         jetson_payload = self.params.get("JetsonConfigMqttPayload")
         if jetson_payload and len(jetson_payload) > 2:
-          payload_str = jetson_payload.decode('utf-8')
+          payload_str = jetson_payload
           print(f"[JETSON SYNC] Detectado JetsonConfigMqttPayload: {payload_str[:200]}")
           try:
             # retain=True: el broker guarda la ultima version de cada topic y
@@ -243,7 +251,7 @@ class MQTTEnvioGeneral:
       try:
         steer_mode_payload = self.params.get("SteerTorqueModeMqttPayload")
         if steer_mode_payload and len(steer_mode_payload) > 2:
-          payload_str = steer_mode_payload.decode('utf-8')
+          payload_str = steer_mode_payload
           print(f"[STEER MODE SYNC] Detectado payload: {payload_str[:200]}")
           try:
             # retain=True: ver comentario arriba en JetsonConfig.
@@ -261,7 +269,7 @@ class MQTTEnvioGeneral:
       try:
         apply_target_payload = self.params.get("JetsonObstacleApplyTargetMqttPayload")
         if apply_target_payload and len(apply_target_payload) > 2:
-          payload_str = apply_target_payload.decode('utf-8')
+          payload_str = apply_target_payload
           print(f"[APPLY TARGET SYNC] Detectado payload: {payload_str[:200]}")
           try:
             # retain=True: que la app reciba el estado al reconectarse.
@@ -277,7 +285,7 @@ class MQTTEnvioGeneral:
       try:
         obstacle_payload = self.params.get("JetsonObstacleStatusMqttPayload")
         if obstacle_payload and len(obstacle_payload) > 2:
-          payload_str = obstacle_payload.decode('utf-8')
+          payload_str = obstacle_payload
           print(f"[OBSTACLE STATUS SYNC] Detectado payload: {payload_str[:200]}")
           try:
             # retain=False aquí: el status del esquive es transitorio, no

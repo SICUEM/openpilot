@@ -49,6 +49,15 @@ class MainLayout(Widget):
     if not self._onboarding_window.completed:
       gui_app.push_widget(self._onboarding_window)
 
+    # [SIC-UEM] Splash de arranque (branding del TFG). Guardado: un fallo del
+    # splash nunca debe impedir que arranque el UI. Se empuja al final para que
+    # aparezca por encima al encender la pantalla y se auto-cierra solo.
+    try:
+      from openpilot.selfdrive.ui.sunnypilot.layouts.sicuem_splash import SicuemSplash
+      gui_app.push_widget(SicuemSplash())
+    except Exception:
+      pass
+
   def _render(self, _):
     self._handle_onroad_transition()
     self._render_main_content()

@@ -52,13 +52,13 @@ class SicMqttHilo2:
     # Estado inicial de conexión MQTT
     self.sm = messaging.SubMaster(
       ['carState', 'controlsState', 'liveCalibration', 'carControl', 'gpsLocationExternal', 'gpsLocation',
-       'navInstruction', 'radarState', 'drivingModelData'])  # Objeto SubMaster para recibir datos (sin inicializar)
+       'radarState', 'drivingModelData'])  # 'navInstruction' eliminado: no existe en services.py del sunnypilot nuevo
     self.pause_event = Event()  # Evento para pausar operaciones
     self.pause_event.set()  # Activa el evento inicialmente
     self.stop_event = Event()  # Evento para detener hilos
     params = Params()  # Carga de parámetros del sistema
     self.params = params  # Almacena la referencia a los parámetros
-    self.DongleID = params.get("DongleId").decode('utf-8') if params.get("DongleId") else "DongleID"
+    self.DongleID = params.get("DongleId") if params.get("DongleId") else "DongleID"  # Params.get() ya devuelve str
     self.params.put_bool("intervalos_toggle", False)
     print(f"🆔 DongleID local: {self.DongleID}")
 

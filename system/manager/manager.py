@@ -24,13 +24,12 @@ from openpilot.system.hardware import PC
 
 from openpilot.sunnypilot.system.params_migration import run_migration
 
-# [Start Bemposta] SIC-UEM / AdriPilot — hilos MQTT (import guardado: nunca debe brickear el arranque)
+# [Start Bemposta] SIC-UEM / AdriPilot — hilo MQTT (import guardado: nunca debe brickear el arranque)
+# SicMqttHilo2 (telemetria legacy) retirado a peticion; solo AdriPilot MQTTEnvioGeneral.
 try:
-  from openpilot.sicuem.sicmqtthilo2 import SicMqttHilo2
   from openpilot.sicuem.adripilot.mqtt_envio_general import MQTTEnvioGeneral
 except Exception:
   cloudlog.exception("[Bemposta] no se pudieron importar los hilos MQTT SIC-UEM")
-  SicMqttHilo2 = None
   MQTTEnvioGeneral = None
 # [End Bemposta]
 
@@ -154,7 +153,7 @@ def manager_thread() -> None:
 
   # [Start Bemposta] arrancar hilos MQTT SIC-UEM / AdriPilot (referencia local persiste en el while True)
   bemposta_threads = []
-  for _name, _cls in (("SicMqttHilo2", SicMqttHilo2), ("MQTTEnvioGeneral", MQTTEnvioGeneral)):
+  for _name, _cls in (("MQTTEnvioGeneral", MQTTEnvioGeneral),):
     if _cls is not None:
       try:
         _inst = _cls()

@@ -19,7 +19,7 @@ class MQTTComandos:
     self.base_path = os.path.dirname(os.path.abspath(__file__))
     self.jsonConfig = os.path.join(self.base_path, "config_mqtt.json")
     self.params = Params()
-    self.DongleID = self.params.get("DongleId").decode("utf-8") if self.params.get("DongleId") else "DongleID"
+    self.DongleID = self.params.get("DongleId") if self.params.get("DongleId") else "DongleID"  # Params.get() ya devuelve str
     self.conectado = False
     self.stop_event = threading.Event()
     # Archivo para guardar mensajes MQTT para modo debug
@@ -775,12 +775,12 @@ class MQTTComandos:
 
       # Leer el valor actual para detectar cambios reales
       current = self.params.get("SteerTorqueMode")
-      current_str = current.decode('utf-8') if current else ""
+      current_str = current if current else ""
       new_str = str(mode)
 
       # Sub-target: detectar también cambios sobre el mismo modo 3.
       current_target = self.params.get("JetsonObstacleApplyTarget")
-      current_target_str = current_target.decode('utf-8') if current_target else ""
+      current_target_str = current_target if current_target else ""
       target_changed = (mode == 3) and (apply_target != current_target_str)
 
       if current_str == new_str and not target_changed:

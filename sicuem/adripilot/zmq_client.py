@@ -184,12 +184,12 @@ class ZMQClient:
     # put_nonblocking: el writer es un hilo aparte con cola FIFO, así no
     # bloqueamos el listener en disco. La FIFO preserva el orden pulse→ts.
     try:
-      self._params.put_nonblocking("JetsonObstaclePulse", json.dumps(payload))
+      self._params.put("JetsonObstaclePulse", json.dumps(payload))
     except UnknownKeyName:
       cloudlog.error("JetsonObstaclePulse no registrado. Recompila common/params.cc.")
       return
     try:
-      self._params.put_nonblocking("JetsonObstacleTimestamp", f"{now:.6f}")
+      self._params.put("JetsonObstacleTimestamp", f"{now:.6f}")
     except UnknownKeyName:
       cloudlog.error("JetsonObstacleTimestamp no registrado. Recompila common/params.cc.")
 
@@ -285,9 +285,9 @@ class ZMQClient:
         # UI, pero el watchdog en controlsd no podra validar frescura y
         # marcara stale -> torque=0 (fail-safe).
         try:
-          self._params.put_nonblocking("JetsonTorqueTimestamp", f"{now:.6f}")
+          self._params.put("JetsonTorqueTimestamp", f"{now:.6f}")
         except UnknownKeyName:
           if not getattr(self, "_warned_ts_param", False):
             cloudlog.error("JetsonTorqueTimestamp no registrado. Recompila common/params.cc para habilitar el watchdog del modo Jetson.")
             self._warned_ts_param = True
-        self._params.put_nonblocking("JetsonTorque", str(torque))
+        self._params.put("JetsonTorque", str(torque))

@@ -110,7 +110,7 @@ class Controls(ControlsExt):
       try:
         raw = self.params.get(key)
         if raw is None or raw == b"":
-          self.params.put_nonblocking(key, str(default))
+          self.params.put(key, str(default))
           setattr(self, attr, default)
         else:
           setattr(self, attr, float(raw))
@@ -120,7 +120,7 @@ class Controls(ControlsExt):
     try:
       raw = self.params.get("JetsonObstacleApplyTarget")
       if raw is None or raw == b"":
-        self.params.put_nonblocking("JetsonObstacleApplyTarget", "curvature")
+        self.params.put("JetsonObstacleApplyTarget", "curvature")
         self._obstacle_apply_target = "curvature"
       else:
         val = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
@@ -242,7 +242,7 @@ class Controls(ControlsExt):
     steer_mode = 0
     if CC.latActive:
       try:
-        self.params.put_nonblocking("CommaSteerTorque", f"{float(actuators.torque):.4f}")
+        self.params.put("CommaSteerTorque", f"{float(actuators.torque):.4f}")
       except Exception:
         pass
       try:
@@ -269,7 +269,7 @@ class Controls(ControlsExt):
         pass  # COMMA+JETSON: el torque base lo deja Comma; abajo se aplican los offsets de esquive
 
       try:
-        self.params.put_nonblocking("AppliedSteerTorque", f"{float(actuators.torque):.4f}")
+        self.params.put("AppliedSteerTorque", f"{float(actuators.torque):.4f}")
       except UnknownKeyName:
         pass
 
@@ -342,8 +342,8 @@ class Controls(ControlsExt):
 
         if published != self._last_obstacle_status:
           try:
-            self.params.put_nonblocking("JetsonObstacleStatus", published)
-            self.params.put_nonblocking("JetsonObstacleStatusMqttPayload",
+            self.params.put("JetsonObstacleStatus", published)
+            self.params.put("JetsonObstacleStatusMqttPayload",
                                         json.dumps({"status": published, "ts": now_pulse, "source": "comma"}))
           except UnknownKeyName:
             pass
@@ -356,8 +356,8 @@ class Controls(ControlsExt):
         self._obstacle_status_hold_until = 0.0
         if self._last_obstacle_status:
           try:
-            self.params.put_nonblocking("JetsonObstacleStatus", "")
-            self.params.put_nonblocking("JetsonObstacleStatusMqttPayload",
+            self.params.put("JetsonObstacleStatus", "")
+            self.params.put("JetsonObstacleStatusMqttPayload",
                                         json.dumps({"status": "", "ts": time.time(), "source": "comma"}))
           except UnknownKeyName:
             pass

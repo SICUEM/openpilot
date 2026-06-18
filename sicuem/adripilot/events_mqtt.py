@@ -46,7 +46,7 @@ def _load_broker() -> tuple[str, int]:
 def _get_dongle_id() -> str:
   params = Params()
   raw = params.get("DongleId")
-  return raw.decode("utf-8") if raw else "UnregisteredDevice"
+  return raw if raw else "UnregisteredDevice"
 
 
 def _on_mqtt_connect(client, userdata, flags, rc):

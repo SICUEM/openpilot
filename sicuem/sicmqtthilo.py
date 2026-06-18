@@ -94,18 +94,18 @@ class SicMqttHilo:
     if msg.topic == "opmqttsender/messages":
         message = msg.payload.decode()
         print(f"Mensaje recibido: {message}")
-        self.params.put_bool_nonblocking("sender_uem_up", False)
-        self.params.put_bool_nonblocking("sender_uem_down", False)
-        self.params.put_bool_nonblocking("sender_uem_left", False)
-        self.params.put_bool_nonblocking("sender_uem_right", False)
+        self.params.put_bool("sender_uem_up", False)
+        self.params.put_bool("sender_uem_down", False)
+        self.params.put_bool("sender_uem_left", False)
+        self.params.put_bool("sender_uem_right", False)
         if message == "up":
-            self.params.put_bool_nonblocking("sender_uem_up", True)
+            self.params.put_bool("sender_uem_up", True)
         elif message == "down":
-            self.params.put_bool_nonblocking("sender_uem_down", True)
+            self.params.put_bool("sender_uem_down", True)
         elif message == "left":
-            self.params.put_bool_nonblocking("sender_uem_left", True)
+            self.params.put_bool("sender_uem_left", True)
         elif message == "right":
-            self.params.put_bool_nonblocking("sender_uem_right", True)
+            self.params.put_bool("sender_uem_right", True)
 
   def verificar_toggle_canales(self, dataCanales):
     params = Params()

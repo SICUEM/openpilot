@@ -45,10 +45,17 @@ class UemLayout(Widget):
   def _initialize_items(self):
     self._header_label = ListItemSP(
       title=lambda: tr("Configuracion UEM"),
-      description=lambda: tr("Ajustes y utilidades del sistema UEM."),
+      description=lambda: tr("SIC-UEM - Universidad Europea de Madrid"),
+      icon="../../sunnypilot/selfdrive/assets/offroad/uem_logo.png",
     )
     self._funciones_label = ListItemSP(title=lambda: tr("Funciones"), description="")
     self._config_label = ListItemSP(title=lambda: tr("Configuracion"), description="")
+    self._credit_label = ListItemSP(
+      title=lambda: tr("Acerca de SIC-UEM"),
+      description=lambda: tr("Rama modificada por Adrian Canadas - Grupo de Investigacion SIC-UEM, "
+                            "Universidad Europea de Madrid (TFG)."),
+      icon="../../sunnypilot/selfdrive/assets/offroad/uem_logo.png",
+    )
 
     self._telemetria_toggle = toggle_item_sp(
       param="telemetria_uem",
@@ -106,6 +113,8 @@ class UemLayout(Widget):
       self._config_label,
       self._jetson_button,
       self._server_ip_button,
+      LineSeparatorSP(40),
+      self._credit_label,
     ]
 
   def _set_current_panel(self, panel: PanelType):

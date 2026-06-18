@@ -88,19 +88,25 @@ def register(show_spinner=False) -> str | None:
           dongle_id = UNREGISTERED_DONGLE_ID
         else:
           dongleauth = json.loads(resp.text)
-          dongle_id = dongleauth["dongle_id"]
+          # En PC/simulador (sin cuenta comma real) la respuesta puede no traer
+          # dongle_id: usamos UNREGISTERED en vez de petar con KeyError y quedar
+          # en bucle de reintentos.
+          dongle_id = dongleauth.get("dongle_id", UNREGISTERED_DONGLE_ID)
         break
       except Exception:
         cloudlog.exception("failed to authenticate")
         backoff = min(backoff + 1, 15)
         time.sleep(backoff)
 
-      if time.monotonic() - start_time > 60 and show_spinner:
-        spinner.update(f"registering device - serial: {serial}, IMEI: ({imei1}, {imei2})")
-        # NO devolvemos UNREGISTERED aquí: dejamos que reintente con backoff. Si
-        # devolvíamos UNREGISTERED, el valor malo se persistía en params (abajo) y
-        # el dispositivo quedaba muerto para siempre (manager.py deja fuera al
-        # uploader y athena → nada se sube nunca a comma).
+      if time.monotonic() - start_time > 60:
+        if show_spinner:
+          spinner.update(f"registering device - serial: {serial}, IMEI: ({imei1}, {imei2})")
+        # Tras 60s sin poder registrar (típico en PC/simulador, o red caída en el
+        # coche): salimos del bucle con UNREGISTERED para no esperar/loguear de
+        # forma infinita. NO se persiste (ver abajo), así que un fallo transitorio
+        # en el coche se reintentará en el siguiente arranque.
+        dongle_id = UNREGISTERED_DONGLE_ID
+        break
 
     if show_spinner:
       spinner.close()
