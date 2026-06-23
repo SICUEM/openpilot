@@ -22,6 +22,7 @@ from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.widgets import Widget
 
 LOGO_PATH = "../../sunnypilot/selfdrive/assets/offroad/uem_logo_completo.png"
+LOGO_AR = 820 / 182  # proporción real de uem_logo_completo.png (no estirar)
 
 DURATION = 6.0   # seconds on screen before auto-dismiss
 FADE = 0.6       # fade in / fade out seconds
@@ -85,11 +86,13 @@ class SicuemSplash(Widget):
     rl.draw_rectangle(int(rect.x), int(rect.y), int(rect.width), bar_h, _col(UEM_RED, a))
     rl.draw_rectangle(int(rect.x), int(rect.y + rect.height - bar_h), int(rect.width), bar_h, _col(UEM_RED, a))
 
-    # Logo (wide banner, sized by width, centered near the top)
-    logo_box = int(min(rect.width * 0.62, 1200))
+    # Logo (banner ancho 820x182): pedir la textura con su proporción real para que
+    # no se estire (con scale!=1.0 texture() fija tex.width/height a lo solicitado).
+    logo_w = int(min(rect.width * 0.62, 1200))
+    logo_h = int(logo_w / LOGO_AR)
     logo_y = rect.y + rect.height * 0.10
     try:
-      tex = gui_app.texture(LOGO_PATH, logo_box, logo_box, keep_aspect_ratio=True)
+      tex = gui_app.texture(LOGO_PATH, logo_w, logo_h, keep_aspect_ratio=True)
       rl.draw_texture_ex(tex, rl.Vector2(cx - tex.width / 2.0, logo_y), 0.0, 1.0, _col(WHITE, a))
       logo_bottom = logo_y + tex.height
     except Exception:

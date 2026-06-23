@@ -46,7 +46,7 @@ class UemLayout(Widget):
     self._header_label = ListItemSP(
       title=lambda: tr("Configuracion UEM"),
       description=lambda: tr("SIC-UEM - Universidad Europea de Madrid"),
-      icon="../../sunnypilot/selfdrive/assets/offroad/uem_logo.png",
+      icon="../../../sunnypilot/selfdrive/assets/offroad/uem_logo.png",
     )
     self._funciones_label = ListItemSP(title=lambda: tr("Funciones"), description="")
     self._config_label = ListItemSP(title=lambda: tr("Configuracion"), description="")
@@ -54,7 +54,7 @@ class UemLayout(Widget):
       title=lambda: tr("Acerca de SIC-UEM"),
       description=lambda: tr("Rama modificada por Adrian Canadas - Grupo de Investigacion SIC-UEM, "
                             "Universidad Europea de Madrid (TFG)."),
-      icon="../../sunnypilot/selfdrive/assets/offroad/uem_logo.png",
+      icon="../../../sunnypilot/selfdrive/assets/offroad/uem_logo.png",
     )
 
     self._telemetria_toggle = toggle_item_sp(

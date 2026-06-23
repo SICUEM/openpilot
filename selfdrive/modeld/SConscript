@@ -34,9 +34,24 @@ def probe_devices():
     capture_output=True, text=True, check=True).stdout.strip().splitlines())
 
 available = probe_devices()
-if 'CUDA' in available:
-  tg_backend = 'CUDA'
-  tg_flags = f'DEV={tg_backend}'
+# Backend de tinygrad del modelo.
+# En el dispositivo (Comma 3X) se usa QCOM. En PC NO auto-seleccionamos CUDA: en
+# GPUs de poca VRAM el modelo CUDA pelea con el render del simulador (MetaDrive) y
+# da CUDA_ERROR_ILLEGAL_ADDRESS, asi que por defecto el PC va a CPU:LLVM (estable y
+# libera toda la VRAM para el sim). Para forzar GPU en PC: TG_BACKEND=CL (o =CUDA).
+tg_override = os.getenv('TG_BACKEND')
+if tg_override:
+  if tg_override.startswith('CPU'):
+    tg_backend = 'CPU'
+    tg_flags = f'DEV=CPU' if arch == 'Darwin' else 'DEV=CPU:LLVM'
+  elif tg_override == 'CUDA':
+    tg_backend = 'CUDA'
+    # JIT_BATCH_SIZE=0 desactiva el cuGraph: sus punteros se hornean en build y
+    # quedan obsoletos en runtime cuando MetaDrive reordena la VRAM -> ILLEGAL_ADDRESS.
+    tg_flags = 'DEV=CUDA JIT_BATCH_SIZE=0'
+  else:
+    tg_backend = tg_override
+    tg_flags = f'DEV={tg_backend}'
 elif 'QCOM' in available:
   tg_backend = 'QCOM'
   tg_flags = f'DEV={tg_backend} IMAGE=1 FLOAT16=1 NOLOCALS=1 JIT_BATCH_SIZE=0 OPENPILOT_HACKS=1'
