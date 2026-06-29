@@ -40,15 +40,20 @@ available = probe_devices()
 # da CUDA_ERROR_ILLEGAL_ADDRESS, asi que por defecto el PC va a CPU:LLVM (estable y
 # libera toda la VRAM para el sim). Para forzar GPU en PC: TG_BACKEND=CL (o =CUDA).
 tg_override = os.getenv('TG_BACKEND')
+warp_backend = None  # None => igual que tg_backend; distinto = warp en otro device
 if tg_override:
   if tg_override.startswith('CPU'):
     tg_backend = 'CPU'
     tg_flags = f'DEV=CPU' if arch == 'Darwin' else 'DEV=CPU:LLVM'
   elif tg_override == 'CUDA':
+    # HIBRIDO para el sim de PC: el warp (lee el frame de camara via from_blob)
+    # corre en CPU porque en el sim la camara vive en memoria host; un warp en GPU
+    # leeria un puntero host como si fuera VRAM -> CUDA_ERROR_ILLEGAL_ADDRESS. La red
+    # pesada (policy) corre en CUDA (rapida). compile_modeld puentea con .to(DEFAULT).
+    # JIT_BATCH_SIZE=0 ademas evita el cuGraph.
     tg_backend = 'CUDA'
-    # JIT_BATCH_SIZE=0 desactiva el cuGraph: sus punteros se hornean en build y
-    # quedan obsoletos en runtime cuando MetaDrive reordena la VRAM -> ILLEGAL_ADDRESS.
-    tg_flags = 'DEV=CUDA JIT_BATCH_SIZE=0'
+    warp_backend = 'CPU'
+    tg_flags = 'DEV=CUDA WARP_DEV=CPU JIT_BATCH_SIZE=0'
   else:
     tg_backend = tg_override
     tg_flags = f'DEV={tg_backend}'
@@ -59,10 +64,11 @@ else:
   tg_backend = 'CPU'
   tg_flags = f'DEV=CPU' if arch == 'Darwin' else 'DEV=CPU:LLVM'
 
+warp_dev = warp_backend or tg_backend
 tg_devices = { # which device to put jit inputs to at runtime
   'selfdrive.modeld.modeld': {
-    'default': {'WARP_DEV': tg_backend, 'QUEUE_DEV': tg_backend},
-    'usbgpu': {'WARP_DEV': tg_backend, 'QUEUE_DEV': 'AMD'}
+    'default': {'WARP_DEV': warp_dev, 'QUEUE_DEV': tg_backend},
+    'usbgpu': {'WARP_DEV': warp_dev, 'QUEUE_DEV': 'AMD'}
   },
   'selfdrive.modeld.dmonitoringmodeld': {
     'default': {'DEV': tg_backend}
