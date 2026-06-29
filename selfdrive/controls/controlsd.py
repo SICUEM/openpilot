@@ -37,6 +37,13 @@ except Exception:
 # publicado este tiempo para que la UI (~20 Hz) no pierda dodges muy breves.
 OBSTACLE_STATUS_HOLD_S = 0.30
 
+# [AdriPilot] Throttle de telemetría de torque (CommaSteerTorque / AppliedSteerTorque).
+# controlsd corre a 100 Hz; Params.put() hace 2x fsync + FileLock global por escritura, así que
+# escribir estos params cada ciclo satura el disco y retrasa el loop -> selfdrived ve carControl/
+# controlsState por debajo de frecuencia -> alerta commIssue ("Communication issue between processes").
+# Sus únicos consumidores (HUD de UI ~2 Hz, emisor MQTT 0.5-2 s) no necesitan más de ~10 Hz.
+TORQUE_TELEMETRY_PERIOD_S = 0.1  # 10 Hz máx.
+
 State = log.SelfdriveState.OpenpilotState
 LaneChangeState = log.LaneChangeState
 LaneChangeDirection = log.LaneChangeDirection
@@ -97,6 +104,8 @@ class Controls(ControlsExt):
     self._obstacle_max_angle = DEFAULT_MAX_ANGLE
     self._obstacle_max_curv = DEFAULT_MAX_CURV
     self._obstacle_apply_target = "curvature"  # "curvature" | "torque"
+    self._last_torque_telemetry_put = 0.0  # wall-clock; throttle de CommaSteerTorque/AppliedSteerTorque
+    self._torque_telemetry_toggle = False  # escalona las 2 escrituras: máx 1 put (2 fsync) por ciclo
 
   def _refresh_obstacle_config(self, now: float) -> None:
     """Lee los params de configuración del esquive con cache de 1s. Siembra el default si falta."""
@@ -241,10 +250,23 @@ class Controls(ControlsExt):
     # ════════════════════════════════════════════════════════════════
     steer_mode = 0
     if CC.latActive:
-      try:
-        self.params.put("CommaSteerTorque", f"{float(actuators.torque):.4f}")
-      except Exception:
-        pass
+      # Throttle de telemetría: estos params se escriben como mucho cada TORQUE_TELEMETRY_PERIOD_S,
+      # no a 100 Hz, para no saturar el disco con fsync y retrasar el loop de control (causa de commIssue).
+      # Además se ESCALONAN (toggle): en cada tick se escribe solo uno de los dos, de modo que nunca
+      # hay más de 1 put (2 fsync) en un mismo ciclo -> minimiza el pico de bloqueo en flash lento.
+      now_tel = time.time()
+      write_comma_torque = False
+      write_applied_torque = False
+      if (now_tel - self._last_torque_telemetry_put) >= TORQUE_TELEMETRY_PERIOD_S:
+        self._last_torque_telemetry_put = now_tel
+        self._torque_telemetry_toggle = not self._torque_telemetry_toggle
+        write_comma_torque = self._torque_telemetry_toggle
+        write_applied_torque = not self._torque_telemetry_toggle
+      if write_comma_torque:
+        try:
+          self.params.put("CommaSteerTorque", f"{float(actuators.torque):.4f}")
+        except Exception:
+          pass
       try:
         mode_raw = self.params.get("SteerTorqueMode")
       except UnknownKeyName:
@@ -268,10 +290,11 @@ class Controls(ControlsExt):
       elif steer_mode == 3:
         pass  # COMMA+JETSON: el torque base lo deja Comma; abajo se aplican los offsets de esquive
 
-      try:
-        self.params.put("AppliedSteerTorque", f"{float(actuators.torque):.4f}")
-      except UnknownKeyName:
-        pass
+      if write_applied_torque:
+        try:
+          self.params.put("AppliedSteerTorque", f"{float(actuators.torque):.4f}")
+        except UnknownKeyName:
+          pass
 
     # [AdriPilot] Pulso temporal de dirección (cruceta MQTT): +/- ángulo y curvatura mientras está activo
     try:

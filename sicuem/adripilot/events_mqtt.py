@@ -43,10 +43,17 @@ def _load_broker() -> tuple[str, int]:
     return "localhost", 1883
 
 
+_dongle_id_cache: Optional[str] = None
+
+
 def _get_dongle_id() -> str:
-  params = Params()
-  raw = params.get("DongleId")
-  return raw if raw else "UnregisteredDevice"
+  # El DongleId no cambia durante una sesión; cacheamos para no construir un Params()
+  # ni leer disco en cada alerta (send_alert se llama por ciclo de selfdrived a 100 Hz).
+  global _dongle_id_cache
+  if _dongle_id_cache is None:
+    raw = Params().get("DongleId")
+    _dongle_id_cache = raw if raw else "UnregisteredDevice"
+  return _dongle_id_cache
 
 
 def _on_mqtt_connect(client, userdata, flags, rc):
@@ -202,7 +209,6 @@ def send_event_full(title: str,
     event_type: Tipo del evento (ej: "warning")
     alert_type: Tipo completo de alerta (ej: "controlsLagging/warning")
   """
-  broker, port = _load_broker()
   did = dongle_id or _get_dongle_id()
   topic = f"telemetry_mqtt/{did}/event"
 
