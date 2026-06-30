@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 import math
 import json
+import os
+import threading
 import time
 from numbers import Number
 
@@ -37,12 +39,19 @@ except Exception:
 # publicado este tiempo para que la UI (~20 Hz) no pierda dodges muy breves.
 OBSTACLE_STATUS_HOLD_S = 0.30
 
-# [AdriPilot] Throttle de telemetría de torque (CommaSteerTorque / AppliedSteerTorque).
-# controlsd corre a 100 Hz; Params.put() hace 2x fsync + FileLock global por escritura, así que
-# escribir estos params cada ciclo satura el disco y retrasa el loop -> selfdrived ve carControl/
-# controlsState por debajo de frecuencia -> alerta commIssue ("Communication issue between processes").
-# Sus únicos consumidores (HUD de UI ~2 Hz, emisor MQTT 0.5-2 s) no necesitan más de ~10 Hz.
-TORQUE_TELEMETRY_PERIOD_S = 0.1  # 10 Hz máx.
+# [AdriPilot] Watchdog de frescura del torque Jetson (modo 1). Si el ultimo JetsonTorque
+# tiene mas de este tiempo, la Jetson se ha caido/desconectado -> forzar torque=0 (volante
+# sin fuerza) en vez de aplicar indefinidamente un valor viejo (volante atascado). La Jetson
+# real publica a ~5 Hz (200 ms), asi que 1 s es holgado y no falsea cortes en operacion normal.
+JETSON_TORQUE_TIMEOUT_S = 1.0
+
+# [AdriPilot] Telemetria de torque (CommaSteerTorque / AppliedSteerTorque) y estado de esquive.
+# controlsd corre a 100 Hz en SCHED_FIFO core 4; Params.put() hace 2x fsync + FileLock GLOBAL por
+# escritura y su hilo async hereda la prioridad FIFO del que llama. Escribir estos params desde el
+# loop saturaba el disco a prioridad RT -> selfdrived veia carControl/controlsState/livePose por
+# debajo de frecuencia -> commIssue / locationdTemporaryError al activar OP. Solucion: el loop solo
+# ENCOLA (self._defer_param_put) y un hilo a SCHED_OTHER las vuelca a ~10 Hz (ver __init__).
+# Sus unicos consumidores (HUD de UI ~2 Hz, emisor MQTT 0.5-2 s) no necesitan mas de ~10 Hz.
 
 State = log.SelfdriveState.OpenpilotState
 LaneChangeState = log.LaneChangeState
@@ -104,8 +113,57 @@ class Controls(ControlsExt):
     self._obstacle_max_angle = DEFAULT_MAX_ANGLE
     self._obstacle_max_curv = DEFAULT_MAX_CURV
     self._obstacle_apply_target = "curvature"  # "curvature" | "torque"
-    self._last_torque_telemetry_put = 0.0  # wall-clock; throttle de CommaSteerTorque/AppliedSteerTorque
-    self._torque_telemetry_toggle = False  # escalona las 2 escrituras: máx 1 put (2 fsync) por ciclo
+    # [AdriPilot/FIX commIssue] Escrituras de Params DIFERIDAS a un hilo NO-RT.
+    # controlsd corre en SCHED_FIFO prio 53 fijado al core 4 (junto a card y selfdrived).
+    # Params.put(block=False) encola en putNonBlocking, que lanza un std::async cuyo hilo
+    # HEREDA (PTHREAD_INHERIT_SCHED) esa prioridad FIFO-53 y afinidad de core 4, y ejecuta
+    # fsync(fichero)+flock GLOBAL+fsync(dir) a prioridad de tiempo real sobre el core de
+    # control -> retrasa el propio loop 100 Hz y a card/selfdrived -> commIssue. Por eso
+    # throttlear la FRECUENCIA (commit anterior) no bastaba: el problema es la PRIORIDAD del
+    # fsync. Estas escrituras son SOLO telemetria/UI y estado de esquive, NO control: las
+    # encolamos (last-write-wins) y un hilo aparte a SCHED_OTHER las vuelca con block=True,
+    # sacando todo el fsync del camino de tiempo real. El loop 100 Hz nunca toca el disco.
+    self._pwrite_lock = threading.Lock()
+    self._pwrite_pending: dict[str, tuple[str, object]] = {}  # key -> (kind, value), kind: "str"|"bool"
+    self._pwrite_stop = threading.Event()
+    self._pwrite_thread = threading.Thread(target=self._param_write_worker, daemon=True, name="controlsd-paramwrite")
+    self._pwrite_thread.start()
+
+  def _defer_param_put(self, key: str, value, is_bool: bool = False) -> None:
+    """Encola una escritura de Params para el hilo NO-RT. Coalescente (last-write-wins).
+    Llamar SIEMPRE en lugar de self.params.put*/ en el loop de control: barato (dict + lock),
+    nunca toca disco ni lanza fsync a prioridad RT en el core 4."""
+    with self._pwrite_lock:
+      self._pwrite_pending[key] = ("bool" if is_bool else "str", value)
+
+  def _param_write_worker(self) -> None:
+    """Vuelca a Params (a ~10 Hz, solo on-change) las escrituras encoladas por el loop.
+    Se baja a SCHED_OTHER para que el fsync NUNCA corra a prioridad de tiempo real en el
+    core 4. block=True hace el fsync sincrono EN ESTE hilo (no en el hilo async compartido),
+    garantizando que ningun fsync herede la prioridad FIFO de controlsd."""
+    try:
+      os.sched_setscheduler(0, os.SCHED_OTHER, os.sched_param(0))
+    except (OSError, AttributeError, ValueError):
+      pass  # PC dev / sin privilegios: seguimos igual, solo perdemos el de-priorizado
+    last_written: dict[str, tuple[str, object]] = {}
+    while not self._pwrite_stop.is_set():
+      with self._pwrite_lock:
+        batch = self._pwrite_pending
+        self._pwrite_pending = {}
+      for key, (kind, value) in batch.items():
+        if last_written.get(key) == (kind, value):
+          continue  # sin cambios: no re-escribir (evita fsync inutil)
+        try:
+          if kind == "bool":
+            self.params.put_bool(key, bool(value), block=True)
+          else:
+            self.params.put(key, value, block=True)
+          last_written[key] = (kind, value)
+        except UnknownKeyName:
+          pass
+        except Exception:
+          pass  # nunca propagar desde el hilo de telemetria
+      self._pwrite_stop.wait(0.1)  # 10 Hz
 
   def _refresh_obstacle_config(self, now: float) -> None:
     """Lee los params de configuración del esquive con cache de 1s. Siembra el default si falta."""
@@ -119,7 +177,7 @@ class Controls(ControlsExt):
       try:
         raw = self.params.get(key)
         if raw is None or raw == b"":
-          self.params.put(key, str(default))
+          self._defer_param_put(key, str(default))
           setattr(self, attr, default)
         else:
           setattr(self, attr, float(raw))
@@ -129,7 +187,7 @@ class Controls(ControlsExt):
     try:
       raw = self.params.get("JetsonObstacleApplyTarget")
       if raw is None or raw == b"":
-        self.params.put("JetsonObstacleApplyTarget", "curvature")
+        self._defer_param_put("JetsonObstacleApplyTarget", "curvature")
         self._obstacle_apply_target = "curvature"
       else:
         val = raw.decode("utf-8") if isinstance(raw, (bytes, bytearray)) else str(raw)
@@ -223,7 +281,7 @@ class Controls(ControlsExt):
           pass
         actuators.accel = max(intensidad_frenado, pid_accel_limits[0])
         if CS.vEgo < 0.5:
-          self.params.put_bool("brutebreak_active", False)
+          self._defer_param_put("brutebreak_active", False, is_bool=True)
     except Exception:
       pass  # hot-path: nunca propagar
 
@@ -250,23 +308,10 @@ class Controls(ControlsExt):
     # ════════════════════════════════════════════════════════════════
     steer_mode = 0
     if CC.latActive:
-      # Throttle de telemetría: estos params se escriben como mucho cada TORQUE_TELEMETRY_PERIOD_S,
-      # no a 100 Hz, para no saturar el disco con fsync y retrasar el loop de control (causa de commIssue).
-      # Además se ESCALONAN (toggle): en cada tick se escribe solo uno de los dos, de modo que nunca
-      # hay más de 1 put (2 fsync) en un mismo ciclo -> minimiza el pico de bloqueo en flash lento.
-      now_tel = time.time()
-      write_comma_torque = False
-      write_applied_torque = False
-      if (now_tel - self._last_torque_telemetry_put) >= TORQUE_TELEMETRY_PERIOD_S:
-        self._last_torque_telemetry_put = now_tel
-        self._torque_telemetry_toggle = not self._torque_telemetry_toggle
-        write_comma_torque = self._torque_telemetry_toggle
-        write_applied_torque = not self._torque_telemetry_toggle
-      if write_comma_torque:
-        try:
-          self.params.put("CommaSteerTorque", f"{float(actuators.torque):.4f}")
-        except Exception:
-          pass
+      # CommaSteerTorque = torque del modelo Comma ANTES del override de modo (diagnostico UI).
+      # Se ENCOLA cada ciclo (barato); el hilo NO-RT lo vuelca a ~10 Hz y solo si cambia, de
+      # modo que el loop de control 100 Hz nunca hace fsync (era la causa del commIssue al activar).
+      self._defer_param_put("CommaSteerTorque", f"{float(actuators.torque):.4f}")
       try:
         mode_raw = self.params.get("SteerTorqueMode")
       except UnknownKeyName:
@@ -280,8 +325,14 @@ class Controls(ControlsExt):
       if steer_mode == 1:
         # FUENTE JETSON: torque ya normalizado [-1,1] que publica zmq_client.py en JetsonTorque.
         # FAIL-SAFE: si no se puede leer -> 0.0 (volante sin fuerza), nunca dejar pasar Comma en silencio.
+        # WATCHDOG: si el ultimo torque tiene mas de JETSON_TORQUE_TIMEOUT_S, la Jetson se ha
+        # caido -> 0.0, para no aplicar un valor viejo indefinidamente (volante atascado).
+        jt = 0.0
         try:
-          jt = float(self.params.get("JetsonTorque") or 0.0)
+          ts_raw = self.params.get("JetsonTorqueTimestamp")
+          ts = float(ts_raw) if ts_raw else 0.0
+          if ts > 0.0 and (time.time() - ts) <= JETSON_TORQUE_TIMEOUT_S:
+            jt = float(self.params.get("JetsonTorque") or 0.0)
         except (UnknownKeyName, ValueError, TypeError):
           jt = 0.0
         actuators.torque = jt
@@ -290,11 +341,8 @@ class Controls(ControlsExt):
       elif steer_mode == 3:
         pass  # COMMA+JETSON: el torque base lo deja Comma; abajo se aplican los offsets de esquive
 
-      if write_applied_torque:
-        try:
-          self.params.put("AppliedSteerTorque", f"{float(actuators.torque):.4f}")
-        except UnknownKeyName:
-          pass
+      # AppliedSteerTorque = torque final aplicado TRAS el override de modo (diagnostico UI).
+      self._defer_param_put("AppliedSteerTorque", f"{float(actuators.torque):.4f}")
 
     # [AdriPilot] Pulso temporal de dirección (cruceta MQTT): +/- ángulo y curvatura mientras está activo
     try:
@@ -364,12 +412,9 @@ class Controls(ControlsExt):
           published = status
 
         if published != self._last_obstacle_status:
-          try:
-            self.params.put("JetsonObstacleStatus", published)
-            self.params.put("JetsonObstacleStatusMqttPayload",
-                                        json.dumps({"status": published, "ts": now_pulse, "source": "comma"}))
-          except UnknownKeyName:
-            pass
+          self._defer_param_put("JetsonObstacleStatus", published)
+          self._defer_param_put("JetsonObstacleStatusMqttPayload",
+                                json.dumps({"status": published, "ts": now_pulse, "source": "comma"}))
           self._last_obstacle_status = published
 
       elif self._obstacle_pulse_state is not None and \
@@ -378,12 +423,9 @@ class Controls(ControlsExt):
         self._obstacle_status_held_value = ""
         self._obstacle_status_hold_until = 0.0
         if self._last_obstacle_status:
-          try:
-            self.params.put("JetsonObstacleStatus", "")
-            self.params.put("JetsonObstacleStatusMqttPayload",
-                                        json.dumps({"status": "", "ts": time.time(), "source": "comma"}))
-          except UnknownKeyName:
-            pass
+          self._defer_param_put("JetsonObstacleStatus", "")
+          self._defer_param_put("JetsonObstacleStatusMqttPayload",
+                                json.dumps({"status": "", "ts": time.time(), "source": "comma"}))
           self._last_obstacle_status = ""
     except Exception as e:
       cloudlog.error(f"controlsd: excepcion inesperada en bloque modo 3: {e}")

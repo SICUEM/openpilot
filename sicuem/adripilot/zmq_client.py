@@ -95,13 +95,39 @@ class ZMQClient:
       name="jetson-torque-listener",
     )
 
+    # [AdriPilot/FIX commIssue] Escritor de Params DESACOPLADO y COALESCENTE.
+    # ANTES: cada mensaje ZMQ de la Jetson hacia 2x Params.put() (valor + timestamp)
+    # directamente en el hilo listener. En este openpilot put() = mkstemp + fsync(fichero)
+    # + flock EXCLUSIVO del .lock GLOBAL de /data/params (eMMC) + rename + fsync(directorio),
+    # SIN coalescing (params.cc:132-169,237-243). A 30 Hz (obstaculo modo 3) eso son ~60
+    # fsync/s bajo un lock que comparten TODOS los procesos -> satura el journal ext4 y
+    # serializa el acceso a params de controlsd/card/locationd, que pierden su ventana de
+    # "alive" (100 ms) -> selfdrived dispara commIssue / locationdTemporaryError (se alternan).
+    # El comentario original ("put_nonblocking: el writer es un hilo aparte con cola FIFO")
+    # describia un diseno que NUNCA se implemento. Aqui SI: el listener solo actualiza
+    # variables en memoria y este hilo vuelca a disco SOLO el ultimo valor pendiente a un
+    # ritmo acotado, de modo que una rafaga de N mensajes = como mucho 1 escritura por periodo.
+    self._pending_lock = threading.Lock()
+    self._pending_torque = None        # float | None  (ultimo torque recibido sin escribir)
+    self._pending_obstacle = None      # str(JSON) | None  (ultimo pulso recibido sin escribir)
+    self._writer_stop = threading.Event()
+    self._writer_thread = threading.Thread(
+      target=self._param_writer,
+      daemon=True,
+      name="jetson-param-writer",
+    )
+    self._last_torque_log = 0.0        # throttle del cloudlog.info por mensaje
+    self._last_obstacle_log = 0.0
+
     cloudlog.info(f"ZMQClient: configurado para Jetson en {jetson_ip} (img:{img_port}, torque:{torque_port})")
 
   def start(self):
-    """Arranca el hilo de escucha de torque. Llamar una vez antes del loop."""
+    """Arranca los hilos de escucha de torque y de escritura coalescente."""
     self._running = True
+    self._writer_stop.clear()
     self._listener_thread.start()
-    cloudlog.info("ZMQClient: hilo de escucha de torque iniciado")
+    self._writer_thread.start()
+    cloudlog.info("ZMQClient: hilos de escucha de torque y escritor de params iniciados")
 
   def send_image(self, jpeg_data):
     """
@@ -126,11 +152,14 @@ class ZMQClient:
     que dejar el puerto 5555 LIBRE para que el siguiente bind funcione.
     """
     self._running = False
+    self._writer_stop.set()
     # Esperar a que el hilo listener salga del recv (timeout RCVTIMEO=500ms)
     # y termine limpio antes de cerrar sockets/contexto. Sin join podiamos
     # tener el hilo vivo usando _torque_socket mientras otro thread lo cierra.
     if self._listener_thread.is_alive():
       self._listener_thread.join(timeout=1.5)
+    if self._writer_thread.is_alive():
+      self._writer_thread.join(timeout=1.0)
     try:
       self._img_socket.close(linger=0)
     except Exception:
@@ -177,21 +206,16 @@ class ZMQClient:
       return
 
     now = time.time()
-    cloudlog.info(f"ZMQClient: pulso obstáculo {payload}")
-    # Orden: payload primero (json.dumps re-serializa para limpiar espacios y
-    # tipos raros), timestamp después → si controlsd lee entremedias, ve un
-    # ts viejo y procesa en el siguiente frame (no falsea sustitución).
-    # put_nonblocking: el writer es un hilo aparte con cola FIFO, así no
-    # bloqueamos el listener en disco. La FIFO preserva el orden pulse→ts.
-    try:
-      self._params.put("JetsonObstaclePulse", json.dumps(payload))
-    except UnknownKeyName:
-      cloudlog.error("JetsonObstaclePulse no registrado. Recompila common/params.cc.")
-      return
-    try:
-      self._params.put("JetsonObstacleTimestamp", f"{now:.6f}")
-    except UnknownKeyName:
-      cloudlog.error("JetsonObstacleTimestamp no registrado. Recompila common/params.cc.")
+    # Log throttled a ~1/s: antes era 1 por mensaje (hasta 30/s) y cada cloudlog.info
+    # publica por ZMQ a logmessaged -> mas presion de I/O en el mismo camino.
+    if now - self._last_obstacle_log >= 1.0:
+      cloudlog.info(f"ZMQClient: pulso obstáculo {payload}")
+      self._last_obstacle_log = now
+    # NO se escribe en Params aqui: solo dejamos el ultimo payload pendiente. El hilo
+    # _param_writer lo vuelca a disco a ritmo acotado (coalescing). Estado continuo:
+    # si llegan varios pulsos antes del proximo volcado, solo cuenta el ultimo.
+    with self._pending_lock:
+      self._pending_obstacle = json.dumps(payload)
 
   def _torque_listener(self):
     """Hilo daemon: espera torques/obstáculos de la Jetson y los guarda en Params.
@@ -273,21 +297,77 @@ class ZMQClient:
           # y el volante quedara en 0 hasta que llegue un valor valido).
           cloudlog.error(f"ZMQClient: payload de torque irreconocible bytes={latest_torque.hex()} len={len(latest_torque)}")
           continue
-        # Log de cada torque "efectivo" (post-drain) para verificacion del
-        # formato y del valor que se publica al param.
-        cloudlog.info(f"ZMQClient: torque recibido bytes={latest_torque.hex()} len={len(latest_torque)} -> {torque}")
+        # Log throttled a ~1/s (antes 1 por mensaje): a ritmo de la Jetson cada
+        # cloudlog.info publica por ZMQ a logmessaged y suma I/O.
         now = time.time()
-        # Orden importante: primero el timestamp (marca que hay senal viva),
-        # luego el valor. Si controlsd lee entre las dos escrituras, lee un
-        # ts nuevo pero torque viejo -> aplica el valor anterior (seguro).
-        # Si JetsonTorqueTimestamp no esta registrado en params.cc (no se
-        # recompilo), seguimos publicando JetsonTorque para no romper la
-        # UI, pero el watchdog en controlsd no podra validar frescura y
-        # marcara stale -> torque=0 (fail-safe).
+        if now - self._last_torque_log >= 1.0:
+          cloudlog.info(f"ZMQClient: torque recibido bytes={latest_torque.hex()} len={len(latest_torque)} -> {torque}")
+          self._last_torque_log = now
+        # NO se escribe en Params aqui: solo dejamos el ultimo torque pendiente.
+        # El hilo _param_writer lo vuelca (con su timestamp) a ritmo acotado.
+        with self._pending_lock:
+          self._pending_torque = torque
+
+  def _param_writer(self):
+    """Vuelca a Params el ULTIMO torque/obstaculo recibido, a ritmo ACOTADO (coalescing).
+
+    Este es el "hilo escritor con cola" que el codigo prometia pero no tenia: una rafaga
+    de N mensajes ZMQ se colapsa en como mucho 1 escritura por periodo, eliminando la
+    tormenta de fsync+flock global que disparaba commIssue / locationdTemporaryError al
+    activar OP.
+
+    Semantica de CONSUMO: cogemos y LIMPIAMOS el pendiente bajo lock SOLO cuando toca
+    escribir (rate-limit cumplido); si esta limitado, el pendiente se queda para el
+    proximo tick -> NUNCA perdemos el ULTIMO mensaje (p.ej. el "obstacle:false" final).
+    El fsync se hace FUERA del lock, asi el listener jamas se bloquea en disco. Se preserva
+    el orden original (timestamp antes que valor) y la frescura del timestamp por mensaje
+    (controlsd usa JetsonObstacleTimestamp para la re-ingesta del pulso; un futuro watchdog
+    de torque podra usar JetsonTorqueTimestamp).
+
+    Vive en el proceso manager (SCHED_OTHER), asi que su fsync nunca corre a prioridad
+    de tiempo real; el unico objetivo es BAJAR el numero de escrituras/segundo.
+    """
+    TORQUE_MIN_DT = 0.04       # <=25 Hz (latencia baja para direccion; la Jetson real va ~5 Hz)
+    OBSTACLE_MIN_DT = 0.10     # <=10 Hz (estado continuo, tolera coalescing)
+    last_torque_t = 0.0
+    last_obstacle_t = 0.0
+    while not self._writer_stop.is_set():
+      now = time.time()
+      # Fase 1: coger+limpiar bajo lock SOLO lo que vamos a escribir ya (respetando rate-limit).
+      pend_torque = None
+      pend_obstacle = None
+      with self._pending_lock:
+        if self._pending_torque is not None and (now - last_torque_t) >= TORQUE_MIN_DT:
+          pend_torque = self._pending_torque
+          self._pending_torque = None
+        if self._pending_obstacle is not None and (now - last_obstacle_t) >= OBSTACLE_MIN_DT:
+          pend_obstacle = self._pending_obstacle
+          self._pending_obstacle = None
+
+      # Fase 2: escribir FUERA del lock (el fsync nunca bloquea al listener).
+      if pend_torque is not None:
         try:
-          self._params.put("JetsonTorqueTimestamp", f"{now:.6f}")
+          self._params.put("JetsonTorqueTimestamp", f"{now:.6f}")  # ts primero (liveness), valor despues
         except UnknownKeyName:
-          if not getattr(self, "_warned_ts_param", False):
-            cloudlog.error("JetsonTorqueTimestamp no registrado. Recompila common/params.cc para habilitar el watchdog del modo Jetson.")
-            self._warned_ts_param = True
-        self._params.put("JetsonTorque", str(torque))
+          pass
+        try:
+          self._params.put("JetsonTorque", str(pend_torque))
+          last_torque_t = now
+        except UnknownKeyName:
+          if not getattr(self, "_warned_torque_param", False):
+            cloudlog.error("JetsonTorque no registrado en params_keys.h.")
+            self._warned_torque_param = True
+
+      if pend_obstacle is not None:
+        try:
+          self._params.put("JetsonObstaclePulse", pend_obstacle)
+          self._params.put("JetsonObstacleTimestamp", f"{now:.6f}")
+          last_obstacle_t = now
+        except UnknownKeyName:
+          if not getattr(self, "_warned_obstacle_param", False):
+            cloudlog.error("JetsonObstaclePulse/Timestamp no registrado en params_keys.h.")
+            self._warned_obstacle_param = True
+
+      # Tick corto: los *_MIN_DT gobiernan el ritmo real de escritura; esto solo acota
+      # la latencia maxima (<=20 ms) entre recibir un valor y volcarlo.
+      self._writer_stop.wait(0.02)
