@@ -38,7 +38,17 @@ def interrupt_loop(sensors: list[tuple[Sensor, str, bool]], event) -> None:
   if os.path.exists(irq_path):
     sudo_write('1\n', irq_path)
 
-  offset = time.time_ns() - time.monotonic_ns()
+  # [FIX commIssue/locationdTemporaryError] Sellar en CLOCK_BOOTTIME, NO en CLOCK_MONOTONIC.
+  # Todo openpilot (camerad nanos_since_boot, locationd kf.t desde cameraOdometry.timestampEof)
+  # usa BOOTTIME, que SI avanza durante la suspension del dispositivo. MONOTONIC NO avanza
+  # suspendido, asi que tras aparcar (el comma suspende) sensord quedaba "atrasado" respecto a
+  # la camara por todo el tiempo suspendido. locationd valida kf.t(boottime) - sensor_time y, si
+  # el desfase supera MAX_FILTER_REWIND_TIME (0.8 s), RECHAZA cada muestra de accel/gyro ->
+  # inputsOK=False -> locationdTemporaryError, y al divergir el filtro -> livePose cae -> commIssue.
+  # El sensord en C++ original (master-sic) usaba nanos_since_boot (BOOTTIME); el port a Python
+  # cambio a MONOTONIC y rompio la alineacion de relojes. time.time_ns()=REALTIME, evd.timestamp
+  # del GPIO=REALTIME, asi que (REALTIME - BOOTTIME) convierte el timestamp del evento a BOOTTIME.
+  offset = time.time_ns() - time.clock_gettime_ns(time.CLOCK_BOOTTIME)
 
   poller = select.poll()
   poller.register(fd, select.POLLIN | select.POLLPRI)
@@ -54,7 +64,7 @@ def interrupt_loop(sensors: list[tuple[Sensor, str, bool]], event) -> None:
     dat = os.read(fd, ctypes.sizeof(gpioevent_data)*16)
     evd = gpioevent_data.from_buffer_copy(dat)
 
-    cur_offset = time.time_ns() - time.monotonic_ns()
+    cur_offset = time.time_ns() - time.clock_gettime_ns(time.CLOCK_BOOTTIME)  # BOOTTIME (ver nota arriba)
     if abs(cur_offset - offset) > 10 * 1e6:  # ms
       cloudlog.warning(f"time jumped: {cur_offset} {offset}")
       offset = cur_offset

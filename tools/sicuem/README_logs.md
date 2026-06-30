@@ -8,6 +8,26 @@ El dato decisivo es el evento `commIssue` que escribe `selfdrived` en swaglog: i
 los arrays `not_alive` / `not_freq_ok` / `invalid`, es decir **qué servicio llegó tarde**
 en el instante de la desactivación → eso señala el proceso culpable.
 
+## ⭐ Flujo recomendado: conducir una ruta y analizarla después
+
+1. **El conductor hace una ruta** e **intenta enganchar OP** (que se reproduzca el fallo:
+   TAKE CONTROL / locationd). No hace falta nada más; queda grabado en el log de la ruta.
+2. **Más tarde, tú** accedes al comma por SSH y sacas los logs:
+   ```bash
+   KEY=~/.ssh/tu_clave_github tools/sicuem/grab_sicuem_logs.sh pull
+   ```
+   Esto baja swaglog + `rlog`/`qlog` de la última ruta y, en tu PC, produce un **VEREDICTO**
+   automático en `sicuem_logs/<fecha>/veredicto.txt` diciendo la causa exacta:
+   - desfase de reloj sensord↔cámara (causa #1, el bug de locationd),
+   - o caída de frecuencia de modelV2/cameraOdometry (causa #2),
+   - o el servicio concreto que aparece en el `commIssue`.
+3. Pégame `veredicto.txt` (y `commissue_resumen.txt`) y confirmo causa + fix.
+
+Si ya tienes los segmentos descargados, puedes correr el analizador a mano:
+```bash
+PYTHONPATH=. python3 tools/sicuem/analyze_route_logs.py sicuem_logs/<fecha>/route/*/
+```
+
 ## 1) Conectarte por SSH al comma
 
 Requisito: tener tu clave SSH (GitHub) registrada en el comma → `Settings ▸ Device ▸ SSH`

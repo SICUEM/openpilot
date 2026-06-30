@@ -113,37 +113,47 @@ PY
     sed -n '1,40p' "$OUTDIR/commissue_resumen.txt" 2>/dev/null || true
   fi
 
-  banner "3/4  Ruta mas reciente (qlog/rlog: aqui vive locationdTemporaryError)"
+  banner "3/4  Desfase de reloj (env-free) + VEREDICTO de la ruta"
+  # (a) Chequeo ENV-FREE del desfase BOOTTIME-MONOTONIC: solo stdlib, NUNCA falla por entorno.
+  #     Es la prueba directa de la causa #1 (sensord MONOTONIC vs camara BOOTTIME tras suspender).
+  echo "  -> Desfase de reloj actual en el comma (causa #1 si > 0.8):"
+  ssh_do "python3 -c \"import time; g=(time.clock_gettime_ns(time.CLOCK_BOOTTIME)-time.monotonic_ns())/1e9; print('     gap BOOTTIME-MONOTONIC = %.3f s'%g); print('     >>> >0.8 = sensord descolgado de la camara -> locationdTemporaryError. El fix lo resuelve.' if g>0.8 else '     >>> ~0 = sin suspension ahora; si aun asi falla, la causa no es el reloj (mira el commIssue array).')\"" \
+      | tee "$OUTDIR/gap_reloj.txt" || echo "     (no se pudo medir el gap)"
+
   # locationdTemporaryError NO sale en swaglog: solo como onroadEvent en el route log.
+  # El analisis (LogReader/capnp) se ejecuta EN EL COMMA. Probamos el python del venv de
+  # openpilot (.venv) y, si no, python3 del sistema. Si ninguno tiene capnp, quedan los
+  # rlog/qlog descargados para re-analizar en tu PC con el entorno openpilot activado.
   NEWEST=$(ssh_do "ls -1t /data/media/0/realdata 2>/dev/null | grep -vE '^(boot|crash)$' | head -n 1" 2>/dev/null | tr -d '\r')
   if [ -n "$NEWEST" ]; then
     echo "  Ruta mas reciente: $NEWEST"
-    # traer el ultimo segmento (qlog basta para count_events)
-    LASTSEG=$(ssh_do "ls -1dt /data/media/0/realdata/${NEWEST}* 2>/dev/null | head -n 2" 2>/dev/null | tr -d '\r')
-    for seg in $LASTSEG; do
+    SEGS=$(ssh_do "ls -1dt /data/media/0/realdata/${NEWEST}* 2>/dev/null | head -n 2 | tr '\n' ' '" 2>/dev/null | tr -d '\r')
+    echo "  Segmentos: $SEGS"
+
+    echo "  -> VEREDICTO (analyze_route_logs.py en el comma; puede tardar ~30-60s)..."
+    ssh_do "cd $REMOTE_OP && { [ -x .venv/bin/python3 ] && PB=.venv/bin/python3 || PB=python3; }; PYTHONPATH=$REMOTE_OP \$PB tools/sicuem/analyze_route_logs.py $SEGS 2>&1" \
+      | tee "$OUTDIR/veredicto.txt" \
+      || echo "    (analyze fallo en el comma; abajo quedan rlog/qlog para analizar en local)"
+
+    echo "  -> onroadEvents (count_events en el comma)..."
+    LAST1=$(echo "$SEGS" | awk '{print $1}')
+    ssh_do "cd $REMOTE_OP && { [ -x .venv/bin/python3 ] && PB=.venv/bin/python3 || PB=python3; }; PYTHONPATH=$REMOTE_OP \$PB selfdrive/debug/count_events.py ${LAST1}/qlog.zst 2>/dev/null" \
+      | grep -iE 'locationdTemporaryError|commIssue|posenetInvalid|alertType|paramsd|Total|cameraFrameRate' \
+      | tee "$OUTDIR/onroad_events.txt" || true
+
+    echo "  -> Archivando rlog/qlog en local (por si re-analizas)..."
+    for seg in $SEGS; do
       base=$(basename "$seg")
       mkdir -p "$OUTDIR/route/$base"
-      rsync -az -e "$RSH" "$HOST:$seg/qlog.zst" "$OUTDIR/route/$base/" 2>/dev/null || \
-      rsync -az -e "$RSH" "$HOST:$seg/qlog"     "$OUTDIR/route/$base/" 2>/dev/null || true
-    done
-    echo "  Segmentos traidos a $OUTDIR/route/"
-    banner "4/4  Decodificando onroadEvents (count_events) en LOCAL"
-    for seg in "$OUTDIR"/route/*/; do
-      [ -d "$seg" ] || continue
-      qlog=$(ls "$seg"qlog.zst "$seg"qlog 2>/dev/null | head -n1)
-      [ -n "$qlog" ] || continue
-      echo "  --- $qlog ---"
-      PYTHONPATH="$(pwd)" python3 selfdrive/debug/count_events.py "$qlog" 2>/dev/null \
-        | grep -iE 'locationdTemporaryError|commIssue|posenetInvalid|alertType|Total|paramsd' \
-        | tee -a "$OUTDIR/onroad_events.txt" || \
-        echo "    (count_events fallo en local; ejecuta a mano:  PYTHONPATH=. python3 selfdrive/debug/count_events.py $qlog )"
+      rsync -az -e "$RSH" "$HOST:$seg/rlog.zst" "$OUTDIR/route/$base/" 2>/dev/null || true
+      rsync -az -e "$RSH" "$HOST:$seg/qlog.zst" "$OUTDIR/route/$base/" 2>/dev/null || true
     done
   else
     err "No se hallaron rutas en /data/media/0/realdata."
   fi
 
   banner "LISTO. Carpeta de salida: $OUTDIR"
-  echo "Mira primero:  $OUTDIR/commissue_resumen.txt  y  $OUTDIR/onroad_events.txt"
+  echo "Mira primero:  $OUTDIR/veredicto.txt  (causa)  y  $OUTDIR/commissue_resumen.txt  (servicio que cae)"
   echo "Comando util extra (ver el JSON exacto con fichero:linea):"
   echo "  PYTHONPATH=. python3 selfdrive/debug/filter_log_message.py --level ERROR $OUTDIR/route/*/"
 }
