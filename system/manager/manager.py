@@ -9,7 +9,7 @@ import traceback
 from cereal import log
 import cereal.messaging as messaging
 import openpilot.system.sentry as sentry
-from openpilot.common.utils import atomic_write
+from openpilot.common.utils import atomic_write, sudo_write
 from openpilot.common.params import Params, ParamKeyFlag
 from openpilot.common.text_window import TextWindow
 from openpilot.system.hardware import HARDWARE
@@ -36,6 +36,21 @@ except Exception:
 
 def manager_init() -> None:
   save_bootlog()
+
+  # [FIX commIssue] Desactivar el RT bandwidth throttling del kernel.
+  # Con el default (sched_rt_period_us=1s, sched_rt_runtime_us=950000 => 95%), si las tareas
+  # SCHED_FIFO de la tuberia (sensord/locationd/paramsd/radard/plannerd/dmonitoringd/torqued/
+  # lagd/calibrationd...) superan el 95% de CPU de su core, el kernel las CONGELA ~50 ms UNA VEZ
+  # POR SEGUNDO. Eso hace que radard/plannerd/paramsd/dmonitoringd fallen su all_checks() a la vez
+  # (valid=False durante ese hueco) -> selfdrived ve varios servicios "invalid" -> EventName.commIssue
+  # (TAKE CONTROL IMMEDIATELY) al activar OP, con periodicidad de exactamente 1 s (ver logs).
+  # El sensord migrado a Python es mas pesado que el C++ y empuja la carga FIFO por encima del umbral.
+  # openpilot corre con el throttling DESACTIVADO (-1); si AGNOS no lo pone, lo forzamos aqui.
+  # No-op inofensivo si ya estaba en -1. Solo tiene efecto en el device (root); en PC falla y se ignora.
+  try:
+    sudo_write("-1", "/proc/sys/kernel/sched_rt_runtime_us")
+  except Exception:
+    cloudlog.exception("no se pudo desactivar sched_rt_runtime_us")
 
   build_metadata = get_build_metadata()
 
