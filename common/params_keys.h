@@ -348,6 +348,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     // Toggles UI / telemetría
     {"telemetria_uem", {PERSISTENT, BOOL}},
     {"modo_debug", {PERSISTENT | BACKUP, BOOL}},
+    {"silenciar_alertas_comm", {PERSISTENT | BACKUP, BOOL}},           // UEM: no mostrar commIssue/locationd/paramsd TemporaryError (solo pruebas)
     {"show_blindspot", {PERSISTENT, BOOL}},
     {"carState_toggle", {PERSISTENT, BOOL}},
     {"carControl_toggle", {PERSISTENT, BOOL}},

@@ -82,6 +82,13 @@ class UemLayout(Widget):
       title=lambda: tr("PRUEBA ADELANTAMIENTO (SIMULADOR)"),
       description=lambda: tr("Ejecuta la rutina de prueba de adelantamiento en el simulador (sin coches)."),
     )
+    self._silenciar_alertas_toggle = toggle_item_sp(
+      param="silenciar_alertas_comm",
+      title=lambda: tr("SILENCIAR ALERTAS DE COMUNICACION"),
+      description=lambda: tr("Oculta las alertas 'TAKE CONTROL: Communication issue' y 'locationd/paramsd temporary error'. "
+                             "El resto de alertas de seguridad siguen activas. Solo para pruebas: si aparecen "
+                             "constantemente hay un problema real que diagnosticar (ver tools/sicuem)."),
+    )
 
     self._teluem_button = simple_button_item_sp(
       button_text=lambda: tr("Conf. TELEMETRIA UEM"),
@@ -109,6 +116,7 @@ class UemLayout(Widget):
       self._show_blindspot_toggle,
       self._modo_debug_toggle,
       self._test_overtake_toggle,
+      self._silenciar_alertas_toggle,
       LineSeparatorSP(40),
       self._config_label,
       self._jetson_button,
