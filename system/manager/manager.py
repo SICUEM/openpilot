@@ -47,10 +47,15 @@ def manager_init() -> None:
   # El sensord migrado a Python es mas pesado que el C++ y empuja la carga FIFO por encima del umbral.
   # openpilot corre con el throttling DESACTIVADO (-1); si AGNOS no lo pone, lo forzamos aqui.
   # No-op inofensivo si ya estaba en -1. Solo tiene efecto en el device (root); en PC falla y se ignora.
-  try:
-    sudo_write("-1", "/proc/sys/kernel/sched_rt_runtime_us")
-  except Exception:
-    cloudlog.exception("no se pudo desactivar sched_rt_runtime_us")
+  # [FIX sim/PC] En PC NO llamar a sudo_write: su fallback es `sudo chmod` INTERACTIVO (os.system),
+  # que CUELGA el arranque esperando contrasena (sin TTY en el sim) -> manager congelado, no arranca
+  # NINGUN proceso (ni el hilo MQTT) -> el dispositivo nunca sale conectado. El throttling RT solo
+  # importa en el device; en PC se salta. En el comma (not PC) sigue ejecutandose como antes.
+  if not PC:
+    try:
+      sudo_write("-1", "/proc/sys/kernel/sched_rt_runtime_us")
+    except Exception:
+      cloudlog.exception("no se pudo desactivar sched_rt_runtime_us")
 
   build_metadata = get_build_metadata()
 
