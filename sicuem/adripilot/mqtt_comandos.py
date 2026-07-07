@@ -5,6 +5,7 @@ import time
 import threading
 import paho.mqtt.client as mqtt
 from openpilot.common.params import Params
+from openpilot.common.swaglog import cloudlog
 import os
 
 # Importar el módulo de velocidad una sola vez al inicio para evitar problemas de importación
@@ -50,15 +51,33 @@ class MQTTComandos:
   def setup_mqtt(self):
     while not self.stop_event.is_set():
       try:
+        cloudlog.warning(f"[Bemposta] MQTTComandos conectando a broker {self.broker_address}:1883")
         self.mqttc.connect(self.broker_address, 1883, 60)
         if not self.conectado:
           self.mqttc.loop_start()
           self.conectado = True
-          # print("✅ MQTT Comandos conectado al broker")  # Comentado para reducir uso de memoria
         break
       except Exception as e:
-        # print(f"❌ Error al conectar MQTT Comandos: {e}")  # Comentado para reducir uso de memoria
+        cloudlog.warning(f"[Bemposta] MQTTComandos NO pudo conectar a {self.broker_address}:1883: {e}. Reintento en 5s")
         time.sleep(5)
+
+  def reload_broker(self, new_broker):
+    """Reconecta a un broker nuevo en caliente (lo llama MQTTEnvioGeneral cuando
+    detecta que la IP cambio en config_mqtt.json). Evita tener que reiniciar."""
+    if not new_broker or new_broker == self.broker_address:
+      return
+    cloudlog.warning(f"[Bemposta] MQTTComandos broker {self.broker_address} -> {new_broker}, reconectando")
+    self.broker_address = new_broker
+    try:
+      self.mqttc.loop_stop()
+    except Exception:
+      pass
+    try:
+      self.mqttc.disconnect()
+    except Exception:
+      pass
+    self.conectado = False
+    threading.Thread(target=self.setup_mqtt, daemon=True).start()
 
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
@@ -84,9 +103,11 @@ class MQTTComandos:
 
       for topic in topics:
         client.subscribe(topic, qos=0)
+      cloudlog.warning(f"[Bemposta] MQTTComandos CONECTADO (rc={rc}), suscrito a comandos para dongle={self.DongleID}")
 
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
+    cloudlog.warning(f"[Bemposta] MQTTComandos DESCONECTADO del broker {self.broker_address} (rc={rc})")
     # print("🔌 MQTT Comandos desconectado. Reintentando...")  # Comentado para reducir uso de memoria
 
   def save_debug_message(self, topic, payload):

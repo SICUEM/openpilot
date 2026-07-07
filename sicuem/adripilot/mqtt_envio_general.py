@@ -7,6 +7,7 @@ import paho.mqtt.client as mqtt
 import cereal.messaging as messaging
 from cereal.services import SERVICE_LIST
 from openpilot.common.params import Params
+from openpilot.common.swaglog import cloudlog
 import os
 from .mqtt_comandos import MQTTComandos
 from .camera_sender import CameraSender
@@ -24,6 +25,8 @@ class MQTTEnvioGeneral:
     self.params = Params()
     self.DongleID = self.params.get("DongleId") if self.params.get("DongleId") else "DongleID"  # Params.get() ya devuelve str
     self.conectado = False
+    self._last_heartbeat = 0.0
+    self.HEARTBEAT_SECS = 3.0
     self.load_config()
     self.cargar_canales()
     self.init_submaster()
@@ -37,6 +40,50 @@ class MQTTEnvioGeneral:
       config = json.load(f)
       self.broker_address = config.get("broker", "localhost")
       self.broker_port = int(config.get("broker_port", 1883))
+    try:
+      self._cfg_mtime = os.path.getmtime(self.jsonConfig)
+    except OSError:
+      self._cfg_mtime = None
+
+  def _maybe_reload_broker(self):
+    """Relee config_mqtt.json en caliente. Si el usuario cambia la IP del broker
+    desde la UI del comma (Ajustes -> Servidor AdriPilot), reconecta SIN reiniciar
+    openpilot. Antes la IP se leia una sola vez al arrancar y el cambio no surtia
+    efecto hasta un reinicio -> causa tipica de 'cambie la IP y sigue sin salir'."""
+    try:
+      mtime = os.path.getmtime(self.jsonConfig)
+    except OSError:
+      return
+    if mtime == self._cfg_mtime:
+      return
+    self._cfg_mtime = mtime
+    try:
+      with open(self.jsonConfig, "r") as f:
+        cfg = json.load(f)
+      new_broker = cfg.get("broker", self.broker_address)
+      new_port = int(cfg.get("broker_port", self.broker_port))
+    except Exception:
+      return
+    if new_broker == self.broker_address and new_port == self.broker_port:
+      return
+    cloudlog.warning(f"[Bemposta] broker cambiado {self.broker_address}:{self.broker_port} -> "
+                     f"{new_broker}:{new_port}, reconectando (sin reiniciar openpilot)")
+    self.broker_address, self.broker_port = new_broker, new_port
+    try:
+      self.mqttc.loop_stop()
+    except Exception:
+      pass
+    try:
+      self.mqttc.disconnect()
+    except Exception:
+      pass
+    self.conectado = False
+    threading.Thread(target=self.setup_mqtt, daemon=True).start()
+    try:
+      if getattr(self, "comandos_mqtt", None):
+        self.comandos_mqtt.reload_broker(new_broker)
+    except Exception:
+      pass
 
   def cargar_canales(self):
     with open(self.jsonCanales, "r") as f:
@@ -67,9 +114,17 @@ class MQTTEnvioGeneral:
     threading.Thread(target=self.setup_mqtt, daemon=True).start()
 
   def init_comandos(self):
-    """Inicializa el sistema de comandos MQTT."""
-    self.comandos_mqtt = MQTTComandos()
-    self.comandos_mqtt.start()
+    """Inicializa el sistema de comandos MQTT.
+    Protegido: si el cliente de ordenes falla al construirse, la telemetria
+    (y por tanto la PRESENCIA del dispositivo en la app) NO debe caerse con el.
+    Antes esto no estaba en try/except y una excepcion aqui abortaba todo el
+    __init__ -> manager lo tragaba -> ni telemetria ni ordenes ni dispositivo."""
+    try:
+      self.comandos_mqtt = MQTTComandos()
+      self.comandos_mqtt.start()
+    except Exception:
+      cloudlog.exception("[Bemposta] init_comandos fallo; la telemetria sigue sin ordenes")
+      self.comandos_mqtt = None
 
   def init_camera_sender(self):
     """Inicializa el sistema de envío de imágenes de cámaras.
@@ -88,24 +143,29 @@ class MQTTEnvioGeneral:
 
   def _link_camera_to_comandos(self):
     """Conecta el CameraSender con MQTTComandos para permitir control remoto desde la app."""
-    if hasattr(self, 'camera_sender') and self.camera_sender is not None:
+    if getattr(self, 'camera_sender', None) is not None and getattr(self, 'comandos_mqtt', None) is not None:
       self.comandos_mqtt.set_camera_sender(self.camera_sender)
 
   def setup_mqtt(self):
     while not self.stop_event.is_set():
       try:
+        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral conectando a broker {self.broker_address}:{self.broker_port}")
         self.mqttc.connect(self.broker_address, self.broker_port, 60)
         if not self.conectado:
           self.mqttc.loop_start()
           # Esperar un momento para que se establezca la conexión
           time.sleep(0.5)
         break
-      except Exception:
+      except Exception as e:
+        # Diagnostico clave: si el broker cambio de IP (IP domestica dinamica),
+        # este es el log que lo delata. Antes estaba silenciado y no se veia nada.
+        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral NO pudo conectar a {self.broker_address}:{self.broker_port}: {e}. Reintento en 5s")
         time.sleep(5)
 
   def on_connect(self, client, userdata, flags, rc):
     if rc == 0:
       self.conectado = True
+      cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral CONECTADO al broker {self.broker_address}:{self.broker_port} (rc={rc})")
       # "Cold start" sync: publicar nuestro estado actual como mensaje
       # RETAINED para que cualquier app que se conecte despues lo reciba
       # inmediatamente (sin necesidad de que el usuario mueva nada).
@@ -119,6 +179,7 @@ class MQTTEnvioGeneral:
       threading.Timer(1.5, self._publish_state_snapshot_retained).start()
     else:
       self.conectado = False
+      cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral rechazado por broker (rc={rc})")
 
   def _publish_state_snapshot_retained(self):
     """Publica el estado actual de SteerTorqueMode y config_jetson con retain=True.
@@ -183,6 +244,7 @@ class MQTTEnvioGeneral:
 
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
+    cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral DESCONECTADO del broker {self.broker_address} (rc={rc})")
 
   def start(self):
     threading.Thread(target=self.loop, daemon=True).start()
@@ -201,6 +263,9 @@ class MQTTEnvioGeneral:
     while not self.stop_event.is_set():
       self.pause_event.wait()
       self.sm.update()
+
+      # Recoger en caliente un cambio de IP del broker hecho desde la UI.
+      self._maybe_reload_broker()
 
       # Verificar conexión antes de intentar enviar (evita encolar mensajes)
       # Usar verificación más simple: si está conectado según el callback
@@ -316,9 +381,35 @@ class MQTTEnvioGeneral:
                 continue
               try:
                 self.mqttc.publish(topic, json.dumps(datos_filtrados), qos=0)
-              except Exception:
-                self.conectado = False
+              except Exception as e:
+                # NO tocar self.conectado aqui: un fallo de serializacion
+                # (json.dumps de un to_dict() con bytes/NaN, etc.) o un error
+                # puntual de un canal NO significa que el socket MQTT este caido.
+                # Si lo poniamos a False, como on_disconnect nunca disparaba, la
+                # telemetria quedaba CONGELADA para siempre. Dejar que las callbacks
+                # (on_disconnect) gestionen el estado real de la conexion.
+                cloudlog.warning(f"[Bemposta] fallo publicando canal {nombre} en {topic}: {e}")
             # Si no hay conexión, simplemente no enviar (no encolar)
+
+      # Heartbeat de PRESENCIA. La app marca "conectado" solo si le llega
+      # telemetria en <10 s. Onroad carState ya fluye; pero PARADO/OFFROAD ningun
+      # canal se actualiza (sm.updated=False) y no se publica nada -> el dispositivo
+      # aparece desconectado aunque el MQTT este perfectamente conectado. Republicamos
+      # el ultimo carState conocido a ritmo bajo para que salga "conectado" tambien en
+      # banco (como hacia el sender antiguo, que publicaba cada ciclo sin condicion).
+      now = time.time()
+      if self.conectado and (now - self._last_heartbeat) >= self.HEARTBEAT_SECS:
+        self._last_heartbeat = now
+        if not (hasattr(self.mqttc, 'is_connected') and not self.mqttc.is_connected()):
+          try:
+            if "carState" in self.sm.data:
+              hb = self.sm["carState"].to_dict()
+            else:
+              hb = {}
+            hb["dongle_id"] = self.DongleID
+            self.mqttc.publish(f"telemetry_mqtt/{self.DongleID}/carState", json.dumps(hb), qos=0)
+          except Exception as e:
+            cloudlog.warning(f"[Bemposta] heartbeat fallo: {e}")
 
       time.sleep(self.velocidadActualizacion)
 
