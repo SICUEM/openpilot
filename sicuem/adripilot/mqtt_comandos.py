@@ -38,6 +38,7 @@ class MQTTComandos:
     with open(self.jsonConfig, "r") as f:
       config = json.load(f)
       self.broker_address = config.get("broker", "localhost")
+      self.broker_port = int(config.get("broker_port", 1883))
 
   def init_mqtt(self):
     self.mqttc = mqtt.Client()
@@ -51,14 +52,14 @@ class MQTTComandos:
   def setup_mqtt(self):
     while not self.stop_event.is_set():
       try:
-        cloudlog.warning(f"[Bemposta] MQTTComandos conectando a broker {self.broker_address}:1883")
-        self.mqttc.connect(self.broker_address, 1883, 60)
+        cloudlog.warning(f"[Bemposta] MQTTComandos conectando a broker {self.broker_address}:{self.broker_port}")
+        self.mqttc.connect(self.broker_address, self.broker_port, 60)
         if not self.conectado:
           self.mqttc.loop_start()
           self.conectado = True
         break
       except Exception as e:
-        cloudlog.warning(f"[Bemposta] MQTTComandos NO pudo conectar a {self.broker_address}:1883: {e}. Reintento en 5s")
+        cloudlog.warning(f"[Bemposta] MQTTComandos NO pudo conectar a {self.broker_address}:{self.broker_port}: {e}. Reintento en 5s")
         time.sleep(5)
 
   def reload_broker(self, new_broker):

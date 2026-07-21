@@ -13,6 +13,10 @@ Edits two server IPs, preserving all other keys in each JSON file:
   - AdriPilot MQTT broker: key "broker" in sicuem/adripilot/config_mqtt.json
   - SICUEM server:         config.IpServer.value in sicuem/config.json
 
+The SICUEM setting is legacy (the old sender was retired); the active MQTT
+stack only reads config_mqtt.json, so editing the SICUEM IP also mirrors the
+value into config_mqtt.json to keep both pointing at the same broker.
+
 Paths resolve under BASEDIR/sicuem/... with a /data/openpilot fallback.
 """
 import json
@@ -93,7 +97,7 @@ class ServerIpSettingsLayout(Widget):
     self._sicuem_button = button_item_sp(
       title=lambda: tr("Servidor SICUEM (Universidad Europea)"),
       button_text=lambda: tr("EDITAR"),
-      description=lambda: tr("IP actual:") + f" {self._read_sicuem_ip() or '-'}",
+      description=lambda: tr("IP actual:") + f" {self._read_sicuem_ip() or '-'} · " + tr("(legacy: tambien actualiza el broker AdriPilot)"),
       callback=self._edit_sicuem,
     )
 
@@ -156,6 +160,12 @@ class ServerIpSettingsLayout(Widget):
       config["IpServer"] = ip_server
       root["config"] = config
       _save_json(self._sicuem_path, root)
+      # El stack activo (MQTTEnvioGeneral/MQTTComandos/events_mqtt) solo lee
+      # config_mqtt.json; el ajuste SICUEM es legacy. Para que editar este
+      # campo no deje al coche publicando a un broker distinto, se refleja aqui.
+      adri_root = _load_json(self._adripilot_path)  # preserve broker_port and any other keys
+      adri_root["broker"] = text
+      _save_json(self._adripilot_path, adri_root)
 
     InputDialogSP(tr("IP Servidor SICUEM"), current_text=current, min_text_size=1, callback=on_input).show()
 
