@@ -76,6 +76,14 @@ class CameraSender:
   def _init_jetson_zmq(self):
     """Inicializa el cliente ZMQ para envío de imágenes a la Jetson si está habilitado."""
     try:
+      if os.getenv("SIMULATION") == "1":
+        # En el sim el ZMQ a la Jetson lo hace tools/sim/lib/camerad.py dentro del
+        # bridge. Si CameraSender (dentro del manager) bindea 5555 primero, el bridge
+        # falla con "Address already in use" y ademas el fd heredado queda en todos
+        # los procesos hijos del manager.
+        cloudlog.info("CameraSender: SIMULATION=1, Jetson ZMQ delegado al bridge del sim")
+        return
+
       if not os.path.exists(JETSON_CONFIG_FILE):
         cloudlog.info("CameraSender: config_jetson.json no encontrado, Jetson ZMQ deshabilitado")
         return

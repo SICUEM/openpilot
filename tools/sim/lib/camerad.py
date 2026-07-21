@@ -1,6 +1,7 @@
 import io
 import json
 import os
+import time
 import numpy as np
 
 from msgq.visionipc import VisionIpcServer, VisionStreamType
@@ -124,7 +125,7 @@ class Camerad:
       print(f"Camerad: error generando thumbnail: {e}")
       return
 
-    eof = int(frame_id * 0.05 * 1e9)
+    eof = time.monotonic_ns()
     dat = messaging.new_message('thumbnail', valid=True)
     dat.thumbnail.frameId = frame_id
     dat.thumbnail.timestampEof = eof
@@ -138,7 +139,11 @@ class Camerad:
         print(f"Camerad: error enviando frame a Jetson: {e}")
 
   def _send_yuv(self, yuv, frame_id, pub_type, yuv_type):
-    eof = int(frame_id * 0.05 * 1e9)
+    # Como en una camara real, el timestamp del frame va en el reloj monotonico.
+    # locationd valida cameraOdometry.timestampEof contra el tiempo del filtro
+    # (alimentado por la IMU, que usa logMonoTime): con timestamps sinteticos
+    # basados en frame_id las observaciones se rechazan y nunca se puede enganchar.
+    eof = time.monotonic_ns()
     self.vipc_server.send(yuv_type, yuv, frame_id, eof, eof)
 
     dat = messaging.new_message(pub_type, valid=True)
