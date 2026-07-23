@@ -171,17 +171,32 @@ def manager_thread() -> None:
   write_onroad_params(False, params)
   ensure_running(managed_processes.values(), False, params=params, CP=sm['carParams'], not_run=ignore)
 
-  # [Start Bemposta] arrancar hilos MQTT SIC-UEM / AdriPilot (referencia local persiste en el while True)
-  bemposta_threads = []
-  for _name, _cls in (("MQTTEnvioGeneral", MQTTEnvioGeneral),):
-    if _cls is not None:
+  # [Start Bemposta] hilos MQTT SIC-UEM / AdriPilot, con reintento cada 30 s:
+  # si el import/init falla una vez (red no lista, pyc stale, etc.) ya no se pierde
+  # la telemetria/comandos hasta el proximo reinicio — el manager los relanza solo.
+  bemposta_threads: list = []
+  bemposta_last_retry = -60.0  # permite el arranque inmediato en la primera llamada
+
+  def ensure_bemposta_threads():
+    nonlocal bemposta_last_retry
+    now = time.monotonic()
+    if now - bemposta_last_retry < 30:
+      return
+    bemposta_threads[:] = [t for t in bemposta_threads if t.is_alive()]
+    for _name, _cls in (("MQTTEnvioGeneral", MQTTEnvioGeneral),):
+      if _cls is None or any(t.name == _name for t in bemposta_threads):
+        continue
+      bemposta_last_retry = now
       try:
         _inst = _cls()
+        _inst.name = _name
         _inst.start()
         bemposta_threads.append(_inst)
         cloudlog.info(f"[Bemposta] {_name} iniciado")
       except Exception:
-        cloudlog.exception(f"[Bemposta] fallo iniciando {_name}")
+        cloudlog.exception(f"[Bemposta] fallo iniciando {_name} (reintento en 30 s)")
+
+  ensure_bemposta_threads()
   # [End Bemposta]
 
   started_prev = False
@@ -209,6 +224,9 @@ def manager_thread() -> None:
     ignition_prev = ignition
 
     ensure_running(managed_processes.values(), started, params=params, CP=sm['carParams'], not_run=ignore)
+
+    # [Bemposta] vigilar los hilos MQTT (reintento interno cada 30 s)
+    ensure_bemposta_threads()
 
     running = ' '.join("{}{}\u001b[0m".format("\u001b[32m" if p.proc.is_alive() else "\u001b[31m", p.name)
                        for p in managed_processes.values() if p.proc)
