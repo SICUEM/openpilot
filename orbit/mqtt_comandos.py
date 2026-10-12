@@ -580,6 +580,8 @@ class MQTTComandos:
       # Sustituye a telemetry_config/<dongle>/jetson_config, que ya no se escucha (ver
       # el docstring de on_message): ese topic reescribia jetson_ip sin validar nada.
       client.subscribe(cfg2.TOPIC_CFG_DESIRED.format(self.DongleID), qos=1)
+      # Senal de prueba de rotonda: "0" retenido (llega al conectar) y "1" de ~500 ms.
+      client.subscribe(cfg2.TOPIC_DEV_ROUNDABOUT.format(self.DongleID), qos=1)
       cloudlog.warning(f"[Bemposta] MQTTComandos CONECTADO (rc={rc}), suscrito a comandos v2+v1 y a cfg/desired para dongle={self.DongleID}")
 
       # Descriptor de capacidades: forzado en cada conexion porque el retenido vive en EL
@@ -723,6 +725,9 @@ class MQTTComandos:
     retrocede. Esto NO autentica a nadie -- D1 deja el broker abierto y sin TLS -- pero
     acota a un vocabulario cerrado lo que se puede escribir.
 
+    Otro que tampoco es mando: `orbit/v2/dev/<dongle>/roundabout` ("1"/"0", senal de prueba)
+    solo escribe el param OrbitDevRoundabout, sin router, sobre ni ACK.
+
     Los TRES topics v1 que NO son verbos y por tanto no pasan por el router, con lo que
     hace cada uno (revisado uno a uno; ninguno mueve un actuador):
 
@@ -754,6 +759,14 @@ class MQTTComandos:
           cloudlog.warning(f"[Bemposta] cfg/desired vacio en {topic} (borrado de retenido), ignorado")
           return
         cfg2.get_bus().recibir(payload)
+        return
+
+      # --- senal de prueba de rotonda: no es una orden, no pasa por el router.
+      if isinstance(topic, str) and topic == cfg2.TOPIC_DEV_ROUNDABOUT.format(self.DongleID):
+        if payload in ("0", "1"):
+          self.params.put_bool("OrbitDevRoundabout", payload == "1")
+        else:
+          cloudlog.warning(f"[Bemposta] roundabout con payload invalido {payload!r}, ignorado")
         return
 
       # --- v2: el router hace sus propios filtros (retain, payload vacio, dongle ajeno).

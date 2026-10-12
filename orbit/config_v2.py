@@ -79,6 +79,8 @@ from openpilot.orbit.command_spec import ahora_epoch_ms
 
 TOPIC_CFG_DESIRED = "orbit/v2/cfg/desired/{}"
 TOPIC_CFG_REPORTED = "orbit/v2/cfg/reported/{}"
+# Senal de prueba "entrando en rotonda" (pestana de desarrollo). No es una orden: sin sobre ni ACK.
+TOPIC_DEV_ROUNDABOUT = "orbit/v2/dev/{}/roundabout"
 
 # Version del contrato (seccion 3.2: el sobre lleva "v": 2).
 CFG_VERSION = 2
