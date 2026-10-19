@@ -1,0 +1,83 @@
+name: sicuem mirror
+
+# Copia ramas a SICUEM/openpilot para que un comma instalado una vez desde ese repo
+# cambie entre ORBIT y sunnypilot desde Ajustes > Software, sin reinstalar.
+#  - orbit-master: solo avanza (push sin force). Si se reescribe su historia, el job
+#    falla y SICUEM no cambia.
+#  - Builds de sunnypilot: release-tizi (3X), release-mici (comma 4), staging, y dev como
+#    sunnypilot-dev. En el comma 4 las ramas "tested" (release-*, staging) esconden el
+#    selector de rama; sunnypilot-dev no, y es la que permite volver a ORBIT desde la
+#    pantalla. sunnypilot las publica como un unico commit sin padres, asi que la copia se
+#    sustituye entera, pero solo si la copia de SICUEM tambien es un build de sunnypilot
+#    ("sunnypilot v..."). Si alguien del equipo usa ese nombre para otra cosa, el job falla
+#    sin tocarla. dev va con otro nombre porque SICUEM ya tiene una rama dev.
+# Nunca borra ramas. Necesita el secreto SICUEM_DEPLOY_KEY: clave privada de una deploy
+# key con escritura en SICUEM/openpilot.
+
+on:
+  push:
+    branches: [orbit-master]
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sicuem-mirror
+
+jobs:
+  mirror:
+    # esta rama tambien acaba en SICUEM: alli el job no debe correr
+    if: github.repository == 'orbit-pilot/orbitpilot'
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SICUEM: git@github.com:SICUEM/openpilot.git
+      SUNNYPILOT: https://github.com/sunnypilot/sunnypilot.git
+      # origen[:destino]
+      SUNNYPILOT_BRANCHES: release-tizi release-mici staging dev:sunnypilot-dev
+    steps:
+      - name: Preparar
+        env:
+          KEY: ${{ secrets.SICUEM_DEPLOY_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/sicuem
+          chmod 600 ~/.ssh/sicuem
+          ssh-keyscan -t ed25519 github.com >> ~/.ssh/known_hosts
+          git init -q --bare repo.git
+          git -C repo.git config core.sshCommand "ssh -i ~/.ssh/sicuem -o IdentitiesOnly=yes"
+
+      - name: orbit-master
+        if: github.event_name != 'schedule'
+        working-directory: repo.git
+        run: |
+          git fetch -q --no-tags "https://github.com/${{ github.repository }}.git" refs/heads/orbit-master
+          git push "$SICUEM" FETCH_HEAD:refs/heads/orbit-master
+
+      - name: Ramas de sunnypilot
+        working-directory: repo.git
+        run: |
+          for entry in $SUNNYPILOT_BRANCHES; do
+            from=${entry%%:*}
+            b=${entry#*:}
+            src=$(git ls-remote "$SUNNYPILOT" "refs/heads/$from" | cut -f1)
+            dst=$(git ls-remote "$SICUEM" "refs/heads/$b" | cut -f1)
+            if [ -z "$src" ]; then echo "::warning::$from no existe en sunnypilot"; continue; fi
+            if [ "$src" = "$dst" ]; then echo "$b al dia (${src:0:9})"; continue; fi
+            if [ -n "$dst" ]; then
+              git fetch -q --no-tags --depth=1 "$SICUEM" "refs/heads/$b"
+              if ! git log -1 --format=%s FETCH_HEAD | grep -q '^sunnypilot v'; then
+                echo "::error::SICUEM/$b no es un build de sunnypilot, no la toco"
+                exit 1
+              fi
+            fi
+            # sin --depth: un fetch shallow marca el commit y GitHub rechaza el push
+            # ("shallow update not allowed"); al no tener padres, ocupa lo mismo
+            git fetch -q --no-tags "$SUNNYPILOT" "refs/heads/$from"
+            # lease: si la rama cambio desde el ls-remote (o aparecio), el push falla
+            git push --force-with-lease="refs/heads/$b:$dst" "$SICUEM" FETCH_HEAD:"refs/heads/$b"
+            echo "$b: ${dst:0:9} -> ${src:0:9}"
+          done
