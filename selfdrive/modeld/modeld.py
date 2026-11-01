@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import gc
 import os
 os.environ['GMMU'] = '0' # for usbgpu fast loading, noop for qcom
 from tinygrad.tensor import Tensor
@@ -25,6 +26,8 @@ from openpilot.selfdrive.modeld.fill_model_msg import fill_model_msg, fill_pose_
 from openpilot.common.file_chunker import read_file_chunked, get_manifest_path
 from openpilot.selfdrive.modeld.constants import ModelConstants, Plan
 from openpilot.selfdrive.modeld.helpers import usbgpu_present, modeld_pkl_path, get_tg_input_devices
+
+from openpilot.orbit.modelos import cambio, chestnut, paquete, seleccion
 
 from openpilot.sunnypilot.livedelay.helpers import get_lat_delay
 from openpilot.sunnypilot.modeld_v2.modeld_base import ModelStateBase
@@ -78,12 +81,13 @@ class FrameMeta:
 class ModelState(ModelStateBase):
   prev_desire: np.ndarray  # for tracking the rising edge of the pulse
 
-  def __init__(self, cam_w: int, cam_h: int, usbgpu: bool):
+  def __init__(self, cam_w: int, cam_h: int, usbgpu: bool, pkl_path=None, input_devices=None):
     ModelStateBase.__init__(self)
     self.LAT_SMOOTH_SECONDS = LAT_SMOOTH_SECONDS
-    input_devices = get_tg_input_devices(PROCESS_NAME, usbgpu)
+    self.usbgpu = usbgpu
+    input_devices = input_devices or get_tg_input_devices(PROCESS_NAME, usbgpu)
     self.WARP_DEV, self.QUEUE_DEV = input_devices['WARP_DEV'], input_devices['QUEUE_DEV']
-    jits = pickle.loads(read_file_chunked(modeld_pkl_path(usbgpu)))
+    jits = pickle.loads(read_file_chunked(str(pkl_path or modeld_pkl_path(usbgpu))))
     vision_metadata = jits['metadata']['vision']
     self.vision_input_shapes = vision_metadata['input_shapes']
     self.vision_input_names = list(self.vision_input_shapes.keys())
@@ -148,20 +152,37 @@ class ModelState(ModelStateBase):
     return combined_outputs_dict
 
 
+def load_model(params, cam_w: int, cam_h: int, inputs: cambio.Entrada, big_compiled: bool, destino: str):
+  # ORBIT: el modelo del equipo que pide la app si se puede; si no carga, el siguiente candidato
+  # (ver orbit/modelos/seleccion.py). El ultimo, el pequeno de serie, no tiene red: si falla, falla.
+  candidates, reasons = seleccion.candidatos(inputs.deseado, inputs.chestnut, big_compiled, (cam_w, cam_h), destino)
+  for i, c in enumerate(candidates):
+    try:
+      model = ModelState(cam_w, cam_h, c.usbgpu, c.pkl, c.dispositivos())
+    except Exception as e:
+      if i == len(candidates) - 1:
+        raise
+      cloudlog.exception(f"orbit: no carga el modelo {c.origen} {c.modelo_id or ''} ({c.pkl})")
+      reasons.append(f"{c.origen} {c.modelo_id or ''} no carga: {type(e).__name__}: {e}"[:300])
+      continue
+    cloudlog.warning(f"orbit: modelo {c.origen} {c.modelo_id or ''} en {'chestnut' if c.en_chestnut else 'el comma'} ({c.pkl})")
+    state = seleccion.estado_activo(c, inputs.deseado, inputs.chestnut, reasons)
+    try:
+      seleccion.publicar_activo(params, state)
+    except Exception:
+      cloudlog.exception("orbit: no se pudo publicar OrbitModeloActivo")
+    return model, c, state
+  raise RuntimeError("no model candidates")
+
+
 def main(demo=False):
   cloudlog.warning("modeld init")
 
   _present = usbgpu_present()
   _compiled = os.path.isfile(get_manifest_path(modeld_pkl_path(usbgpu=True)))
-  USBGPU = _present and _compiled
   params = Params()
   params.put_bool("UsbGpuPresent", _present)
   params.put_bool("UsbGpuCompiled", _compiled)
-
-  if not USBGPU:
-    # USB GPU currently saturates a core so can't do this yet,
-    # also need to move the aux USB interrupts for good timings
-    config_realtime_process(7, 54)
 
   # visionipc clients
   while True:
@@ -188,8 +209,24 @@ def main(demo=False):
 
   st = time.monotonic()
   cloudlog.warning("loading model")
-  model = ModelState(vipc_client_main.width, vipc_client_main.height, USBGPU)
+  # ORBIT: el perfil del dispositivo (comma four, 3X, PC) decide el destino de chestnut
+  cam_w, cam_h = vipc_client_main.width, vipc_client_main.height
+  profile = chestnut.perfil()
+  destino = profile.destino if profile is not None else paquete.DESTINO_USBGPU
+  def read_inputs():
+    return cambio.Entrada(seleccion.leer_deseado(params), chestnut.presente())
+  def target(inputs):
+    return seleccion.candidatos(inputs.deseado, inputs.chestnut, _compiled, (cam_w, cam_h), destino)[0][0]
+  inputs = read_inputs()
+  model, active, active_state = load_model(params, cam_w, cam_h, inputs, _compiled, destino)
+  switcher = cambio.Vigilante(params, active, inputs, active_state, read_inputs, target)
   cloudlog.warning(f"models loaded in {time.monotonic() - st:.1f}s, modeld starting")
+
+  realtime = not model.usbgpu
+  if realtime:
+    # USB GPU currently saturates a core so can't do this yet,
+    # also need to move the aux USB interrupts for good timings
+    config_realtime_process(7, 54)
 
   # messaging
   pm = PubMaster(["modelV2", "drivingModelData", "cameraOdometry", "modelDataV2SP"])
@@ -258,6 +295,24 @@ def main(demo=False):
       meta_extra = meta_main
 
     sm.update(0)
+
+    # ORBIT: cambio de modelo en marcha (orbit/modelos/cambio.py)
+    stopped = cambio.parado(sm["carState"].vEgo, sm["carState"].standstill)
+    if (why := switcher.revisar(stopped, sm["carControl"].enabled)) is not None:
+      cloudlog.warning(f"orbit: recargando el modelo ({why})")
+      st = time.monotonic()
+      model = None
+      gc.collect()  # libera la memoria de la GPU del modelo anterior antes de cargar el nuevo
+      inputs = read_inputs()
+      model, active, active_state = load_model(params, cam_w, cam_h, inputs, _compiled, destino)
+      switcher.cargado(active, inputs, active_state)
+      model.lat_delay = get_lat_delay(params, sm["liveDelay"].lateralDelay)
+      run_count = 0
+      cloudlog.warning(f"orbit: modelo recargado en {time.monotonic() - st:.1f}s")
+      if not realtime and not model.usbgpu:
+        realtime = True
+        config_realtime_process(7, 54)
+
     desire = DH.desire
     is_rhd = sm["driverMonitoringState"].isRHD
     frame_id = sm["roadCameraState"].frameId

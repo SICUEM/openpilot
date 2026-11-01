@@ -438,4 +438,9 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"OrbitConfigDesired", {PERSISTENT, STRING}},                                             // ultimo sobre cfg/desired ACEPTADO (JSON serializado). Solo para que la version no retroceda tras un reinicio
     {"OrbitConfigReported", {PERSISTENT, STRING}},                                            // ultimo sobre cfg/reported PUBLICADO (JSON serializado). Lo escribe mqtt_envio_general tras aplicar y publicar
     {"OrbitTelemetryProfile", {PERSISTENT, STRING, "normal"}},                                // perfil de telemetria v2: "ahorro" | "normal" | "diagnostico" (§7). Lo lee mqtt_envio_general._maybe_reload_perfil, que hasta ahora se caia a normal porque la clave no estaba registrada. La degradacion por red de pago y la caducidad de 15 min del diagnostico NO dependen de este param: viven en el motor, que es quien tiene el reloj
+
+    // Modelos del equipo en chestnut (orbit/modelos/README.md)
+    {"OrbitModeloDeseado", {PERSISTENT, STRING}},                                             // id (carpeta en /data/orbit_models) del modelo que pide la app; vacio o "serie" = el de serie. Se APLICA al arrancar modeld. PERSISTENT: la eleccion sobrevive a reinicios
+    {"OrbitModeloActivo", {CLEAR_ON_MANAGER_START, STRING}},                                  // JSON que escribe modeld al cargar: {origen: equipo|serie_grande|serie, modelo_id, deseado, chestnut, usbgpu, motivo, ts_ms}
+    {"OrbitModelos", {CLEAR_ON_MANAGER_START, STRING}},                                       // JSON que escribe el gestor orbit_modelos (offroad): estado de cada modelo en el coche para chestnut
 };

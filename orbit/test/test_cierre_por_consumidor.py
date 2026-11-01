@@ -500,7 +500,9 @@ def test_si_el_plano_no_la_publica_a_tiempo_se_decide_igual_y_sin_id(consumidor)
   t0 = ahora_mono()
   anterior = _foto(deadline_mono=t0 - 0.5)
   assert consumidor.process_speed_commands(_CC(), _CS(), vch, autoridad=anterior, now_mono=t0) == ""
-  t1 = t0 + sp.ESPERA_PLANO_S
+  # un poco MAS del plazo: (t0 + 0.3) - t0 puede dar 0.29999... en coma flotante segun lo que
+  # valga el reloj monotono (el tiempo encendido), y entonces aun se esperaria
+  t1 = t0 + sp.ESPERA_PLANO_S + 0.01
   assert consumidor.process_speed_commands(_CC(), _CS(), vch, autoridad=anterior, now_mono=t1) == "EXPIRED"
   assert sp.orbit_speed_increase is False
   assert vch.v_cruise_kph == 85.0

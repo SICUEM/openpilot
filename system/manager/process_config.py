@@ -155,6 +155,10 @@ procs = [
   PythonProcess("statsd", "system.statsd", always_run),
   PythonProcess("feedbackd", "selfdrive.ui.feedback.feedbackd", only_onroad),
 
+  # ORBIT: deja listos para chestnut los modelos del equipo (abre la GPU en exclusiva: solo offroad).
+  # En el PC prepara los del chestnut simulado (orbit/modelos/chestnut.py)
+  PythonProcess("orbit_modelos", "orbit.modelos.gestor", only_offroad),
+
   # debug procs
   NativeProcess("bridge", "cereal/messaging", ["./bridge"], notcar),
   PythonProcess("webrtcd", "system.webrtc.webrtcd", notcar),

@@ -7,7 +7,7 @@ from openpilot.common.file_chunker import chunk_file, get_chunk_targets, get_exi
 from openpilot.common.transformations.camera import _ar_ox_fisheye, _os_fisheye
 from openpilot.common.transformations.model import MEDMODEL_INPUT_SIZE, DM_INPUT_SIZE
 from openpilot.selfdrive.modeld.constants import ModelConstants
-from openpilot.selfdrive.modeld.helpers import TG_INPUT_DEVICES_PATH, usbgpu_present, modeld_pkl_path
+from openpilot.selfdrive.modeld.helpers import TG_INPUT_DEVICES_PATH, usbgpu_present, modeld_pkl_path, usbgpu_tg_flags
 
 
 CAMERA_CONFIGS = [
@@ -77,7 +77,7 @@ tg_devices = { # which device to put jit inputs to at runtime
 
 USBGPU = usbgpu_present() # or release # TODO always build big model on release
 if USBGPU:
-  usbgpu_tg_flags = f'DEBUG=2 DEV=USB+AMD:LLVM WARP_DEV={tg_backend} FLOAT16=1 JIT_BATCH_SIZE=0 GMMU=0'
+  usbgpu_flags = usbgpu_tg_flags(tg_backend)
   # the USB+AMD GPU takes an exclusive flock; serialize all targets that touch it
   usbgpu_lock = File("models/.usb_gpu.lock").abspath
 
@@ -107,7 +107,7 @@ frame_skip = ModelConstants.MODEL_RUN_FREQ // ModelConstants.MODEL_CONTEXT_FREQ
 
 for usbgpu in [False, True] if USBGPU else [False]:
   target_pkl_path = File(modeld_pkl_path(usbgpu)).abspath
-  file_prefix, cmd_flags = ('big_', usbgpu_tg_flags) if usbgpu else ('', tg_flags)
+  file_prefix, cmd_flags = ('big_', usbgpu_flags) if usbgpu else ('', tg_flags)
   driving_onnx_deps = [p for m in [f'{file_prefix}driving_vision', f'{file_prefix}driving_on_policy']
                        for p in get_existing_chunks(File(f"models/{m}.onnx").abspath)]
   camera_res_args = ' '.join(f'{cw}x{ch}' for cw, ch in CAMERA_CONFIGS)

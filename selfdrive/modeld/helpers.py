@@ -7,6 +7,12 @@ USBGPU_VID = 0xADD1
 USBGPU_PID = 0x0001
 
 
+def usbgpu_tg_flags(warp_dev: str) -> str:
+  # flags de tinygrad para compilar el modelo de conduccion en la GPU por USB (chestnut).
+  # Los usan el SConscript (modelo grande de serie) y orbit/modelos (modelos del equipo):
+  # un .pkl compilado con otros flags no carga en modeld.
+  return f'DEBUG=2 DEV=USB+AMD:LLVM WARP_DEV={warp_dev} FLOAT16=1 JIT_BATCH_SIZE=0 GMMU=0'
+
 def get_tg_input_devices(process_name: str, usbgpu: bool):
   with open(TG_INPUT_DEVICES_PATH) as f:
     return json.load(f)[process_name]['default' if not usbgpu else 'usbgpu']
