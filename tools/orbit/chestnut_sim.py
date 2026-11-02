@@ -22,6 +22,7 @@ import time
 from openpilot.common.params import Params
 from openpilot.orbit.modelos import chestnut as cn
 from openpilot.orbit.modelos import compilar
+from openpilot.orbit.modelos import errores
 from openpilot.orbit.modelos import paquete as pq
 from openpilot.orbit.modelos import seleccion
 
@@ -82,6 +83,8 @@ def ver() -> None:
       print(f"  motivo: {activo['motivo']}")
     for m in modelos.get("modelos", []):
       print(f"  modelo {m['id']}: {m['estado']} {m.get('origen', '')} {m.get('detalle', '')[:100]}")
+    if fallos := errores.leer(params):
+      print(f"  ultimo fallo: {errores.formatear(fallos[-1])}")
 
 
 if __name__ == "__main__":

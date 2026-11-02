@@ -11,7 +11,11 @@ el manager mata este proceso: compile_modeld escribe en un .tmp que nunca se da 
 el siguiente offroad se vuelve a intentar.
 
 Un modelo que ya fallo con las mismas entradas no se reintenta (compilar.preparar); se vuelve a
-intentar solo si cambian sus ficheros o el tinygrad del repo.
+intentar solo si cambian sus ficheros o el tinygrad del repo. Cada fallo NUEVO (validar o
+compilar) queda con su motivo en OrbitModeloErrores (errores.py).
+
+OrbitModelos se escribe solo cuando cambia algo (sin contar ts_ms): el coche puede pasar dias
+apagado y no hace falta escribir en la flash cada 5 s.
 
 OrbitModelos:
   {"v": 1, "ts_ms": ..., "dispositivo": "mici", "nombre_dispositivo": "comma four",
@@ -28,6 +32,7 @@ from openpilot.common.swaglog import cloudlog
 from openpilot.system.hardware import HARDWARE
 from openpilot.orbit.modelos import chestnut as cn
 from openpilot.orbit.modelos import compilar
+from openpilot.orbit.modelos import errores
 from openpilot.orbit.modelos import paquete as pq
 
 PARAM_MODELOS = "OrbitModelos"
@@ -39,10 +44,13 @@ def entrada(paq: pq.Paquete, estado: str, origen: str = "", detalle: str = "") -
           "estado": estado, "origen": origen, "detalle": detalle[:300]}
 
 
+_ultimo_publicado: dict | None = None
+
+
 def publicar(params, perfil: cn.Perfil, chestnut: bool, mbps: int | None, modelos: list[dict]) -> None:
-  params.put(PARAM_MODELOS, json.dumps({
+  global _ultimo_publicado
+  datos = {
     "v": 1,
-    "ts_ms": time.time_ns() // 1_000_000,
     "dispositivo": perfil.dispositivo,
     "nombre_dispositivo": perfil.nombre,
     "oficial": perfil.oficial,
@@ -52,7 +60,11 @@ def publicar(params, perfil: cn.Perfil, chestnut: bool, mbps: int | None, modelo
     "destino": perfil.destino,
     "camara": pq.camara_str(perfil.camara),
     "modelos": modelos,
-  }, sort_keys=True))
+  }
+  if datos == _ultimo_publicado:
+    return
+  params.put(PARAM_MODELOS, json.dumps({**datos, "ts_ms": time.time_ns() // 1_000_000}, sort_keys=True))
+  _ultimo_publicado = datos
 
 
 # Resultados que no cambian mientras no cambien las entradas: no se recalculan cada ciclo
@@ -79,9 +91,12 @@ def ciclo(params, perfil: cn.Perfil, chestnut: bool, mbps: int | None, memoria: 
         r = compilar.preparar(paq, destino, cam, gpu_disponible=chestnut, al_compilar=al_compilar)
       except Exception as e:
         cloudlog.exception(f"orbit_modelos: fallo inesperado preparando {paq.modelo_id}")
-        r = compilar.Resultado(compilar.ERROR, f"{type(e).__name__}: {e}")
+        r = compilar.Resultado(compilar.ERROR, errores.describir(e), fase=compilar.FASE_VALIDAR)
       if previo is None or previo[1].estado != r.estado:
         cloudlog.warning(f"orbit_modelos: {paq.modelo_id} -> {r.estado} {r.origen} {r.detalle}")
+      if r.estado == compilar.ERROR and not r.cacheado:
+        errores.registrar(params, r.fase or compilar.FASE_VALIDAR, r.detalle, paq.modelo_id,
+                          destino=destino, camara=pq.camara_str(cam), version=paq.version)
     memoria[paq.modelo_id] = (clave, r)
     modelos[i] = entrada(paq, r.estado, r.origen, r.detalle if r.estado != compilar.LISTO else "")
   for modelo_id in set(memoria) - {p.modelo_id for p in paquetes}:

@@ -443,4 +443,7 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"OrbitModeloDeseado", {PERSISTENT, STRING}},                                             // id (carpeta en /data/orbit_models) del modelo que pide la app; vacio o "serie" = el de serie. Se APLICA al arrancar modeld. PERSISTENT: la eleccion sobrevive a reinicios
     {"OrbitModeloActivo", {CLEAR_ON_MANAGER_START, STRING}},                                  // JSON que escribe modeld al cargar: {origen: equipo|serie_grande|serie, modelo_id, deseado, chestnut, usbgpu, motivo, ts_ms}
     {"OrbitModelos", {CLEAR_ON_MANAGER_START, STRING}},                                       // JSON que escribe el gestor orbit_modelos (offroad): estado de cada modelo en el coche para chestnut
+    {"OrbitModeloErrores", {PERSISTENT, STRING}},                                             // JSON: lista de los ultimos fallos de modelos (fase, motivo, modelo). orbit/modelos/errores.py
+    {"OrbitModeloEnPrueba", {PERSISTENT, STRING}},                                            // JSON: modelo en periodo de prueba en modeld; si sobrevive a modeld, este murio con el (orbit/modelos/prueba.py)
+    {"OrbitModeloVetos", {PERSISTENT, STRING}},                                               // JSON {pkl: {motivo, huella}}: modelos que fallaron en prueba; valen hasta que cambie el .pkl o el tinygrad
 };

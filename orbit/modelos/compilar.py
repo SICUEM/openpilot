@@ -9,8 +9,9 @@ SConscript, con los mismos flags de tinygrad (helpers.usbgpu_tg_flags para chest
 ORDEN:
   1. ya LISTO (marcador vigente) ............ nada que hacer
   2. ya fallo con estas mismas entradas ...... no se repite (repetir solo vuelve a fallar)
-  3. trae driving_tinygrad.pkl ............... se valida (contrato, camara, compilado para AMD)
-                                               y, si vale, se acepta sin compilar
+  3. trae driving_tinygrad.pkl ............... se valida (contrato, camara, compilado para AMD,
+                                               warp en el dispositivo con el que modeld le da
+                                               los frames) y, si vale, se acepta sin compilar
   4. trae los dos ONNX ....................... se validan y se compilan (solo si la GPU de
                                                destino esta disponible: chestnut conectado)
 
@@ -48,11 +49,18 @@ PENDIENTE_CHESTNUT = "pendiente_chestnut"  # hay que compilar y chestnut no esta
 SIN_MODELO = "sin_modelo"                  # la carpeta no trae ni .pkl ni los dos ONNX
 
 
+FASE_VALIDAR = "validar"
+FASE_COMPILAR = "compilar"
+LINEAS_LOG_ERROR = 8
+
+
 @dataclass
 class Resultado:
   estado: str
   detalle: str = ""
-  origen: str = ""  # "entregado" | "compilado" cuando esta listo
+  origen: str = ""     # "entregado" | "compilado" cuando esta listo
+  fase: str = ""       # con ERROR: FASE_VALIDAR | FASE_COMPILAR (errores.py)
+  cacheado: bool = False  # ERROR ya registrado en un intento anterior con las mismas entradas
 
 
 def ruta_error(paq: pq.Paquete, destino: str, cam: tuple[int, int]) -> Path:
@@ -61,6 +69,16 @@ def ruta_error(paq: pq.Paquete, destino: str, cam: tuple[int, int]) -> Path:
 
 def ruta_log(paq: pq.Paquete, destino: str, cam: tuple[int, int]) -> Path:
   return paq.ruta / pq.DIR_COMPILADO / f"{destino}_{pq.camara_str(cam)}.log"
+
+
+def cola_log(ruta: Path, lineas: int = LINEAS_LOG_ERROR) -> str:
+  """Las ultimas lineas utiles del log de compile_modeld: ahi esta el porque del fallo."""
+  try:
+    texto = ruta.read_text(errors="replace").splitlines()
+  except OSError:
+    return ""
+  utiles = [l.strip() for l in texto if l.strip() and not l.startswith("#")]
+  return " | ".join(utiles[-lineas:])
 
 
 def entorno_cuda_pc() -> dict[str, str]:
@@ -117,6 +135,13 @@ def validar_pkl_entregado(paq: pq.Paquete, destino: str, cam: tuple[int, int]) -
     errores.append("el .pkl no esta compilado para la GPU AMD (chestnut)")
   if destino == pq.DESTINO_GPU_PC and "CUDA" not in info["dispositivos"]:
     errores.append("el .pkl no esta compilado para CUDA (chestnut simulado del PC)")
+  if destino != pq.DESTINO_LOCAL:
+    # el warp recibe los frames de camara en WARP_DEV: compilado para otro, carga pero revienta
+    # al ejecutarse (p. ej. compilado en un PC con WARP_DEV=CPU y en el comma va en QCOM)
+    warp = dispositivos_entrada(destino)["WARP_DEV"]
+    if not any(d.split(":")[0] == warp.split(":")[0] for d in info["dispositivos"]):
+      trae = ', '.join(info['dispositivos']) or 'ninguno'
+      errores.append(f"el .pkl no tiene el warp en {warp}, que es donde modeld le da los frames (trae {trae})")
   return errores
 
 
@@ -153,7 +178,8 @@ def compilar_onnx(paq: pq.Paquete, destino: str, cam: tuple[int, int]) -> Path:
                          stdout=log, stderr=subprocess.STDOUT, check=False)
   if ret.returncode != 0 or not tmp.is_file():
     tmp.unlink(missing_ok=True)
-    raise RuntimeError(f"compile_modeld termino con codigo {ret.returncode} (ver {ruta_log(paq, destino, cam).name})")
+    log = ruta_log(paq, destino, cam)
+    raise RuntimeError(f"compile_modeld termino con codigo {ret.returncode} (log {log.name}): {cola_log(log)}")
   os.replace(tmp, salida)
   return salida
 
@@ -170,11 +196,12 @@ def preparar(paq: pq.Paquete, destino: str, cam: tuple[int, int], gpu_disponible
   huella = pq.huella_entradas(paq, destino, cam)
   fallo = pq.leer_json(ruta_error(paq, destino, cam))
   if fallo and fallo.get("huella") == huella:
-    return Resultado(ERROR, str(fallo.get("detalle", "")))
+    return Resultado(ERROR, str(fallo.get("detalle", "")), fase=str(fallo.get("fase", "")), cacheado=True)
 
-  def fallar(detalle: str) -> Resultado:
-    pq.escribir_json_atomico(ruta_error(paq, destino, cam), {"huella": huella, "detalle": detalle, "ts": time.time_ns() // 1_000_000_000})
-    return Resultado(ERROR, detalle)
+  def fallar(detalle: str, fase: str = FASE_VALIDAR) -> Resultado:
+    pq.escribir_json_atomico(ruta_error(paq, destino, cam), {"huella": huella, "detalle": detalle, "fase": fase,
+                                                            "ts": time.time_ns() // 1_000_000_000})
+    return Resultado(ERROR, detalle, fase=fase)
 
   errores_pkl: list[str] = []
   if paq.tiene_pkl:
@@ -200,7 +227,7 @@ def preparar(paq: pq.Paquete, destino: str, cam: tuple[int, int], gpu_disponible
   try:
     salida = compilar_onnx(paq, destino, cam)
   except Exception as e:
-    return fallar(str(e))
+    return fallar(str(e), FASE_COMPILAR)
   pq.escribir_marcador(paq.ruta, destino, cam, salida, "compilado")
   ruta_error(paq, destino, cam).unlink(missing_ok=True)
   return Resultado(LISTO, str(salida), "compilado")

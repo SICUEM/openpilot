@@ -14,7 +14,7 @@ from opendbc.car.car_helpers import get_demo_car_params
 from openpilot.common.swaglog import cloudlog
 from openpilot.common.params import Params
 from openpilot.common.filter_simple import FirstOrderFilter
-from openpilot.common.realtime import config_realtime_process, DT_MDL
+from openpilot.common.realtime import DT_MDL
 from openpilot.common.transformations.camera import DEVICE_CAMERAS
 from openpilot.system.camerad.cameras.nv12_info import get_nv12_info
 from openpilot.common.transformations.model import get_warp_matrix
@@ -27,7 +27,7 @@ from openpilot.common.file_chunker import read_file_chunked, get_manifest_path
 from openpilot.selfdrive.modeld.constants import ModelConstants, Plan
 from openpilot.selfdrive.modeld.helpers import usbgpu_present, modeld_pkl_path, get_tg_input_devices
 
-from openpilot.orbit.modelos import cambio, chestnut, paquete, seleccion
+from openpilot.orbit.modelos import cambio, chestnut, errores, paquete, prueba, seleccion
 
 from openpilot.sunnypilot.livedelay.helpers import get_lat_delay
 from openpilot.sunnypilot.modeld_v2.modeld_base import ModelStateBase
@@ -152,26 +152,38 @@ class ModelState(ModelStateBase):
     return combined_outputs_dict
 
 
-def load_model(params, cam_w: int, cam_h: int, inputs: cambio.Entrada, big_compiled: bool, destino: str):
-  # ORBIT: el modelo del equipo que pide la app si se puede; si no carga, el siguiente candidato
-  # (ver orbit/modelos/seleccion.py). El ultimo, el pequeno de serie, no tiene red: si falla, falla.
-  candidates, reasons = seleccion.candidatos(inputs.deseado, inputs.chestnut, big_compiled, (cam_w, cam_h), destino)
+def model_candidates(params, inputs: cambio.Entrada, big_compiled: bool, cam: tuple[int, int], destino: str, excluded):
+  # ORBIT: los de orbit/modelos/seleccion.py sin los vetados ni los que fallaron en esta sesion (prueba.py)
+  candidates, reasons = seleccion.candidatos(inputs.deseado, inputs.chestnut, big_compiled, cam, destino)
+  return prueba.filtrar(params, candidates, reasons, excluded), reasons
+
+
+def load_model(params, cam_w: int, cam_h: int, inputs: cambio.Entrada, big_compiled: bool, destino: str, excluded=frozenset()):
+  # ORBIT: el modelo del equipo que pide la app si se puede; si no carga, el siguiente candidato.
+  # El ultimo, el pequeno de serie, no tiene red: si falla, falla.
+  candidates, reasons = model_candidates(params, inputs, big_compiled, (cam_w, cam_h), destino, excluded)
+  load_failed = False
   for i, c in enumerate(candidates):
     try:
       model = ModelState(cam_w, cam_h, c.usbgpu, c.pkl, c.dispositivos())
     except Exception as e:
       if i == len(candidates) - 1:
         raise
-      cloudlog.exception(f"orbit: no carga el modelo {c.origen} {c.modelo_id or ''} ({c.pkl})")
-      reasons.append(f"{c.origen} {c.modelo_id or ''} no carga: {type(e).__name__}: {e}"[:300])
+      cloudlog.exception(f"orbit: no carga el modelo {prueba.nombre(c)} ({c.pkl})")
+      reasons.append(f"{prueba.nombre(c)} no carga: {errores.describir(e)}"[:300])
+      errores.registrar(params, "cargar", errores.describir(e), c.modelo_id, origen=c.origen, destino=c.destino, pkl=str(c.pkl))
+      load_failed = True
       continue
-    cloudlog.warning(f"orbit: modelo {c.origen} {c.modelo_id or ''} en {'chestnut' if c.en_chestnut else 'el comma'} ({c.pkl})")
+    cloudlog.warning(f"orbit: modelo {prueba.nombre(c)} en {'chestnut' if c.en_chestnut else 'el comma'} ({c.pkl})")
+    if inputs.deseado is not None and c.modelo_id != inputs.deseado:
+      errores.registrar(params, "eleccion", f"se pidio {inputs.deseado} y corre {prueba.nombre(c)}: {'; '.join(reasons)}",
+                        inputs.deseado, errores.AVISO, origen=c.origen, destino=c.destino)
     state = seleccion.estado_activo(c, inputs.deseado, inputs.chestnut, reasons)
     try:
       seleccion.publicar_activo(params, state)
     except Exception:
       cloudlog.exception("orbit: no se pudo publicar OrbitModeloActivo")
-    return model, c, state
+    return model, c, state, load_failed
   raise RuntimeError("no model candidates")
 
 
@@ -213,20 +225,22 @@ def main(demo=False):
   cam_w, cam_h = vipc_client_main.width, vipc_client_main.height
   profile = chestnut.perfil()
   destino = profile.destino if profile is not None else paquete.DESTINO_USBGPU
+  excluded: set[str] = set()  # fallaron ejecutandose en esta sesion (orbit/modelos/prueba.py)
   def read_inputs():
     return cambio.Entrada(seleccion.leer_deseado(params), chestnut.presente())
   def target(inputs):
-    return seleccion.candidatos(inputs.deseado, inputs.chestnut, _compiled, (cam_w, cam_h), destino)[0][0]
+    return model_candidates(params, inputs, _compiled, (cam_w, cam_h), destino, excluded)[0][0]
   inputs = read_inputs()
-  model, active, active_state = load_model(params, cam_w, cam_h, inputs, _compiled, destino)
-  switcher = cambio.Vigilante(params, active, inputs, active_state, read_inputs, target)
+  prueba.revisar_arranque(params, inputs.chestnut)
+  model, active, active_state, load_failed = load_model(params, cam_w, cam_h, inputs, _compiled, destino, excluded)
+  switcher = cambio.Vigilante(params, active, inputs, active_state, read_inputs, target, fallo_carga=load_failed)
+  trial = prueba.Prueba(params, active)
+  force_reload: str | None = None
   cloudlog.warning(f"models loaded in {time.monotonic() - st:.1f}s, modeld starting")
 
-  realtime = not model.usbgpu
-  if realtime:
-    # USB GPU currently saturates a core so can't do this yet,
-    # also need to move the aux USB interrupts for good timings
-    config_realtime_process(7, 54)
+  # USB GPU currently saturates a core so can't do this yet,
+  # also need to move the aux USB interrupts for good timings
+  realtime = cambio.tiempo_real(not model.usbgpu, False)
 
   # messaging
   pm = PubMaster(["modelV2", "drivingModelData", "cameraOdometry", "modelDataV2SP"])
@@ -298,20 +312,26 @@ def main(demo=False):
 
     # ORBIT: cambio de modelo en marcha (orbit/modelos/cambio.py)
     stopped = cambio.parado(sm["carState"].vEgo, sm["carState"].standstill)
-    if (why := switcher.revisar(stopped, sm["carControl"].enabled)) is not None:
+    why = switcher.revisar(stopped, sm["carControl"].enabled)
+    if force_reload is not None:
+      why, force_reload = force_reload, None
+    if why is not None:
       cloudlog.warning(f"orbit: recargando el modelo ({why})")
       st = time.monotonic()
       model = None
-      gc.collect()  # libera la memoria de la GPU del modelo anterior antes de cargar el nuevo
+      try:
+        gc.collect()  # libera la memoria de la GPU del modelo anterior antes de cargar el nuevo
+      except Exception:
+        cloudlog.exception("orbit: fallo liberando el modelo anterior")
       inputs = read_inputs()
-      model, active, active_state = load_model(params, cam_w, cam_h, inputs, _compiled, destino)
-      switcher.cargado(active, inputs, active_state)
+      model, active, active_state, load_failed = load_model(params, cam_w, cam_h, inputs, _compiled, destino, excluded)
+      switcher.cargado(active, inputs, active_state, load_failed)
+      trial = prueba.Prueba(params, active)
       model.lat_delay = get_lat_delay(params, sm["liveDelay"].lateralDelay)
       run_count = 0
+      realtime = cambio.tiempo_real(not model.usbgpu, realtime)
+      params.put_bool("UsbGpuPresent", usbgpu_present())
       cloudlog.warning(f"orbit: modelo recargado en {time.monotonic() - st:.1f}s")
-      if not realtime and not model.usbgpu:
-        realtime = True
-        config_realtime_process(7, 54)
 
     desire = DH.desire
     is_rhd = sm["driverMonitoringState"].isRHD
@@ -360,9 +380,31 @@ def main(demo=False):
     }
 
     mt1 = time.perf_counter()
-    model_output = model.run(bufs, transforms, inputs, prepare_only)
+    try:
+      model_output = model.run(bufs, transforms, inputs, prepare_only)
+    except Exception as e:
+      # ORBIT: el pequeno de serie falla como antes; los demas pasan al siguiente candidato YA
+      if not prueba.protegido(active):
+        raise
+      cloudlog.exception(f"orbit: el modelo {prueba.nombre(active)} fallo ejecutandose")
+      if active.en_chestnut and not chestnut.presente():
+        errores.registrar(params, "chestnut", f"chestnut desconectado con el modelo corriendo: {errores.describir(e)}",
+                          active.modelo_id, origen=active.origen, destino=active.destino)
+        force_reload = cambio.CHESTNUT_PERDIDO
+      else:
+        trial.fallo("ejecutar", errores.describir(e))
+        excluded.add(prueba.clave(active))
+        force_reload = cambio.FALLO_EJECUCION
+      last_vipc_frame_id = meta_main.frame_id
+      continue
     mt2 = time.perf_counter()
     model_execution_time = mt2 - mt1
+
+    if model_output is not None and (bad := trial.revisar(model_output, model_execution_time)) is not None:
+      cloudlog.error(f"orbit: el modelo {prueba.nombre(active)} no pasa la prueba: {bad}")
+      excluded.add(prueba.clave(active))
+      force_reload = cambio.FALLO_EJECUCION
+      model_output = None
 
     if model_output is not None:
       modelv2_send = messaging.new_message('modelV2')
@@ -404,3 +446,4 @@ if __name__ == "__main__":
     main(demo=args.demo)
   except KeyboardInterrupt:
     cloudlog.warning("got SIGINT")
+    prueba.abandonar(Params())  # ORBIT: parada normal, no es una caida del modelo en prueba
