@@ -293,16 +293,24 @@ def disarm_all_actuators(params=None) -> list:
     except Exception:
       pass
 
-  # Esquive de la Jetson (modo 3): no basta con SteerTorqueMode=0 si alguien vuelve a
-  # seleccionar el modo 3 con el ultimo payload todavia en "obstacle": true. Se inyecta
-  # un estado neutro Y se avanza el timestamp, porque controlsd solo ingiere el payload
-  # cuando el timestamp crece. block=True y en este orden: si el timestamp aterrizara
-  # antes que el payload, controlsd releeria el payload VIEJO.
+  if neutralizar_esquive(params):
+    tocados.append("JetsonObstaclePulse")
+
+  return tocados
+
+
+def neutralizar_esquive(params) -> bool:
+  """Esquive de la Jetson (modo 3) a neutro. True si se escribio.
+
+  No basta con SteerTorqueMode=0 si alguien vuelve a seleccionar el modo 3 con el ultimo
+  payload todavia en "obstacle": true. Se inyecta un estado neutro Y se avanza el
+  timestamp, porque controlsd solo ingiere el payload cuando el timestamp crece.
+  block=True y en este orden: si el timestamp aterrizara antes que el payload, controlsd
+  releeria el payload VIEJO.
+  """
   try:
     params.put("JetsonObstaclePulse", '{"obstacle": false, "intensity": 0.0}', block=True)
     params.put("JetsonObstacleTimestamp", f"{time.time_ns() / 1e9:.3f}", block=True)
-    tocados.append("JetsonObstaclePulse")
+    return True
   except Exception:
-    pass
-
-  return tocados
+    return False

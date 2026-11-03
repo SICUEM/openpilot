@@ -57,6 +57,11 @@ class MiciMainLayout(Scroller):
 
     gui_app.add_nav_stack_tick(self._handle_transitions)
     gui_app.push_widget(self)
+    # [ORBIT] Peticion remota de modo de volante: aviso a pantalla completa, onroad y offroad.
+    # Va DESPUES de _handle_transitions en el tick: si este hace pop_widgets_to, el aviso
+    # vuelve arriba en el mismo frame.
+    from openpilot.selfdrive.ui.widgets.orbit_aviso_peticion_modo import instalar
+    instalar()
 
     # Start onboarding if terms or training not completed, make sure to push after self
     self._onboarding_window = OnboardingWindow(lambda: gui_app.pop_widgets_to(self))

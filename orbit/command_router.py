@@ -45,7 +45,7 @@ from openpilot.common.swaglog import cloudlog
 from openpilot.orbit import command_spec as spec_mod
 from openpilot.orbit.command_gates import LINK_FRESH_MAX_S
 from openpilot.orbit.command_spec import (CONTRACT_VERSION, TOPIC_ACK, TOPIC_CMD, Gate, Mode, Phase,
-                                          ahora_epoch_ms, ahora_mono, gate_reason, get_spec, parse_mode,
+                                          ahora_epoch_ms, ahora_mono, gate_reason, get_spec, parse_mode, reason_valido,
                                           validar_args)
 
 # Tope de la LRU de idempotencia (seccion 3.4).
@@ -819,6 +819,9 @@ class CommandRouter:
     """Deja el comando esperando el veredicto de su consumidor."""
     ttl_s = (cmd.ttl_ms or 3_000) / 1000.0
     limite = ahora_mono() + ttl_s + self.MARGEN_RESULTADO_S
+    if getattr(cmd.spec, "confirma_en_pantalla", False) and cmd.deadline_mono > 0.0:
+      # La pantalla caduca la peticion en cmd.deadline_mono (lo lleva el param que pinta).
+      limite = cmd.deadline_mono + self.MARGEN_RESULTADO_S
     with self._lock:
       self._pendientes[cmd.cmd_id] = (cmd.verb, limite)
 
@@ -904,6 +907,15 @@ class CommandRouter:
     except Exception:
       pass
 
+  def _sustituir_pendientes(self, cmd) -> None:
+    """Cierra como superseded las peticiones pendientes del mismo verbo (confirma_en_pantalla)."""
+    with self._lock:
+      viejos = [cid for cid, (v, _) in self._pendientes.items() if v == cmd.verb and cid != cmd.cmd_id]
+      for cid in viejos:
+        self._pendientes.pop(cid, None)
+    for cid in viejos:
+      self._ack(cid, Phase.SUPERSEDED, "SUPERSEDED", f"sustituida por {cmd.cmd_id}", verb=cmd.verb)
+
   def _cerrar_con_resultado(self, dato: dict) -> None:
     cmd_id = str(dato.get("id") or "").strip()
     verbo_dato = str(dato.get("verb") or "").strip()
@@ -935,6 +947,9 @@ class CommandRouter:
       self._ack(clave, Phase.APPLIED, "OK", detalle, verb=verbo)
     elif fase in (Phase.EXPIRED, Phase.SUPERSEDED):
       self._ack(clave, fase, motivo or fase.upper(), detalle, verb=verbo)
+    elif fase == Phase.REJECTED and getattr(get_spec(verbo), "confirma_en_pantalla", False):
+      # Aqui no se publico EXECUTING: el rechazo en pantalla es un rejected de verdad.
+      self._ack(clave, Phase.REJECTED, motivo if reason_valido(motivo) else "INTERNAL", detalle, verb=verbo)
     else:
       # rejected / failed del consumidor, o un "applied" con motivo de error (contradiccion:
       # fail-closed). Ya se publico EXECUTING, asi que el terminal es FAILED (seccion 3.3):
@@ -949,6 +964,10 @@ class CommandRouter:
       for cid, _ in vencidos:
         self._pendientes.pop(cid, None)
     for cid, verbo in vencidos:
+      if getattr(get_spec(verbo), "confirma_en_pantalla", False):
+        # Nadie contesto en la pantalla: la peticion caduca, no ha fallado nada.
+        self._ack(cid, Phase.EXPIRED, "EXPIRED", "nadie confirmo en el comma a tiempo", verb=verbo)
+        continue
       # El consumidor no contesto. NO se declara aplicado: lo unico cierto es que se dejo
       # un flag en disco y nadie confirmo que se ejecutara.
       self._ack(cid, Phase.FAILED, "NO_RESULT",
@@ -1054,9 +1073,14 @@ class CommandRouter:
       except Exception:
         pass
 
-    self._ack(cmd.cmd_id, Phase.EXECUTING, verb=cmd.verb)
+    en_pantalla = bool(getattr(spec, "confirma_en_pantalla", False))
+    if en_pantalla:
+      # Una peticion nueva sustituye a la anterior. Sin EXECUTING: se queda en accepted.
+      self._sustituir_pendientes(cmd)
+    else:
+      self._ack(cmd.cmd_id, Phase.EXECUTING, verb=cmd.verb)
     try:
-      handler(cmd)
+      cierre = handler(cmd)
     except Exception as e:
       cloudlog.exception(f"[Orbit] handler de '{cmd.verb}' fallo")
       self._ack(cmd.cmd_id, Phase.FAILED, "INTERNAL", f"{type(e).__name__}: {e}", verb=cmd.verb)
@@ -1068,7 +1092,11 @@ class CommandRouter:
       return
 
     cierra_consumidor = bool(getattr(spec, "cierra_consumidor", False))
-    if cierra_consumidor:
+    if en_pantalla and cierre is not None:
+      # El handler cerro al momento (p. ej. volver a COMMA, que BAJA autoridad).
+      fase, motivo, detalle = cierre
+      self._ack(cmd.cmd_id, fase, motivo, detalle, verb=cmd.verb)
+    elif cierra_consumidor:
       # El handler solo dejo el flag en disco. Quien decide es el consumidor, y puede
       # rechazarlo: anunciar APPLIED aqui seria pintar un "Hecho" en la app por una
       # maniobra que quiza no ocurra nunca. Se queda en EXECUTING hasta que llegue

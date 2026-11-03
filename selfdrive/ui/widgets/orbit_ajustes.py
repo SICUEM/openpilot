@@ -485,7 +485,7 @@ CAMPOS_JETSON = (
   ("comma_ip", False, None, None),
   ("jetson_img_port", True, None, None),
   ("jetson_torque_port", True, None, None),
-  ("jpeg_quality", True, (10, 100), 10),
+  ("jpeg_quality", True, (10, 95), 10),
 )
 
 

@@ -32,7 +32,7 @@ import os
 
 from openpilot.orbit import config_v2 as cfg2
 from openpilot.orbit.command_router import CommandRouter
-from openpilot.orbit.command_spec import TOPIC_CAPS, TOPIC_CMD, ahora_epoch_ms, get_spec
+from openpilot.orbit.command_spec import TOPIC_CAPS, TOPIC_CMD, Phase, ahora_epoch_ms, ahora_mono, get_spec
 from openpilot.orbit.command_state import get_command_plane
 
 # Politica del reintento del connect() inicial. La COMPARTEN los dos hilos de conexion
@@ -193,6 +193,7 @@ class MQTTComandos:
       "cruise_button": self._h_cruise_button,
       "assisted_decel": self._h_assisted_decel,
       "torque_mode": self._h_torque_mode,
+      "steer_mode_request": self._h_steer_mode_request,
       "steering_pulse": self._h_steering_pulse,
       "healthcheck": self._h_healthcheck,
     }
@@ -370,6 +371,34 @@ class MQTTComandos:
     # SteerTorqueMode es INT: put() exige int nativo.
     self.params.put("SteerTorqueMode", modo)
     cloudlog.warning(f"[Orbit] SteerTorqueMode -> {modo} (apply_target={apply_target!r})")
+
+  def _h_steer_mode_request(self, cmd):
+    """La app PIDE un modo de volante; no lo pone.
+
+    El broker es abierto, asi que por aqui no se sube autoridad: 1-3 solo dejan la
+    peticion en OrbitSteerModeRequest para que la pantalla la pregunte, y quien la acepta
+    en el comma pasa por el mismo camino que el selector local (orbit_peticion_modo.py).
+    0 BAJA autoridad y se aplica ya, como el volante en disarm_all. Devuelve el cierre
+    inmediato (phase, reason, detail) o None si queda pendiente de la pantalla.
+    """
+    from openpilot.orbit.orbit_control_ultra_simple import neutralizar_esquive
+    modo = int(cmd.args["mode"])
+    apply_target = cmd.args.get("apply_target")
+    if modo == 0:
+      self.params.remove("OrbitSteerModeRequest")
+      self.params.put("SteerTorqueMode", 0, True)
+      self.params.put_bool("OrbitSteerModeLocal", False, True)
+      neutralizar_esquive(self.params)
+      cloudlog.warning("[Orbit] steer_mode_request: SteerTorqueMode -> 0")
+      return (Phase.APPLIED, "OK", "modo COMMA aplicado")
+    if modo == 3 and apply_target not in ("curvature", "torque"):
+      self.params.remove("OrbitSteerModeRequest")
+      return (Phase.REJECTED, "RANGE", "mode=3 exige apply_target 'curvature' o 'torque'")
+    deadline = cmd.deadline_mono if cmd.deadline_mono > 0.0 else ahora_mono() + cmd.spec.ttl_ms / 1000.0
+    self.params.put("OrbitSteerModeRequest", json.dumps({
+      "v": 1, "id": cmd.cmd_id, "mode": modo, "apply_target": apply_target, "deadline_mono": deadline,
+    }), True)
+    return None
 
   def _h_steering_pulse(self, cmd):
     """Pulso de direccion (banco). El modulo aplica su propio tope de duracion y de

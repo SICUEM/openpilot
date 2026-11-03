@@ -58,6 +58,10 @@ class MainLayout(Widget):
     except Exception:
       pass
 
+    # [ORBIT] Peticion remota de modo de volante: aviso a pantalla completa, onroad y offroad.
+    from openpilot.selfdrive.ui.widgets.orbit_aviso_peticion_modo import instalar
+    instalar()
+
   def _render(self, _):
     self._handle_onroad_transition()
     self._render_main_content()

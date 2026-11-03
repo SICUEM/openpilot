@@ -239,6 +239,13 @@ class CommandSpec:
   # correlaciona por verbo: conservarlo cortaba en seco una deceleracion asistida en curso
   # con cada pulsacion de +/-.
   conserva_plano: bool = False
+  # Solo con cierra_consumidor: quien decide es una PERSONA en la pantalla del comma (la
+  # app pide, el comma pregunta). El router no publica EXECUTING (el ACK se queda en
+  # accepted mientras se espera), una peticion nueva del mismo verbo cierra la anterior
+  # como superseded, un rechazo se publica como rejected y sin respuesta a tiempo se
+  # cierra como expired (no NO_RESULT). El handler puede cerrar al momento devolviendo
+  # (phase, reason, detail); si devuelve None la orden queda pendiente de la pantalla.
+  confirma_en_pantalla: bool = False
 
   @property
   def requiere_armado_banco(self) -> bool:
@@ -446,6 +453,30 @@ COMMANDS: MappingProxyType = MappingProxyType({spec.verb: spec for spec in (
     limits=_limits(offroad_para=("reboot", "poweroff")),
     handler_name="handle_device_admin",
     descripcion="Administracion del dispositivo. reboot y poweroff solo con el coche apagado.",
+  ),
+
+  CommandSpec(
+    verb="steer_mode_request",
+    arma_actuador=False,
+    mode_min=Mode.OBSERVER,
+    gates=Gate(0),
+    # Mismo rango y mismos nombres que la UI local (0 COMMA, 1 JETSON, 2 TEST MAX,
+    # 3 COMMA+JETSON). apply_target es obligatorio con mode=3, como en torque_mode.
+    args_schema=_args(
+      mode=ArgSpec(tipo=int, minimo=0, maximo=3),
+      apply_target=ArgSpec(tipo=str, requerido=False, opciones=("curvature", "torque")),
+    ),
+    # Ventana para que una persona confirme en la pantalla, NO ventana de actuador.
+    ttl_ms=30_000,
+    limits=_limits(apply_target_obligatorio_en=(3,)),
+    handler_name="handle_steer_mode_request",
+    descripcion=("Pide un modo de volante. 0 (volver a COMMA) se aplica al momento; 1-3 solo si " +
+                 "una persona lo acepta en la pantalla del comma con openpilot desenganchado."),
+    # SIN GATE DE ROUTER A PROPOSITO: el broker es abierto y este verbo no da autoridad.
+    # Lo unico que hace con 1-3 es pintar una pregunta; la autoridad la concede quien
+    # pulsa Aceptar delante del coche, por el mismo camino que el selector local.
+    cierra_consumidor=True,
+    confirma_en_pantalla=True,
   ),
 
   # ------------------------------------------------------------------ modo maniobra
