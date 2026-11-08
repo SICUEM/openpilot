@@ -26,3 +26,6 @@ selfdrive/assets/icons_mici/settings/software.png -filter -diff -merge -text
 
 # ORBIT: README logos as normal git blobs (NOT LFS) so they render + push to the fork.
 docs/images/*.png -filter -diff -merge -text
+
+# ORBIT: modelos 3D de MetaDrive para los obstaculos de la sim (texturas .png), blobs normales (NOT LFS).
+tools/sim/assets/metadrive/** -filter -diff -merge -text
