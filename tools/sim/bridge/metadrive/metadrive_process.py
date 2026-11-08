@@ -15,6 +15,7 @@ from openpilot.common.realtime import Ratekeeper
 
 from openpilot.tools.sim.lib.common import vec3
 from openpilot.tools.sim.lib.camerad import W, H
+from openpilot.tools.sim.bridge.metadrive.metadrive_assets import patch_asset_loader
 from openpilot.tools.sim.bridge.metadrive.metadrive_modmenu import ModMenu
 from openpilot.tools.sim.bridge.metadrive.metadrive_maps import get_map_config
 
@@ -36,6 +37,9 @@ def apply_metadrive_patches(arrive_dest_done=True):
     self.sensors[name] = sensor
 
   EngineCore.add_image_sensor = add_image_sensor_patched
+
+  # obstacle models (cone, barrier, cars) live in the repo, not in the minimal metadrive package
+  patch_asset_loader()
 
   # we aren't going to use the built-in observation stack, so disable it to save time
   def observe_patched(self, *args, **kwargs):
