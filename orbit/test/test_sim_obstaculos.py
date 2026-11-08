@@ -80,9 +80,9 @@ def test_tipos_coherentes():
 
 
 def test_describir():
-  assert so.describir({"tipo": "cono", "s": 80, "carril": 1, "lateral": 0.0, "giro": 0}) == "Cono · 80 m · carril 1 · +0,0 m"
+  assert so.describir({"tipo": "cono", "s": 80, "carril": 1, "lateral": 0.0, "giro": 0}) == "Cono • 80 m • carril 1 • +0,0 m"
   assert so.describir({"tipo": "coche", "s": 60, "carril": "ego", "lateral": -0.5, "giro": 90}) \
-    == "Coche · 60 m · mi carril · -0,5 m · 90°"
+    == "Coche • 60 m • mi carril • -0,5 m • 90°"
 
 
 def test_estado_conectado():

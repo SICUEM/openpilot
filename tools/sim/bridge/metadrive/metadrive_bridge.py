@@ -1,5 +1,14 @@
 import math
+import os
 from multiprocessing import Queue
+
+# En portatiles con grafica hibrida (Intel + NVIDIA, PRIME on-demand) el contexto OpenGL se
+# crea por defecto en la Intel y CUDA no puede compartir las imagenes de las camaras
+# (cudaErrorUnknown al registrar el buffer). Forzamos PRIME render offload a la NVIDIA antes
+# de importar metadrive y de crear su proceso, que hereda el entorno. Mismo arreglo que CARRO.
+if os.path.exists("/proc/driver/nvidia/version"):
+  os.environ.setdefault("__NV_PRIME_RENDER_OFFLOAD", "1")
+  os.environ.setdefault("__GLX_VENDOR_LIBRARY_NAME", "nvidia")
 
 from metadrive.component.sensors.base_camera import _cuda_enable
 

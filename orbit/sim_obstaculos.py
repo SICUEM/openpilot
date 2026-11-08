@@ -1,8 +1,6 @@
 #!/usr/bin/env python3
 """Escenario de obstaculos ESTATICOS para la simulacion MetaDrive del PC.
 
-Diseno: docs/superpowers/specs/2026-11-08-sim-obstaculos-design.md.
-
 La UI (seccion Simulacion del panel ORBIT) escribe el escenario en OrbitSimObstaculos y
 la sim (tools/sim, GestorObstaculos) lo lee y escribe lo que ha hecho en OrbitSimEstado.
 Este modulo es la UNICA definicion del formato para los dos lados.
@@ -39,12 +37,12 @@ ESTADO_MAX_EDAD_MS = 10_000
 TIPOS = {
   "cono":      {"nombre": "Cono",      "clase": "TrafficCone",    "modelo": "traffic_cone", "vehiculo": False},
   "barrera":   {"nombre": "Barrera",   "clase": "TrafficBarrier", "modelo": "barrier",      "vehiculo": False},
-  "triangulo": {"nombre": "Triangulo", "clase": "TrafficWarning", "modelo": None,           "vehiculo": False},
+  "triangulo": {"nombre": "Triángulo", "clase": "TrafficWarning", "modelo": None,           "vehiculo": False},
   "coche":     {"nombre": "Coche",     "clase": "DefaultVehicle", "modelo": "ferra",        "vehiculo": True},
   "compacto":  {"nombre": "Compacto",  "clase": "SVehicle",       "modelo": "beetle",       "vehiculo": True},
   "suv":       {"nombre": "SUV",       "clase": "MVehicle",       "modelo": "130",          "vehiculo": True},
   "furgoneta": {"nombre": "Furgoneta", "clase": "LVehicle",       "modelo": "lada",         "vehiculo": True},
-  "camion":    {"nombre": "Camion",    "clase": "XLVehicle",      "modelo": "truck",        "vehiculo": True},
+  "camion":    {"nombre": "Camión",    "clase": "XLVehicle",      "modelo": "truck",        "vehiculo": True},
 }
 ORDEN_TIPOS = list(TIPOS)
 
@@ -185,12 +183,14 @@ PRESETS = {
 # ---- textos -------------------------------------------------------------------------
 
 def describir(obst: dict) -> str:
-  """'Cono · 80 m · carril 1 · +0,0 m' (coma decimal, como el resto de la UI ORBIT)."""
+  """'Cono • 80 m • carril 1 • +0,0 m' (coma decimal, como el resto de la UI ORBIT).
+
+  El separador es '•' y no '·': la fuente de la UI no trae el punto medio y lo pinta '?'."""
   nombre = TIPOS.get(obst.get("tipo"), {}).get("nombre", str(obst.get("tipo")))
   carril = "mi carril" if obst["carril"] == CARRIL_EGO else f"carril {obst['carril']}"
-  texto = f"{nombre} · {obst['s']:.0f} m · {carril} · {obst['lateral']:+.1f} m".replace(".", ",")
+  texto = f"{nombre} • {obst['s']:.0f} m • {carril} • {obst['lateral']:+.1f} m".replace(".", ",")
   if obst.get("giro"):
-    texto += f" · {obst['giro']:.0f}°"
+    texto += f" • {obst['giro']:.0f}°"
   return texto
 
 

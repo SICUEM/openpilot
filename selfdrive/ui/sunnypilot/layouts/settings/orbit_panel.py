@@ -17,6 +17,7 @@ el coche o lo que tiene que funcionar con la red caida.
   * interruptor maestro LOCAL de privacidad,
   * QR de enrolamiento e IP del broker,
   * submenu Telemetria: que grupos de datos manda el dispositivo a la app,
+  * submenu Simulacion: obstaculos de la sim MetaDrive del PC (siempre visible),
   * "Restablecer valores seguros".
 
 Se fue a la app: la configuracion de camara. Los canales de telemetria sueltos (8 toggles)
@@ -50,6 +51,7 @@ from openpilot.system.ui.widgets.confirm_dialog import ConfirmDialog, alert_dial
 from openpilot.system.ui.widgets.scroller_tici import Scroller
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_sub_layouts.advanced_settings import AdvancedSettingsLayout
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_sub_layouts.server_settings import ServerRows
+from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_sub_layouts.simulacion import SimulacionLayout
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_sub_layouts.steer_mode import SteerModeRows
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_sub_layouts.telemetry_settings import TelemetrySettingsLayout
 
@@ -127,6 +129,7 @@ class PanelType(IntEnum):
   MAIN = 0
   ADVANCED = 1
   TELEMETRY = 2
+  SIMULACION = 3
 
 
 class _MandoCard(Widget):
@@ -303,6 +306,7 @@ class OrbitLayout(Widget):
     self._current_panel = PanelType.MAIN
     self._advanced_layout = AdvancedSettingsLayout(lambda: self._set_current_panel(PanelType.MAIN))
     self._telemetry_layout = TelemetrySettingsLayout(lambda: self._set_current_panel(PanelType.MAIN))
+    self._simulacion_layout = SimulacionLayout(lambda: self._set_current_panel(PanelType.MAIN))
 
     self._monitor = ServerMonitor()
     self._server_rows = ServerRows()
@@ -378,6 +382,16 @@ class OrbitLayout(Widget):
       callback=lambda: self._set_current_panel(PanelType.ADVANCED),
     )
 
+    # Siempre visible (decision del usuario): en un comma real no hay sim que lea el
+    # escenario y el subpanel lo dice ("Simulacion no conectada").
+    self._simulacion_button = button_item_sp(
+      title=lambda: tr("Obstáculos en la simulación"),
+      button_text=lambda: tr("ABRIR"),
+      description=lambda: tr("Conos, barreras y coches parados en la simulación MetaDrive del PC: " +
+                             "dónde van, de qué tipo y si se ponen al cargar el mapa."),
+      callback=lambda: self._set_current_panel(PanelType.SIMULACION),
+    )
+
     self._safe_reset_button = button_item_sp(
       title=lambda: tr("Restablecer valores seguros"),
       # "RESTABLECER" (11 caracteres) no cabe en los 300 px del ButtonAction y se partia
@@ -403,6 +417,7 @@ class OrbitLayout(Widget):
       self._privacy_toggle,
       self._telemetry_button,
       self._advanced_button,
+      self._simulacion_button,
       self._safe_reset_button,
     ]
 
@@ -530,6 +545,8 @@ class OrbitLayout(Widget):
     if panel == PanelType.TELEMETRY:
       # Relee los toggles al abrir: la app o el interruptor de privacidad pudieron cambiarlos.
       self._telemetry_layout.show_event()
+    if panel == PanelType.SIMULACION:
+      self._simulacion_layout.show_event()
 
   def _render(self, rect):
     if self._current_panel == PanelType.ADVANCED:
@@ -537,6 +554,9 @@ class OrbitLayout(Widget):
       return
     if self._current_panel == PanelType.TELEMETRY:
       self._telemetry_layout.render(rect)
+      return
+    if self._current_panel == PanelType.SIMULACION:
+      self._simulacion_layout.render(rect)
       return
 
     self._refresh_status()
