@@ -17,6 +17,7 @@ from openpilot.tools.sim.lib.common import vec3
 from openpilot.tools.sim.lib.camerad import W, H
 from openpilot.tools.sim.bridge.metadrive.metadrive_assets import patch_asset_loader
 from openpilot.tools.sim.bridge.metadrive.metadrive_modmenu import ModMenu
+from openpilot.tools.sim.bridge.metadrive.metadrive_obstaculos import GestorObstaculos
 from openpilot.tools.sim.bridge.metadrive.metadrive_maps import get_map_config
 
 C3_POSITION = Vec3(0.0, 0, 1.22)
@@ -97,6 +98,10 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
   modmenu = ModMenu(env, modmenu_opts or {})
   modmenu.create_hud()
 
+  # static obstacles from the OrbitSimObstaculos Param (configured in the ORBIT panel)
+  obstaculos = GestorObstaculos(env, (modmenu_opts or {}).get("map_name", "loop"))
+  obstaculos.place()
+
   def get_cam_as_rgb(cam):
     cam = env.engine.sensors[cam]
     cam.get_cam().reparentTo(env.vehicle.origin)
@@ -141,7 +146,9 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
 
       if should_reset:
         modmenu.clear()                        # engine.reset() asserts no stray spawned objects
+        obstaculos.clear()
         lane_idx_prev = reset()
+        obstaculos.place()
         start_time = None
 
     if mod_cmd_recv is not None:
@@ -152,8 +159,10 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
         modmenu.pending_reset = False
         env.config["traffic_density"] = modmenu.traffic_density
         modmenu.clear()                        # clear owned objects BEFORE reset (see C1)
+        obstaculos.clear()
         lane_idx_prev = reset()
         modmenu.on_reset()
+        obstaculos.place()
 
       if modmenu.pending_map is not None:
         name = modmenu.pending_map
@@ -161,9 +170,14 @@ def metadrive_process(dual_camera: bool, config: dict, camera_array, wide_camera
         env.config["map_config"] = get_map_config(name, modmenu.track_size)
         env.engine.map_manager.clear_stored_maps()   # bust the store_map cache
         modmenu.clear()                        # clear owned objects BEFORE reset (see C1)
+        obstaculos.clear()
+        obstaculos.map_name = name
         lane_idx_prev = reset()
         modmenu.on_reset()
+        obstaculos.place()
         modmenu.create_hud()                          # recreate HUD after engine reset
+
+    obstaculos.tick(rk.frame)
 
     is_engaged = op_engaged.is_set()
     if is_engaged and start_time is None:

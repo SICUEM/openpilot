@@ -60,7 +60,7 @@ Los modelos que hacen falta salen de los assets completos de MetaDrive 0.4.2.3 (
   "rev": 7,
   "activo": true,
   "obstaculos": [
-    {"tipo": "cono",  "s": 80.0,  "carril": 1, "lateral": 0.0},
+    {"tipo": "cono",  "s": 80.0,  "carril": "ego", "lateral": 0.0},
     {"tipo": "coche", "s": 150.0, "carril": 2, "lateral": -0.5, "giro": 0}
   ]
 }
@@ -68,7 +68,10 @@ Los modelos que hacen falta salen de los assets completos de MetaDrive 0.4.2.3 (
 
 - `rev`: la UI lo incrementa en cada cambio. La sim solo recoloca cuando cambia.
 - `s`: metros a lo largo de la ruta del ego, contados desde el punto de salida.
-- `carril`: 1 es el carril derecho, que es lo natural para quien lo configura. MetaDrive numera al revés (el índice 0 está junto a la línea central); la conversión se hace en la sim y se fija con un test.
+- `carril`: 1 es el carril de más a la derecha **en el punto donde cae el obstáculo**, o `"ego"`, el carril por el que sale el coche (es el valor por defecto y el que usan los presets).
+  - Comprobado en el spike: MetaDrive numera los carriles de izquierda a derecha (el índice 0 está junto a la línea amarilla), su eje lateral apunta a la derecha, y el ego sale siempre en el índice 0, el carril izquierdo.
+  - El número de carriles cambia según el mapa (2 en `loop`, 3 en el resto, 4 en los tramos de rampa). Con `"ego"`, "coche parado en mi carril" funciona en cualquier mapa.
+  - La conversión se hace en la sim y la fijan los tests.
 - `lateral`: metros respecto al centro del carril, positivo hacia la izquierda. Se limita a ±(ancho del carril) para no sacarlo de la calzada.
 - `giro`: grados sobre el rumbo del carril (opcional, 0 por defecto). Sirve para un coche cruzado o una barrera atravesada.
 - Límite de 30 obstáculos, para no hundir la física ni el tamaño del Param.
@@ -78,7 +81,7 @@ Los modelos que hacen falta salen de los assets completos de MetaDrive 0.4.2.3 (
 | `tipo` | Clase | Notas |
 |---|---|---|
 | `cono` | `TrafficCone` (static) | |
-| `barrera` | `TrafficBarrier` (static) | 2 m de ancho; con `giro=90` corta el carril |
+| `barrera` | `TrafficBarrier` (static) | 2 m de ancho; con `giro=0` ya queda atravesada y corta el carril (comprobado en el spike) |
 | `triangulo` | `TrafficWarning` (static) | El único que funciona sin los assets completos |
 | `coche` | `DefaultVehicle` | Sin policy, así que se queda parado; `render_vehicle=True` |
 | `compacto` / `suv` / `furgoneta` / `camion` | `SVehicle` / `MVehicle` / `LVehicle` / `XLVehicle` | Igual que `coche` |
