@@ -3,14 +3,16 @@ import json
 import time
 import secrets
 import threading
+import jwt
 import paho.mqtt.client as mqtt
 import cereal.messaging as messaging
 from cereal.services import SERVICE_LIST
+from openpilot.common.api import get_key_pair
 from openpilot.common.params import Params
 from openpilot.orbit import config_broker
 from openpilot.common.swaglog import cloudlog
 import os
-from .mqtt_comandos import CONN_SIN_BROKER_SECS, MQTTComandos, espera_reintento, tipo_dispositivo
+from .mqtt_comandos import CONN_SIN_BROKER_SECS, MQTTComandos, espera_reintento, escribir_resultado_desvinculo, tipo_dispositivo
 from .camera_sender import CameraSender
 from .command_state import get_command_plane
 from . import telemetria_v1 as tel2
@@ -135,6 +137,9 @@ class MQTTEnvioGeneral:
     self._pairing_code = None
     self.ENROLL_ANNOUNCE_SECS = 30.0
     self.ENROLL_TTL_S = 600
+    # Peticion de desvinculo firmada (contrato C3/C5). Ver _maybe_send_unlink.
+    self._last_unlink = float("-inf")
+    self.UNLINK_RETRY_SECS = 10.0
     # Diagnostico remoto (healthcheck): SubMaster propio de este hilo, perezoso.
     self._diag_sm = None
     # Motor de la telemetria v2 (seccion 7). Es puro: decide QUE canal toca y con que
@@ -1061,6 +1066,9 @@ class MQTTEnvioGeneral:
       # broker) para que la UI pueda pintar el QR sin conexion; el publish va
       # gateado por conexion dentro del propio metodo. Best-effort.
       self._maybe_announce_enroll()
+      # Desvinculo pedido desde la pantalla del comma: peticion firmada cada 10 s hasta
+      # que el backend conteste (la respuesta la atiende MQTTComandos.handle_unlink_ack).
+      self._maybe_send_unlink()
 
       # Verificar conexión antes de intentar enviar (evita encolar mensajes)
       # Usar verificación más simple: si está conectado según el callback
@@ -2103,6 +2111,44 @@ class MQTTEnvioGeneral:
         self._last_enroll = now
     except Exception as e:
       cloudlog.warning(f"[Bemposta] _maybe_announce_enroll fallo: {e}")
+
+  def _maybe_send_unlink(self):
+    """Mientras la UI mantenga OrbitUnlinkRequest, publica la peticion de desvinculo
+    firmada en telemetry_mqtt/<dongle>/unlink (qos=1, retain=False) cada UNLINK_RETRY_SECS.
+
+    Payload {"v": 1, "token": JWT}; el JWT lleva la clave privada del comma y SOLO los
+    claims {identity, orbit:"unlink", nonce}. Sin `exp` a proposito: la frescura la da el
+    nonce (el reloj del comma puede estar sin sincronizar).
+
+    Sin clave o sin nonce no se publica nada: se escribe OrbitUnlinkResult y se borra la
+    peticion para que la UI no se quede esperando. Sin conexion se espera (la peticion
+    sobrevive). Best-effort: cualquier fallo se loguea y NUNCA rompe el loop.
+    """
+    try:
+      if not self.params.get_bool("OrbitUnlinkRequest"):
+        self._last_unlink = float("-inf")   # la proxima peticion sale sin esperar
+        return
+      alg, privada, _ = get_key_pair()
+      nonce = self.params.get("OrbitUnlinkNonce")
+      if isinstance(nonce, bytes):
+        nonce = nonce.decode(errors="ignore")
+      motivo = "no_key" if not (alg and privada) else "no_nonce" if not nonce else ""
+      if motivo:
+        escribir_resultado_desvinculo(self.params, False, motivo)
+        self.params.remove("OrbitUnlinkRequest")
+        return
+      if not (self.conectado and self.dongle_valido):
+        return
+      ahora = time.monotonic()
+      if ahora - self._last_unlink < self.UNLINK_RETRY_SECS:
+        return
+      self._last_unlink = ahora
+      d = self.DongleID
+      token = jwt.encode({"identity": d, "orbit": "unlink", "nonce": nonce}, privada, algorithm=alg)
+      self.mqttc.publish(f"telemetry_mqtt/{d}/unlink", json.dumps({"v": 1, "token": token}), qos=1, retain=False)
+      cloudlog.warning("[ORBIT ENROLL] peticion de desvinculo publicada")
+    except Exception as e:
+      cloudlog.warning(f"[Bemposta] _maybe_send_unlink fallo: {e}")
 
   def enviar_datos_importantes(self, canal, datos):
     claves = self.keys_importantes_por_canal.get(canal, [])

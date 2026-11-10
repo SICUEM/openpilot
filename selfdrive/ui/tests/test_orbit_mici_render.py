@@ -215,14 +215,39 @@ assert pila[-1] is panel, [type(w).__name__ for w in pila]
 assert device._override_interactive_timeout is None
 assert panel._cuenta == "Adrian • superadmin" and not panel._btn_vincular.is_visible
 assert panel._btn_desvincular.is_visible
-abre(panel._btn_desvincular, PaginaConfirmacion)
+# Desvincular: la confirmacion dice a quien esta vinculado y que pasa; confirmar SOLO pide
+# el desvinculo al servidor (el estado local no se toca: lo limpia su respuesta).
+pagina = abre(panel._btn_desvincular, PaginaConfirmacion)
+textos = " ".join(str(w.value) for w in pagina._scroller.items if hasattr(w, "value"))
+assert "Adrian Garcia" in textos and "QR" in textos and "sola" not in textos, textos
+if os.environ.get("ORBIT_PNG"):
+  # Captura para revisar a ojo: la primera tarjeta es el titulo, se baja hasta la del texto.
+  pagina._scroller.scroll_to(int(os.environ.get("ORBIT_PNG_SCROLL", "0")))
+  frames(120)
+  img = rl.load_image_from_texture(rt.texture)
+  rl.image_flip_vertical(img)
+  rl.export_image(img, os.environ["ORBIT_PNG"])
 cierra()
-
-# Desvincular y reabrir: el MISMO dialogo (gc.disable() en el proceso ui: uno por toque
-# dejaba su textura en la GPU) y, sin codigo, ni QR ni cuenta atras.
 panel._desvincular()
+frames(5)
+assert p.get_bool("OrbitUnlinkRequest") and p.get_bool("OrbitClaimed") and p.get("OrbitOwner") == "Adrian Garcia"
+assert panel._btn_desvincular.is_visible and "esperando al servidor" in str(panel._btn_desvincular.value), panel._btn_desvincular.value
+# El servidor rechaza: el comma borra la peticion y deja el resultado; sale UNA vez.
+p.remove("OrbitUnlinkRequest")
+p.put("OrbitUnlinkResult", '{"ok":false,"reason":"bad_signature","ts":1}', True)
+frames(5)
+assert isinstance(pila[-1], BigDialog) and p.get("OrbitUnlinkResult") is None
+cierra()
+frames(5)
+assert pila[-1] is panel
+# El servidor la libera: llega el enroll_ack claimed:false (aqui sus efectos en Params).
+p.put_bool("OrbitClaimed", False, True)
+p.remove("OrbitOwner")
+p.remove("OrbitOwnerRole")
 p.remove("OrbitPairingCode")
 frames(5)
+# Reabrir el QR: el MISMO dialogo (gc.disable() en el proceso ui: uno por toque dejaba su
+# textura en la GPU) y, sin codigo, ni QR ni cuenta atras.
 assert abre(panel._btn_vincular) is dialogo and dialogo._codigo == ""
 cierra()
 

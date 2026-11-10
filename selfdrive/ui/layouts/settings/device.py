@@ -10,6 +10,7 @@ from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.selfdrive.ui.layouts.onboarding import TrainingGuide
 from openpilot.selfdrive.ui.widgets.pairing_dialog import PairingDialog
 from openpilot.selfdrive.ui.widgets.orbit_enroll_dialog import OrbitEnrollDialog
+from openpilot.selfdrive.ui.widgets import orbit_ajustes as ajustes
 from openpilot.selfdrive.ui.widgets.orbit_mando import PARAM_OWNER_ROLE, rol_etiqueta
 from openpilot.system.ui.lib.application import FontWeight, gui_app
 from openpilot.system.ui.lib.multilang import multilang, tr, tr_noop
@@ -61,9 +62,9 @@ class DeviceLayout(Widget):
     self._orbit_account_row = text_item(lambda: tr("Cuenta ORBIT"), self._orbit_account_text)
     self._orbit_account_row.set_visible(self._orbit_claimed)
 
-    self._orbit_unlink_btn = button_item(lambda: tr("Desvincular ORBIT"), lambda: tr("QUITAR"),
-                                         lambda: tr("Reinicia el enlace ORBIT en este dispositivo. Si la cuenta sigue vinculada en el servidor, " +
-                                                    "se volverá a vincular sola; para desvincularla del todo usa la app ORBIT."),
+    self._orbit_unlink_btn = button_item(lambda: tr("Desvincular ORBIT"), self._orbit_unlink_label,
+                                         lambda: tr("Desvincula este dispositivo de su cuenta ORBIT en el servidor. " +
+                                                    "Dejará de salir en la app y habrá que volver a vincularlo con el QR."),
                                          callback=self._orbit_unlink_prompt, button_style=ButtonStyle.DANGER)
     self._orbit_unlink_btn.set_visible(self._orbit_claimed)
 
@@ -118,29 +119,42 @@ class DeviceLayout(Widget):
   def _orbit_account_text(self) -> str:
     return " • ".join(x for x in (self._orbit_owner(), self._orbit_role()) if x) or tr("N/A")
 
+  # Estado del desvinculo en el boton mientras hay peticion; "QUITAR" si no.
+  def _orbit_unlink_label(self) -> str:
+    try:
+      if not self._params.get_bool(ajustes.PARAM_UNLINK_REQUEST):
+        return tr("QUITAR")
+    except UnknownKeyName:
+      return tr("QUITAR")
+    return ajustes.estado_desvinculo(self._params, ajustes.enlace_orbit(self._params))
+
   def _orbit_unlink_prompt(self):
     def perform_unlink(result: DialogResult):
       if result != DialogResult.CONFIRM:
         return
-      try:
-        self._params.put_bool("OrbitClaimed", False)
-        self._params.remove("OrbitOwner")
-        self._params.remove(PARAM_OWNER_ROLE)
-        # Fuerza un codigo nuevo: el de antes se borro al reclamar y, sin esto, el QR
-        # sale vacio hasta que caduque el TTL del codigo en memoria (600 s).
-        self._params.put_bool("OrbitEnrollRegen", True)
-      except UnknownKeyName:
-        cloudlog.exception("OrbitClaimed/OrbitOwner not registered")
+      # Solo pide el desvinculo al servidor: el estado local lo limpia su respuesta (borrarlo
+      # aqui haria que el servidor, que aun ve la vinculacion, la restaurara solo).
+      if fallos := ajustes.pedir_desvinculo(self._params):
+        gui_app.push_widget(alert_dialog(tr("Desvínculo incompleto: ") + ", ".join(fallos)))
 
-    dialog = ConfirmDialog(tr("¿Seguro que quieres reiniciar el enlace ORBIT de este dispositivo?"),
-                           tr("Desvincular"), callback=perform_unlink)
+    dialog = ConfirmDialog(ajustes.texto_desvincular(self._orbit_owner()), tr("Desvincular"), callback=perform_unlink)
     gui_app.push_widget(dialog)
+
+  # Un desvinculo fallido se cuenta UNA vez (lo consume); lo llama el render del layout.
+  def _orbit_unlink_failure_check(self):
+    try:
+      fallo = ajustes.fallo_desvinculo_pendiente(self._params)
+    except UnknownKeyName:
+      return
+    if fallo:
+      gui_app.push_widget(alert_dialog(tr("No se pudo desvincular: ") + fallo))
 
   def show_event(self):
     super().show_event()
     self._scroller.show_event()
 
   def _render(self, rect):
+    self._orbit_unlink_failure_check()
     self._scroller.render(rect)
 
   def _show_language_dialog(self):

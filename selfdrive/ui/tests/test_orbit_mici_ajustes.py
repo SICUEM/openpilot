@@ -94,12 +94,54 @@ def test_enlace_orbit(monkeypatch):
   assert not aj.enlace_orbit(_Params({"OrbitConnected": True}))
 
 
-def test_desvincular_borra_dueno_y_rol_y_pide_codigo(params):
-  params.d.update({"OrbitClaimed": True, "OrbitOwner": "Ana", "OrbitOwnerRole": "developer"})
-  assert aj.desvincular(params) == []
-  assert params.d["OrbitClaimed"] is False and params.d["OrbitEnrollRegen"] is True
-  assert "OrbitOwner" not in params.d and "OrbitOwnerRole" not in params.d
-  assert aj.desvincular(_Params(rotas={"OrbitOwnerRole"})) == ["OrbitOwnerRole"]  # independientes
+def test_pedir_desvinculo_pone_la_peticion_y_no_borra_el_estado_local(params):
+  params.d.update({"OrbitClaimed": True, "OrbitOwner": "Ana", "OrbitOwnerRole": "developer",
+                   "OrbitUnlinkResult": '{"ok":false,"reason":"no_key","ts":1}'})
+  assert aj.pedir_desvinculo(params) == []
+  assert params.d["OrbitUnlinkRequest"] is True and "OrbitUnlinkResult" not in params.d   # resultado rancio fuera
+  # Contrato C5: borrar el estado local haria que el servidor, que aun ve la vinculacion, la restaurara.
+  assert params.d["OrbitClaimed"] is True and params.d["OrbitOwner"] == "Ana" and params.d["OrbitOwnerRole"] == "developer"
+  assert "OrbitEnrollRegen" not in params.d
+  assert aj.pedir_desvinculo(_Params(rotas={"OrbitUnlinkRequest"})) == ["OrbitUnlinkRequest"]
+
+
+def test_estado_desvinculo():
+  assert aj.estado_desvinculo(_Params(), True) == ""
+  assert aj.estado_desvinculo(_Params({"OrbitUnlinkRequest": True}), True) == "desvinculando..."
+  assert aj.estado_desvinculo(_Params({"OrbitUnlinkRequest": True}), False) == "esperando al servidor"
+
+
+@pytest.mark.parametrize("reason,texto", [
+  ("no_key", "este comma se vinculó sin clave de dispositivo; desvincúlalo desde la app ORBIT"),
+  ("no_nonce", "conecta el comma a internet y vuelve a intentarlo"),
+  ("bad_signature", "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT"),
+  ("bad_nonce", "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT"),
+  ("bad_request", "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT"),
+])
+def test_texto_fallo_desvinculo(reason, texto):
+  assert aj.texto_fallo_desvinculo(json.dumps({"ok": False, "reason": reason, "ts": 1})) == texto
+  assert aj.texto_fallo_desvinculo(json.dumps({"ok": False, "reason": reason}).encode()) == texto
+
+
+def test_texto_fallo_desvinculo_otros_casos():
+  assert "app ORBIT" in aj.texto_fallo_desvinculo({"ok": False, "reason": "raro"})   # motivo desconocido: generico
+  assert aj.texto_fallo_desvinculo({"ok": True, "reason": ""}) == ""
+  for nada in (None, "", b"", "no json", "[]", {"reason": "no_key"}):
+    assert aj.texto_fallo_desvinculo(nada) == ""
+
+
+def test_el_fallo_de_desvinculo_sale_una_sola_vez():
+  p = _Params({"OrbitUnlinkResult": '{"ok":false,"reason":"no_nonce","ts":1}'})
+  assert aj.fallo_desvinculo_pendiente(p) == "conecta el comma a internet y vuelve a intentarlo"
+  assert aj.fallo_desvinculo_pendiente(p) == "" and "OrbitUnlinkResult" not in p.d
+  ok = _Params({"OrbitUnlinkResult": '{"ok":true,"reason":"","ts":1}'})
+  assert aj.fallo_desvinculo_pendiente(ok) == ""
+
+
+def test_texto_desvincular_dice_el_dueno_y_lo_que_pasa():
+  t = aj.texto_desvincular("Ana Perez")
+  assert "Ana Perez" in t and "dejará de salir en la app ORBIT" in t and "QR" in t and "sola" not in t
+  assert "una cuenta ORBIT" in aj.texto_desvincular(None) and "una cuenta ORBIT" in aj.texto_desvincular("  ")
 
 
 # --------------------------------------------------------------------------- mando

@@ -156,27 +156,81 @@ def texto_caducidad(expiry_raw, ahora_ms: int) -> str:
   return f"caduca en {minutos}:{segundos:02d}"
 
 
-def desvincular(params) -> list[str]:
-  """Desvinculo LOCAL: las mismas escrituras en las dos pantallas. Devuelve los fallos.
+PARAM_UNLINK_REQUEST = "OrbitUnlinkRequest"
+PARAM_UNLINK_RESULT = "OrbitUnlinkResult"
 
-  Se borra tambien el rol (contrato C2) y se pide un codigo nuevo (OrbitEnrollRegen):
-  OrbitPairingCode se borro al vincular y, sin esto, el QR salia con `c=` vacio hasta
-  que caducaba el codigo en memoria del hilo MQTT.
+# Por que fallo el desvinculo, en lenguaje de persona (codigos de contrato C4/C5).
+_MOTIVOS_DESVINCULO = {
+  "no_key": "este comma se vinculó sin clave de dispositivo; desvincúlalo desde la app ORBIT",
+  "no_nonce": "conecta el comma a internet y vuelve a intentarlo",
+  "bad_signature": "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT",
+  "bad_nonce": "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT",
+  "bad_request": "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT",
+}
+
+
+def texto_desvincular(owner) -> str:
+  """Texto de la confirmacion de las dos pantallas: a quien esta vinculado y que pasa."""
+  owner = owner.strip() if isinstance(owner, str) else ""
+  quien = owner or "una cuenta ORBIT"
+  return (f"Este comma está vinculado a {quien}. Si lo desvinculas, dejará de salir en la app ORBIT de esa " +
+          "cuenta y tendrás que volver a vincularlo con el QR.")
+
+
+def pedir_desvinculo(params) -> list[str]:
+  """Pide al comma que se desvincule en el SERVIDOR (contrato C5). Devuelve los fallos.
+
+  NO borra el estado local (OrbitClaimed, OrbitOwner...): si se borrara, el anuncio de
+  enroll haria que el backend, que aun ve la vinculacion, la restaurara solo. El estado
+  local lo limpia el enroll_ack claimed:false cuando el servidor la libera de verdad. El
+  resultado anterior se limpia ANTES de poner la peticion para no leer uno rancio.
   """
   fallos: list[str] = []
-  pasos = (
-    ("OrbitClaimed", lambda: params.put_bool("OrbitClaimed", False, True)),
-    (mando.PARAM_OWNER, lambda: params.remove(mando.PARAM_OWNER)),
-    (mando.PARAM_OWNER_ROLE, lambda: params.remove(mando.PARAM_OWNER_ROLE)),
-    ("OrbitEnrollRegen", lambda: params.put_bool("OrbitEnrollRegen", True, True)),
-  )
-  for clave, paso in pasos:
+  for clave, paso in (
+    (PARAM_UNLINK_RESULT, lambda: params.remove(PARAM_UNLINK_RESULT)),
+    (PARAM_UNLINK_REQUEST, lambda: params.put_bool(PARAM_UNLINK_REQUEST, True, True)),
+  ):
     try:
       paso()
     except Exception:
       cloudlog.exception(f"[Orbit/UI] desvincular: fallo {clave}")
       fallos.append(clave)
   return fallos
+
+
+def estado_desvinculo(params, enlace: bool) -> str:
+  """Texto para la baldosa/boton mientras hay peticion en curso; '' si no la hay."""
+  try:
+    if not params.get_bool(PARAM_UNLINK_REQUEST):
+      return ""
+  except Exception:
+    return ""
+  return "desvinculando..." if enlace else "esperando al servidor"
+
+
+def texto_fallo_desvinculo(resultado) -> str:
+  """Texto del fallo de un OrbitUnlinkResult (JSON, bytes o dict); '' si no fallo o no se lee."""
+  try:
+    if isinstance(resultado, (bytes, str)):
+      resultado = json.loads(resultado)
+    if not isinstance(resultado, dict) or resultado.get("ok") is not False:
+      return ""
+    motivo = resultado.get("reason")
+  except (ValueError, TypeError):
+    return ""
+  return _MOTIVOS_DESVINCULO.get(motivo, "no se pudo desvincular; desvincúlalo desde la app ORBIT")
+
+
+def fallo_desvinculo_pendiente(params) -> str:
+  """Si el ultimo desvinculo fallo, devuelve su texto UNA sola vez (borra el resultado)."""
+  try:
+    texto = texto_fallo_desvinculo(params.get(PARAM_UNLINK_RESULT))
+    if texto:
+      params.remove(PARAM_UNLINK_RESULT)
+    return texto
+  except Exception:
+    cloudlog.exception("[Orbit/UI] no se pudo leer OrbitUnlinkResult")
+    return ""
 
 
 # ======================================================================== mando

@@ -159,6 +159,10 @@ class OrbitLayoutMici(NavScroller):
     self._btn_volante.set_value(f"{nombre_modo(modo)}\n{estado.lower()}")
 
     self._tarjeta_cuenta.set_value(self._cuenta)
+    # Desvinculo en curso: la baldosa dice en que punto va; un fallo sale UNA vez.
+    self._btn_desvincular.set_value(ajustes.estado_desvinculo(p, self._enlace) or "quitar la cuenta")
+    if fallo := ajustes.fallo_desvinculo_pendiente(p):
+      aviso("no se pudo desvincular", fallo)
     ip, _ = read_broker()
     self._btn_servidor.set_value(ip or "sin configurar")
 
@@ -279,13 +283,13 @@ class OrbitLayoutMici(NavScroller):
 
   @a_salvo("desvincular", avisar=True)
   def _pedir_desvincular(self) -> None:
-    texto = ("Reinicia el enlace ORBIT en este dispositivo. Si la cuenta sigue vinculada en el servidor, " +
-             "se volverá a vincular sola; para desvincularla del todo usa la app ORBIT.")
+    texto = ajustes.texto_desvincular(ui_state.params.get(mando.PARAM_OWNER))
     gui_app.push_widget(PaginaConfirmacion("desvincular", texto, "desliza para\ndesvincular", self._desvincular, rojo=True))
 
   @a_salvo("desvincular", avisar=True)
   def _desvincular(self) -> None:
-    fallos = ajustes.desvincular(ui_state.params)
+    # Solo pide el desvinculo al servidor; el estado local lo limpia su respuesta.
+    fallos = ajustes.pedir_desvinculo(ui_state.params)
     self._forzar_refresco()
     if fallos:
       aviso("desvínculo incompleto", "\n".join(fallos))

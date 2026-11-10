@@ -25,6 +25,7 @@ import json
 import time
 import threading
 import paho.mqtt.client as mqtt
+from openpilot.common.api import get_key_pair
 from openpilot.common.params import Params
 from openpilot.orbit import config_broker
 from openpilot.common.swaglog import cloudlog
@@ -76,6 +77,16 @@ def tipo_dispositivo() -> str | None:
   except Exception:
     cloudlog.exception("[Orbit] no se pudo leer el tipo de dispositivo")
     return None
+
+
+def escribir_resultado_desvinculo(params, ok: bool, reason: str = "") -> None:
+  """Deja en OrbitUnlinkResult el desenlace de la peticion de desvinculo (contrato C5).
+  Lo lee la UI del comma. Nunca lanza."""
+  try:
+    resultado = {"ok": bool(ok), "reason": reason, "ts": int(time.time_ns() // 1_000_000_000)}
+    params.put("OrbitUnlinkResult", json.dumps(resultado, separators=(",", ":")))
+  except Exception:
+    cloudlog.exception("[ORBIT ENROLL] no se pudo escribir OrbitUnlinkResult")
 
 
 class MQTTComandos:
@@ -221,6 +232,12 @@ class MQTTComandos:
       # Modelo del comma para que backend y app distingan comma 4 (mici) de 3X (tizi).
       if tipo := tipo_dispositivo():
         payload["device_type"] = tipo
+      # Clave publica del comma (contrato C1): el backend la fija a la vinculacion y con
+      # ella verifica la peticion de desvinculo. Sin clave (PC, simulador) se omite.
+      alg, pub = self._clave_publica()
+      if alg and pub:
+        payload["pubkey"] = pub
+        payload["key_alg"] = alg
       # La huella ignora ts_ms: si no, cambiaria en cada tick y republicaria siempre.
       huella = json.dumps({k: v for k, v in payload.items() if k != "ts_ms"}, sort_keys=True)
       if not forzar and huella == self._caps_huella:
@@ -234,6 +251,31 @@ class MQTTComandos:
     except Exception:
       cloudlog.exception("[Orbit] no se pudieron publicar las capacidades")
       return False
+
+  # Cache de la clave publica para caps: maybe_publish_caps corre en cada tick y
+  # get_key_pair lee dos ficheros. Una lectura con clave se guarda para siempre; una sin
+  # clave se repite cada CLAVE_REINTENTO_S (la clave aparece tras el registro del comma).
+  CLAVE_REINTENTO_S = 60.0
+  _clave_pub = None
+  _clave_pub_t = float("-inf")
+
+  def _clave_publica(self):
+    """(alg, public_pem) o (None, None). Nunca lanza."""
+    if self._clave_pub is not None:
+      return self._clave_pub
+    ahora = time.monotonic()
+    if ahora - self._clave_pub_t < self.CLAVE_REINTENTO_S:
+      return None, None
+    self._clave_pub_t = ahora
+    try:
+      alg, _, pub = get_key_pair()
+    except Exception:
+      cloudlog.exception("[Orbit] no se pudo leer la clave del dispositivo")
+      return None, None
+    if alg and pub:
+      self._clave_pub = (alg, pub)
+      return self._clave_pub
+    return None, None
 
   # ----------------------------------------------------------- ejecutores de verbo
   # Corren en el hilo worker del router (NUNCA en el de red) y solo despues de que el
@@ -598,6 +640,7 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/camera_config",   # Configuración de cámara desde app ORBIT
         f"telemetry_config/{self.DongleID}/steer_torque_mode", # Modo de torque del volante (por dongle_id)
         f"telemetry_config/{self.DongleID}/enroll_ack",      # Ack de enrolamiento ORBIT (backend → firmware)
+        f"telemetry_config/{self.DongleID}/unlink_ack",      # Respuesta a la peticion de desvinculo (backend → firmware)
         f"telemetry_config/{self.DongleID}/healthcheck"      # Peticion de diagnostico remoto (backend/app → firmware)
       ]
 
@@ -757,7 +800,7 @@ class MQTTComandos:
     Otro que tampoco es mando: `orbit/v2/dev/<dongle>/roundabout` ("1"/"0", senal de prueba)
     solo escribe el param OrbitDevRoundabout, sin router, sobre ni ACK.
 
-    Los TRES topics v1 que NO son verbos y por tanto no pasan por el router, con lo que
+    Los topics v1 que NO son verbos y por tanto no pasan por el router, con lo que
     hace cada uno (revisado uno a uno; ninguno mueve un actuador):
 
       /camera_config    enciende/apaga el envio de imagenes y su frecuencia. Es privacidad
@@ -766,6 +809,8 @@ class MQTTComandos:
       /enroll_ack       marca el dispositivo como reclamado/liberado (OrbitClaimed,
                         OrbitOwner, OrbitOwnerRole, codigo de emparejamiento). Es
                         identidad.
+      /unlink_ack       respuesta a la peticion de desvinculo firmada que publica el hilo
+                        de telemetria; solo limpia/escribe los params OrbitUnlink*.
       /speed_increment  guarda el tamano del paso de crucero (param FLOAT). No mueve el
                         coche por si mismo, y el consumidor lo acota ademas a [1, 5] km/h,
                         que es el limite por orden que declara el verbo cruise_delta.
@@ -835,6 +880,9 @@ class MQTTComandos:
         return
       if topic.endswith("/enroll_ack"):
         self.handle_enroll_ack(payload)
+        return
+      if topic.endswith("/unlink_ack"):
+        self.handle_unlink_ack(payload)
         return
       if topic.endswith("/speed_increment"):
         self.handle_speed_increment_config(payload)
@@ -1232,6 +1280,11 @@ class MQTTComandos:
           self.params.put("OrbitOwner", owner)
         rol = data.get("user_role")
         self._poner_rol_dueno(rol if rol in ROLES_DUENO else None)
+        # Nonce de desvinculo de esta vinculacion (contrato C2): solo si cambia, el ack
+        # retenido se re-entrega en cada reconexion. Ausente (backend viejo): se deja como esta.
+        nonce = data.get("unlink_nonce")
+        if isinstance(nonce, str) and 0 < len(nonce) <= 128 and self.params.get("OrbitUnlinkNonce") != nonce:
+          self.params.put("OrbitUnlinkNonce", nonce)
         cloudlog.warning(f"[ORBIT ENROLL] Dispositivo reclamado (user_id={data.get('user_id')}, owner={owner!r}, ts={data.get('ts')})")
         print("[ORBIT ENROLL] Dispositivo reclamado, OrbitClaimed=True")
       elif claimed is False:
@@ -1240,6 +1293,10 @@ class MQTTComandos:
         self.params.remove("OrbitPairingCode")
         self.params.put_bool("OrbitEnrollRegen", True)
         self._poner_rol_dueno(None)
+        # La vinculacion murio en el servidor: no hay nada que pedir ni nonce que guardar.
+        self.params.remove("OrbitUnlinkRequest")
+        self.params.remove("OrbitUnlinkNonce")
+        escribir_resultado_desvinculo(self.params, True)
         cloudlog.warning(f"[ORBIT ENROLL] Dispositivo liberado (unclaim, ts={data.get('ts')})")
         print("[ORBIT ENROLL] Dispositivo liberado, OrbitClaimed=False")
       else:
@@ -1247,6 +1304,39 @@ class MQTTComandos:
 
     except Exception as e:
       print(f"[ORBIT ENROLL] ERROR handle_enroll_ack: {e}")
+
+  def handle_unlink_ack(self, payload):
+    """Respuesta del backend a la peticion de desvinculo (contrato C4).
+
+    Topic: telemetry_config/{dongle_id}/unlink_ack, payload
+    {"ok": bool, "reason": str (solo si ok=false), "ts": <epoch s>}.
+
+    Solo se atiende con una peticion en curso: el broker es abierto y un ack suelto no
+    tiene por que tocar nada. ok=true limpia peticion y nonce (el estado local lo
+    limpia el enroll_ack claimed:false que el backend publica a la vez). ok=false, con
+    cualquier motivo (tambien "no_key": una vinculacion sin clave ya no la tendra nunca,
+    enmienda 1), se reintentaria con el mismo resultado: se escribe y se da por perdido.
+    """
+    try:
+      if not self.params.get_bool("OrbitUnlinkRequest"):
+        return
+      data = json.loads(payload)
+      if not isinstance(data, dict) or not isinstance(data.get("ok"), bool):
+        cloudlog.warning(f"[ORBIT ENROLL] unlink_ack sin ok valido, ignorado: {payload!r:.120}")
+        return
+      if data["ok"]:
+        self.params.remove("OrbitUnlinkRequest")
+        self.params.remove("OrbitUnlinkNonce")
+        escribir_resultado_desvinculo(self.params, True)
+        cloudlog.warning("[ORBIT ENROLL] desvinculo confirmado por el servidor")
+        return
+      motivo = data.get("reason")
+      motivo = motivo if isinstance(motivo, str) and motivo else "bad_request"
+      escribir_resultado_desvinculo(self.params, False, motivo[:40])
+      self.params.remove("OrbitUnlinkRequest")
+      cloudlog.warning(f"[ORBIT ENROLL] desvinculo rechazado por el servidor: {motivo[:40]}")
+    except Exception as e:
+      cloudlog.warning(f"[ORBIT ENROLL] ERROR handle_unlink_ack: {e}")
 
   def _poner_rol_dueno(self, rol):
     """Escribe (o borra con None) OrbitOwnerRole SOLO si cambia: el backend republica el
