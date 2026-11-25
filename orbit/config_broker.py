@@ -61,7 +61,11 @@ RUTAS_LEGACY = ("/data/safe_staging/old_openpilot/orbit/config_mqtt.json",)
 
 # Lo unico que se persiste. Cualquier otra clave del fichero de /data se ignora al leer:
 # en lo que no es del usuario manda la plantilla.
-CLAVES = ("broker", "broker_port", "backend_port", "username", "password")
+# servidor/legacy: un dict persistido sustituye ENTERO al de la plantilla (cambiar el host
+# de un coche por SSH sin release; legacy.activo lo escribe conexion_mqtt cuando lo manda
+# el servidor).
+CLAVES_LEGACY = ("broker", "broker_port", "backend_port", "username", "password")
+CLAVES = CLAVES_LEGACY + ("servidor", "legacy")
 
 VALORES_POR_DEFECTO = {
   "broker": "",
@@ -69,6 +73,8 @@ VALORES_POR_DEFECTO = {
   "backend_port": 8010,
   "username": "",
   "password": "",
+  "servidor": {"host": "", "transporte": "mqtts", "puerto": 8443, "path": "/mqtt", "tls": True},
+  "legacy": {"activo": True},
 }
 
 _lock = threading.Lock()
@@ -149,7 +155,9 @@ def _migrar_si_hace_falta() -> None:
       legacy = _leer_json(ruta_legacy)
       if _vacio(legacy.get("broker")):
         continue
-      salvar = {k: legacy[k] for k in CLAVES if k in legacy and not _vacio(legacy[k])}
+      # Solo el bloque legacy: congelar servidor/legacy de la plantilla en /data impediria
+      # que una release posterior los cambie.
+      salvar = {k: legacy[k] for k in CLAVES_LEGACY if k in legacy and not _vacio(legacy[k])}
       if _escribir_json(RUTA_PERSISTENTE, salvar):
         _migracion_hecha = True
         cloudlog.warning(f"[Orbit] broker migrado de {ruta_legacy} a {RUTA_PERSISTENTE}: {salvar.get('broker')}")
@@ -162,7 +170,7 @@ def leer_config() -> dict:
   """Plantilla + persistido por encima. Nunca lanza: sin ficheros devuelve los valores por
   defecto, y un fichero corrupto cuenta como ausente."""
   _migrar_si_hace_falta()
-  cfg = dict(VALORES_POR_DEFECTO)
+  cfg = {k: dict(v) if isinstance(v, dict) else v for k, v in VALORES_POR_DEFECTO.items()}
   cfg.update(_leer_json(RUTA_PLANTILLA))
   ruta = ruta_config()
   if ruta != RUTA_PLANTILLA:

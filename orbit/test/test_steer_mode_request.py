@@ -111,13 +111,13 @@ def test_mode_1_escribe_la_peticion_sin_tocar_el_volante(entorno):
   assert pet["v"] == 1 and pet["id"] == "m1" and pet["mode"] == 1 and pet["apply_target"] is None
   assert 25 < pet["deadline_mono"] - ahora_mono() <= 30
   assert _fases(pub, "m1")[-1] == Phase.ACCEPTED and Phase.EXECUTING not in _fases(pub, "m1")
-  assert pm.texto(pm.tick(params)) == "La app pide modo JETSON"
+  assert pm.texto(pm.tick(params)) == "La app pide Jetson"
 
 
 def test_aceptar_aplica_el_modo_y_cierra_applied(entorno):
   r, pub, params = entorno
   _pide(r, "m3", 3, "torque")
-  assert pm.texto(pm.tick(params)) == "La app pide modo COMMA+JETSON (TORQUE)"
+  assert pm.texto(pm.tick(params)) == "La app pide Comma + Jetson"
   assert pm.aceptar(params, engaged=False)
   assert params.get("SteerTorqueMode", return_default=True) == 3 and params.get("JetsonObstacleApplyTarget") == "torque"
   assert params.get("OrbitSteerModeRequest") is None
@@ -201,3 +201,22 @@ def test_peticion_basura_no_se_pinta(entorno):
                 '{"v":1,"id":"x","mode":3,"apply_target":null,"deadline_mono":1e12}'):
     params.put("OrbitSteerModeRequest", crudo, True)
     assert pm.tick(params) is None and params.get("OrbitSteerModeRequest") is None
+
+
+def test_activar_remote_off_cierra_la_peticion_pendiente(entorno):
+  from openpilot.selfdrive.ui.widgets import orbit_ajustes
+  r, pub, params = entorno
+  _pide(r, "m1", 1)
+  assert orbit_ajustes.cambiar_remoto(params, True) == []
+  assert params.get("OrbitSteerModeRequest") is None
+  _router_lee_resultado(r)
+  ack = _ultimo(pub, "m1")
+  assert (ack["phase"], ack["reason"]) == (Phase.REJECTED, "REMOTE_OFF")
+
+
+def test_con_remote_off_la_pantalla_no_muestra_peticiones(entorno):
+  r, pub, params = entorno
+  _pide(r, "m1", 1)
+  params.put_bool("OrbitRemoteOff", True, True)
+  assert pm.tick(params) is None and not pm.aceptar(params, engaged=False)
+  assert params.get("SteerTorqueMode", return_default=True) == 0 and params.get("OrbitSteerModeRequest") is None

@@ -500,7 +500,9 @@ def test_si_el_plano_no_la_publica_a_tiempo_se_decide_igual_y_sin_id(consumidor)
   t0 = ahora_mono()
   anterior = _foto(deadline_mono=t0 - 0.5)
   assert consumidor.process_speed_commands(_CC(), _CS(), vch, autoridad=anterior, now_mono=t0) == ""
-  t1 = t0 + sp.ESPERA_PLANO_S
+  # Un ciclo de margen: (t0 + 0.3) - t0 puede dar 0.29999999999995 segun el valor de t0
+  # (uptime de la maquina), y el test no prueba el redondeo sino que la espera vence.
+  t1 = t0 + sp.ESPERA_PLANO_S + 0.01
   assert consumidor.process_speed_commands(_CC(), _CS(), vch, autoridad=anterior, now_mono=t1) == "EXPIRED"
   assert sp.orbit_speed_increase is False
   assert vch.v_cruise_kph == 85.0

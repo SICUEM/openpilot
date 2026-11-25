@@ -3,5 +3,7 @@
     "broker_port": 1883,
     "backend_port": 8010,
     "username": "",
-    "password": ""
+    "password": "",
+    "servidor": {"host": "orbit.tail84a065.ts.net", "transporte": "mqtts", "puerto": 8443, "path": "/mqtt", "tls": true},
+    "legacy": {"activo": true}
 }

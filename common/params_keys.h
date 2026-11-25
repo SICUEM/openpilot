@@ -407,6 +407,8 @@ inline static std::unordered_map<std::string, ParamKeyAttributes> keys = {
     {"OrbitCruiseCancel", {CLEAR_ON_MANAGER_START, BOOL}},               // Disparo one-shot del verbo cruise_button {button:"cancel"}: el BOTON DE PANICO. Lo consume controlsd, que sostiene CC.cruiseControl.cancel durante ~0.5 s (un solo ciclo no llega a salir por CAN) y lo limpia. BAJA autoridad: desengancha, no engancha.
     {"OrbitDevRoundabout", {CLEAR_ON_MANAGER_START, BOOL}},              // senal de prueba de la pestana de desarrollo de la app: la escribe mqtt_comandos y no la consume nadie todavia
     {"OrbitPrivacyMute", {PERSISTENT, BOOL}},                            // Interruptor maestro LOCAL de privacidad (pantalla del comma). PERSISTENT a proposito: si el conductor silencio el coche, un reinicio no puede volver a encender la camara ni la posicion. Lo escribe solo la UI; lo leen camera_sender (envio de imagenes) y mqtt_envio_general (canales de posicion).
+    {"OrbitRemoteOff", {PERSISTENT, BOOL}},                              // corte local del mando remoto; SOLO lo escribe la UI (3X y comma 4); bloqueado en sunnylinkd
+    {"OrbitRemoteLog", {PERSISTENT | DONT_LOG, STRING}},                 // JSON: ultimas 50 ordenes remotas (mas nueva primero), lo escribe orbit/mando_local.py; bloqueado en sunnylinkd
     // Mando remoto v2 (contrato orbit/v2/*)
     // Ver docs/superpowers/specs/2026-08-23-orbit-mando-remoto-v2-design.md, §4-§6.
     // El PLANO DE ESTADO del mando (modo vivo, verbo activo, gates, deadman) NO vive

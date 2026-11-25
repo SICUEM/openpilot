@@ -20,8 +20,8 @@ def _texto(datos):
 
 
 def test_dueno_y_rol():
-  assert _texto({"OrbitOwner": "Ana", "OrbitOwnerRole": "developer"}) == "Ana • desarrollador"
-  assert _texto({"OrbitOwner": "Ana", "OrbitOwnerRole": "superadmin"}) == "Ana • superadmin"
+  assert _texto({"OrbitOwner": "Ana", "OrbitOwnerRole": "developer"}) == "Ana, desarrollador"
+  assert _texto({"OrbitOwner": "Ana", "OrbitOwnerRole": "superadmin"}) == "Ana, superadmin"
 
 
 def test_rol_desconocido_o_ausente_solo_dueno():

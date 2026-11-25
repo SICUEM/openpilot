@@ -2,13 +2,8 @@
 
 Fijan tres cosas que ya se rompieron una vez:
 
-  1. `steer_torque_mode` RETENIDO. El param SteerTorqueMode es PERSISTENT y la app
-     publica ese topic con retain:true, asi que el broker re-entregaba el retenido
-     en CADA reconexion. Con modo 2 controlsd pone actuators.torque = -1.0 en cada
-     ciclo mientras latActive, y con modo 1 la direccion pasa a la Jetson: un
-     retenido antiguo volvia a dar par maximo sin que nadie mandara nada.
-     Solo se admite retenido el modo 0 (bajar autoridad). Ademas, el modo 2 exige
-     armado fisico del banco (OrbitBenchArmed).
+  1. `torque_mode` es de modo BANCO con armado fisico. El topic v1 steer_torque_mode
+     que lo pedia ya no es una orden (solo snapshot de estado del comma).
 
   3. CameraSender.run(): si messaging.SubMaster() lanza, `sm` se queda en None con
      `_active_channel` apuntando al canal anterior; al volver a ese canal se
@@ -72,81 +67,19 @@ def _comandos(params):
 
 # ---------------------------------------------------------------- punto 1 y 2
 
-class TestSteerTorqueModeRetenido:
-  """El topic v1 de modo de torque ya NO escribe SteerTorqueMode: lo traduce a un verbo.
-
-  Estos tests miran la TRADUCCION (que verbo y que argumentos sale de cada payload). Que
-  ese verbo acabe -- o no -- escribiendo el param, y con que gates, esta en
-  test_mando_v1_por_router.py, que ejecuta el camino entero.
-  """
-
-  def test_steer_torque_mode_fuera_de_la_lista_blanca_de_retain(self):
-    """El topic que cambia la fuente de direccion NO puede aceptar retenidos a
-    secas: eso es lo que re-entregaba el modo 2 en cada reconexion."""
-    assert "/steer_torque_mode" not in MQTTComandos.RETAIN_PERMITIDO
-    assert "/steer_torque_mode" in MQTTComandos.RETAIN_SOLO_SI_BAJA_AUTORIDAD
-
-  def test_retenido_modo_1_descartado(self):
-    c = _comandos(_ParamsFalsos({"SteerTorqueMode": 0}))
-    assert c._v1_steer_torque_mode('{"steer_torque_mode": 1, "source": "app"}', retenido=True) is None
-
-  def test_retenido_modo_2_descartado_aunque_el_banco_este_armado(self):
-    """El filtro de retain va ANTES que nada: un retenido no es una orden nueva, da igual
-    que el banco este armado."""
-    c = _comandos(_ParamsFalsos({"SteerTorqueMode": 0, "OrbitBenchArmed": True}))
-    assert c._v1_steer_torque_mode('{"steer_torque_mode": 2, "source": "app"}', retenido=True) is None
-
-  def test_retenido_modo_3_descartado(self):
-    c = _comandos(_ParamsFalsos({"SteerTorqueMode": 0}))
-    assert c._v1_steer_torque_mode(
-      '{"steer_torque_mode": 3, "apply_target": "curvature", "source": "app"}', retenido=True) is None
-
-  def test_retenido_modo_0_es_disarm_all(self):
-    """Volver al modelo de comma BAJA autoridad y por eso nunca se descarta: se traduce al
-    unico verbo que no se puede bloquear."""
-    c = _comandos(_ParamsFalsos({"SteerTorqueMode": 1}))
-    assert c._v1_steer_torque_mode('{"steer_torque_mode": 0, "source": "app"}', retenido=True) == ("disarm_all", {})
-
-  def test_no_retenido_modo_1_se_traduce_a_torque_mode(self):
-    """Una orden en vivo de la app sigue llegando; lo que decide si se aplica es el router
-    (modo banco + armado fisico), no este puente."""
-    c = _comandos(_ParamsFalsos({"SteerTorqueMode": 0}))
-    assert c._v1_steer_torque_mode('{"steer_torque_mode": 1, "source": "app"}', retenido=False) == \
-      ("torque_mode", {"mode": 1})
-
-  def test_modo_3_exige_apply_target(self):
-    c = _comandos(_ParamsFalsos())
-    assert c._v1_steer_torque_mode('{"steer_torque_mode": 3, "source": "app"}') is None
-    assert c._v1_steer_torque_mode('{"steer_torque_mode": 3, "apply_target": "torque", "source": "app"}') == \
-      ("torque_mode", {"mode": 3, "apply_target": "torque"})
-
-
 class TestModo2ExigeArmadoDeBanco:
   """El armado de banco ya no se comprueba aqui a mano: lo exige el router porque
   command_spec declara `torque_mode` de modo BANCO (y requiere_armado_banco se deriva del
   modo minimo, asi que no puede divergir).
 
-  El gate ad-hoc de la fase de contencion cubria SOLO el modo 2. Ahora cubre 1, 2 y 3:
-  los tres mueven el volante. La comprobacion real, con Params y router, esta en
-  test_mando_v1_por_router.py::test_steer_torque_mode_v1_exige_armado_fisico_de_banco.
+  El topic v1 steer_torque_mode ya no es una orden (ver
+  test_mando_v1_por_router.py::test_steer_torque_mode_v1_ya_no_es_una_orden).
   """
 
   def test_torque_mode_es_un_verbo_de_banco_con_armado_fisico(self):
     spec = COMMANDS["torque_mode"]
     assert spec.mode_min == Mode.BENCH
     assert spec.requiere_armado_banco
-
-  @pytest.mark.parametrize("modo", [1, 2, 3])
-  def test_los_tres_modos_que_mueven_el_volante_van_por_el_verbo_de_banco(self, modo):
-    c = _comandos(_ParamsFalsos())
-    payload = f'{{"steer_torque_mode": {modo}, "apply_target": "curvature", "source": "app"}}'
-    verbo, _ = c._v1_steer_torque_mode(payload)
-    assert verbo == "torque_mode"
-
-  def test_el_modo_0_no_pasa_por_el_verbo_de_banco(self):
-    """Si apagar exigiera banco, un TEST MAX armado por error no se podria apagar."""
-    c = _comandos(_ParamsFalsos({"SteerTorqueMode": 2}, desconocidos={"OrbitBenchArmed"}))
-    assert c._v1_steer_torque_mode('{"steer_torque_mode": 0, "source": "app"}') == ("disarm_all", {})
 
 
 # ------------------------------------------------------------------- punto 3

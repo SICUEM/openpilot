@@ -1,15 +1,14 @@
 #!/usr/bin/env python3
-# -*- coding: utf-8 -*-
 import json
 import time
 from datetime import datetime, UTC
 import threading
-from typing import Optional, Dict
+from typing import Optional
 
 import paho.mqtt.client as mqtt
 
 from openpilot.common.params import Params
-from openpilot.orbit import config_broker, telemetria_grupos as grupos
+from openpilot.orbit import config_broker, conexion_mqtt, telemetria_grupos as grupos
 
 try:
   from openpilot.common.swaglog import cloudlog
@@ -25,7 +24,7 @@ EVENT_COOLDOWN_SECONDS = 12  # 12 segundos (entre 10-15 como se discutió)
 TAKE_CONTROL_COOLDOWN_SECONDS = 30  # 30 segundos para eventos de "TAKE CONTROL"
 
 # Diccionario para trackear último envío de cada evento (basado en alert_type)
-_event_last_sent: Dict[str, float] = {}  # alert_type -> timestamp último envío
+_event_last_sent: dict[str, float] = {}  # alert_type -> timestamp último envío
 _MAX_EVENT_HISTORY = 50  # Máximo de eventos en el historial para evitar crecimiento indefinido
 
 # Cliente MQTT persistente
@@ -36,6 +35,8 @@ _mqtt_broker: Optional[str] = None
 _mqtt_port: Optional[int] = None
 _mqtt_username: Optional[str] = None
 _mqtt_password: Optional[str] = None
+# Destino funnel del cliente abierto (None = legacy de siempre, con _mqtt_broker/_mqtt_port).
+_mqtt_destino = None
 
 
 # Caché de la config del broker: _ensure_mqtt_client (que llama a _load_broker)
@@ -72,6 +73,28 @@ def _load_broker() -> tuple[str, int, Optional[str], Optional[str]]:
   return result
 
 
+_destino_cache = None
+_destino_cache_ts = float("-inf")
+
+
+def _cargar_destino():
+  """Destino FUNNEL de conexion_mqtt, o None para seguir por el camino legacy de siempre.
+
+  Misma cache de 5 s que _load_broker: destino() con servidor.host puede leer la clave del
+  dispositivo de disco, y esto corre en el hilo RT de selfdrived. Nunca lanza."""
+  global _destino_cache, _destino_cache_ts
+  now = time.monotonic()
+  if (now - _destino_cache_ts) < _BROKER_CFG_TTL_S:
+    return _destino_cache
+  try:
+    d = conexion_mqtt.destino()
+    d = d if d is not None and d.enlace == conexion_mqtt.ENLACE_FUNNEL else None
+  except Exception:
+    d = None
+  _destino_cache, _destino_cache_ts = d, now
+  return d
+
+
 _dongle_id_cache: Optional[str] = None
 
 
@@ -85,14 +108,42 @@ def _get_dongle_id() -> str:
   return _dongle_id_cache
 
 
+def _notificar(ok: bool, rc=None) -> None:
+  # Solo funnel cuenta fallos; en legacy (_mqtt_destino None) no hay nada que contar.
+  try:
+    conexion_mqtt.notificar(_mqtt_destino, ok, rc)
+  except Exception:
+    pass
+
+
 def _on_mqtt_connect(client, userdata, flags, rc):
   global _mqtt_connected
   _mqtt_connected = (rc == 0)
+  _notificar(rc == 0, rc)
+
+
+def _on_mqtt_connect_fail(client, userdata):
+  _notificar(False)
 
 
 def _on_mqtt_disconnect(client, userdata, rc):
   global _mqtt_connected
   _mqtt_connected = False
+  # Un cierre antes del CONNACK solo llega por aqui: alimenta el reloj de conexion_mqtt.
+  try:
+    conexion_mqtt.desconectado(_mqtt_destino, rc)
+  except Exception:
+    pass
+
+
+def _cerrar_cliente(cliente) -> None:
+  """Fuera del hilo RT: loop_stop() hace join SIN timeout del hilo de paho, que puede estar
+  dentro de _pre_connect (HTTPS de la credencial) o del connect TLS."""
+  for paso in (cliente.loop_stop, cliente.disconnect):
+    try:
+      paso()
+    except Exception:
+      pass
 
 
 def _ensure_mqtt_client():
@@ -100,43 +151,58 @@ def _ensure_mqtt_client():
   # _mqtt_connected debe estar en la declaracion global: sin ella, el
   # `_mqtt_connected = False` del except creaba una variable LOCAL muerta
   # y el flag global quedaba sin resetear.
-  global _mqtt_client, _mqtt_connected, _mqtt_broker, _mqtt_port, _mqtt_username, _mqtt_password
+  global _mqtt_client, _mqtt_connected, _mqtt_broker, _mqtt_port, _mqtt_username, _mqtt_password, _mqtt_destino
 
   broker, port, username, password = _load_broker()
+  destino = _cargar_destino()
 
   # Sin broker configurado (plantilla de fabrica, "broker": "") no hay nada que abrir:
   # paho lanzaria 'Invalid host.' y, como el cliente quedaba a None, CADA alerta que
   # pasara el filtro construia un Client nuevo para volver a fallar. Se avisa UNA vez
   # (por valor) y se espera a que la pantalla escriba una IP; _load_broker la recoge.
-  if not (broker or "").strip():
+  if destino is None and not (broker or "").strip():
     _avisar_una_vez("sin_broker", "[Orbit] events_mqtt: sin broker configurado, los eventos no salen")
     return None
 
   with _mqtt_client_lock:
     needs_reinit = (
       _mqtt_client is None or
-      broker != _mqtt_broker or
-      port != _mqtt_port or
-      username != _mqtt_username or
-      password != _mqtt_password
+      destino != _mqtt_destino or
+      (destino is None and (
+        broker != _mqtt_broker or
+        port != _mqtt_port or
+        username != _mqtt_username or
+        password != _mqtt_password
+      ))
     )
 
     if needs_reinit:
       try:
         if _mqtt_client is not None:
-          _mqtt_client.loop_stop()
-          _mqtt_client.disconnect()
+          viejo = _mqtt_client
+          # Sus callbacks ya no tocan el estado del cliente nuevo.
+          viejo.on_connect = viejo.on_connect_fail = viejo.on_disconnect = None
+          threading.Thread(target=_cerrar_cliente, args=(viejo,), daemon=True,
+                           name="orbit-events-cierre").start()
       except Exception:
         pass
 
       try:
-        client = mqtt.Client()
+        if destino is not None:
+          # Funnel: TLS + credencial. La credencial se pide en _pre_connect, que corre en
+          # el hilo de loop_start: nada de red en este hilo RT.
+          client = conexion_mqtt.crear_cliente(destino, _get_dongle_id())
+          host, puerto = destino.host, destino.puerto
+        else:
+          client = mqtt.Client()
+          host, puerto = broker, port
         client.max_queued_messages_set(1)  # como maximo un mensaje QoS>0 pendiente
         client.on_connect = _on_mqtt_connect
+        client.on_connect_fail = _on_mqtt_connect_fail
         client.on_disconnect = _on_mqtt_disconnect
         client.reconnect_delay_set(min_delay=1, max_delay=30)
         # Credenciales MQTT opcionales (broker con auth). None = anonimo.
-        if username:
+        if username and destino is None:
           client.username_pw_set(username, password)
         # Publicar el estado inicial ANTES de arrancar el hilo. loop_start puede
         # ejecutar on_connect inmediatamente; escribir False despues pisaba ese
@@ -146,14 +212,16 @@ def _ensure_mqtt_client():
         _mqtt_port = port
         _mqtt_username = username
         _mqtt_password = password
+        _mqtt_destino = destino
         _mqtt_client = client
-        client.connect_async(broker, port, keepalive=60)
+        client.connect_async(host, puerto, keepalive=60)
         client.loop_start()
-        cloudlog.warning(f"[Orbit] events_mqtt: conectando a {broker}:{port}")
+        cloudlog.warning(f"[Orbit] events_mqtt: conectando a {host}:{puerto}")
       except Exception as e:
         # Antes este fallo era mudo: el cliente quedaba a None y nadie se enteraba de
         # que los eventos no salian. Una linea por valor de broker, no una por alerta.
-        _avisar_una_vez(f"fallo:{broker}:{port}", f"[Orbit] events_mqtt: no se pudo abrir el cliente MQTT hacia {broker}:{port}: {e}")
+        host, puerto = (destino.host, destino.puerto) if destino is not None else (broker, port)
+        _avisar_una_vez(f"fallo:{host}:{puerto}", f"[Orbit] events_mqtt: no se pudo abrir el cliente MQTT hacia {host}:{puerto}: {e}")
         _mqtt_connected = False
         _mqtt_client = None
 
@@ -237,7 +305,6 @@ def _should_filter_event(title: str, message: str, priority: int, event_name: Op
   """
   # Normalizar strings para comparación case-insensitive
   title_upper = (title or "").upper()
-  message_upper = (message or "").upper()
   event_name_lower = (event_name or "").lower()
   alert_type_lower = (alert_type or "").lower()
 
@@ -276,7 +343,7 @@ def _should_send_event(alert_type: str, title: Optional[str] = None) -> bool:
   if not alert_type:
     return False
 
-  current_time = time.time()
+  current_time = time.time()  # noqa: TID251  (cooldown de siempre; cambiarlo no es de esta tanda)
   last_sent = _event_last_sent.get(alert_type, 0)
 
   # Determinar el cooldown apropiado según el tipo de evento

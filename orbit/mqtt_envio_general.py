@@ -12,13 +12,17 @@ from openpilot.common.params import Params
 from openpilot.orbit import config_broker
 from openpilot.common.swaglog import cloudlog
 import os
-from .mqtt_comandos import CONN_SIN_BROKER_SECS, MQTTComandos, espera_reintento, escribir_resultado_desvinculo, tipo_dispositivo
+from .mqtt_comandos import (CONN_SIN_BROKER_SECS, REVISAR_DESTINO_S, MQTTComandos, destino_seguro, es_funnel, espera_reintento,
+                            desconectado_seguro, escribir_resultado_desvinculo, notificar_seguro, tipo_dispositivo)
+from . import conexion_mqtt
 from .camera_sender import CameraSender
 from .command_state import get_command_plane
 from . import telemetria_v1 as tel2
 from . import spool as spool_mod
 from . import config_v2 as cfg2
 from . import telemetria_grupos as grupos
+from . import enroll_v2
+from .mando_local import remoto_apagado
 
 
 # Namespaces MQTT de presencia. v1 (telemetry_mqtt/...) es LEGACY: es el que
@@ -235,6 +239,18 @@ class MQTTEnvioGeneral:
         and new_username == self.mqtt_username and new_password == self.mqtt_password):
       return
     antes = f"{self.broker_address}:{self.broker_port}"
+    if es_funnel(getattr(self, "_destino", None)):
+      # En funnel el broker legacy no esta en uso: se guarda para cuando se vuelva a legacy
+      # (_cambiar_destino crea entonces el cliente con estos valores) y no se reconecta.
+      self.broker_address, self.broker_port = new_broker, new_port
+      self.mqtt_username, self.mqtt_password = new_username, new_password
+      cloudlog.warning(f"[ORBIT] broker legacy {antes} -> {new_broker}:{new_port} guardado (ahora por funnel)")
+      try:
+        if getattr(self, "comandos_mqtt", None):
+          self.comandos_mqtt.reload_broker(new_broker)
+      except Exception:
+        pass
+      return
     cloudlog.warning(f"[Bemposta] broker/credenciales cambiados {antes} -> {new_broker}:{new_port}, reconectando (sin reiniciar openpilot)")
     self.broker_address, self.broker_port = new_broker, new_port
     self.mqtt_username, self.mqtt_password = new_username, new_password
@@ -336,15 +352,58 @@ class MQTTEnvioGeneral:
     self._v1_frame = {}
 
   def init_mqtt(self):
-    self.mqttc = mqtt.Client()
-    if self.mqtt_username:
-      self.mqttc.username_pw_set(self.mqtt_username, self.mqtt_password)
+    # Funnel: cliente de la factoria (TLS + credencial). Legacy o sin destino: lo de
+    # siempre, sin un byte de diferencia (es lo que hace tambien la factoria en legacy).
+    self._destino = destino_seguro()
+    self._destino_t = time.monotonic()
+    if es_funnel(self._destino):
+      self.mqttc = conexion_mqtt.crear_cliente(self._destino, self.DongleID)
+    else:
+      self.mqttc = mqtt.Client()
+      if self.mqtt_username:
+        self.mqttc.username_pw_set(self.mqtt_username, self.mqtt_password)
     self.mqttc.max_queued_messages_set(0)  # No encolar mensajes en RAM si no hay conexión
     self.mqttc.on_connect = self.on_connect
+    self.mqttc.on_connect_fail = self.on_connect_fail
     self.mqttc.on_disconnect = self.on_disconnect
     self.mqttc.reconnect_delay_set(min_delay=1, max_delay=30)
     self._set_will()
     self._relanzar_hilo_conexion()
+
+  def _maybe_cambiar_destino(self):
+    """Como mucho cada REVISAR_DESTINO_S: si conexion_mqtt.destino() pasa a o desde funnel
+    (3 fallos, reloj, clave, host nuevo...), cliente NUEVO para telemetria y mando. Entre
+    dos legacy no hace nada: eso lo lleva _maybe_reload_broker, como siempre."""
+    ahora = time.monotonic()
+    if ahora - getattr(self, "_destino_t", float("-inf")) < REVISAR_DESTINO_S:
+      return
+    self._destino_t = ahora
+    nuevo = destino_seguro()
+    viejo = getattr(self, "_destino", None)
+    if nuevo != viejo and (es_funnel(nuevo) or es_funnel(viejo)):
+      self._cambiar_destino(viejo)
+    cmd = getattr(self, "comandos_mqtt", None)
+    if cmd is not None:
+      try:
+        cmd.revisar_destino(nuevo)
+      except Exception:
+        cloudlog.exception("[ORBIT] cambio de enlace del cliente de mando fallo")
+
+  def _cambiar_destino(self, viejo):
+    """Cliente nuevo: paho no deja quitar tls_set_context ni cambiar transport, asi que el
+    camino de _maybe_reload_broker (que reutiliza self.mqttc) no sirve. Toda referencia
+    guardada al cliente viejo se reasigna aqui (hoy solo la del CameraSender)."""
+    for paso in ("loop_stop", "disconnect"):
+      try:
+        getattr(self.mqttc, paso)()
+      except Exception:
+        pass
+    self.conectado = False
+    self.init_mqtt()
+    cloudlog.warning(f"[ORBIT] MQTTEnvioGeneral: enlace {getattr(viejo, 'enlace', None)} -> {getattr(self._destino, 'enlace', None)}, cliente nuevo")
+    cam = getattr(self, "camera_sender", None)
+    if cam is not None:
+      cam.mqtt_client = self.mqttc
 
   def _set_will(self):
     """(Re)arma el Last Will de presencia.
@@ -543,8 +602,13 @@ class MQTTEnvioGeneral:
       stop = self._conn_stop
     fallos = 0
     sin_broker_avisado = False
+    destino = getattr(self, "_destino", None)
     while not self.stop_event.is_set() and not stop.is_set():
-      if not str(self.broker_address or "").strip():
+      if es_funnel(destino):
+        host, puerto = destino.host, destino.puerto
+      else:
+        host, puerto = self.broker_address, self.broker_port
+      if not str(host or "").strip():
         # config_mqtt.json de fabrica ("broker": ""): paho lanza 'Invalid host.' al
         # instante y esto giraba cada 5 s llenando el rlog de todos los dispositivos
         # sin configurar. Un aviso y a esperar a que la UI escriba el broker (la
@@ -556,8 +620,8 @@ class MQTTEnvioGeneral:
           break
         continue
       try:
-        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral conectando a broker {self.broker_address}:{self.broker_port}")
-        self.mqttc.connect(self.broker_address, self.broker_port, 60)
+        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral conectando a broker {host}:{puerto}")
+        self.mqttc.connect(host, puerto, 60)
         if not self.conectado:
           self.mqttc.loop_start()
           # Esperar un momento para que se establezca la conexión
@@ -566,13 +630,18 @@ class MQTTEnvioGeneral:
       except Exception as e:
         # Diagnostico clave: si el broker cambio de IP (IP domestica dinamica),
         # este es el log que lo delata. Antes estaba silenciado y no se veia nada.
+        notificar_seguro(destino, False)
         espera = espera_reintento(fallos)
         fallos += 1
-        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral NO pudo conectar a {self.broker_address}:{self.broker_port}: {e}. Reintento en {espera:g}s")
+        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral NO pudo conectar a {host}:{puerto}: {e}. Reintento en {espera:g}s")
         # Espera interrumpible: con time.sleep(5) el relevo tardaba hasta 5 s en
         # notarse y era cuando se solapaban los dos hilos de conexion.
         if stop.wait(espera):
           break
+
+  def on_connect_fail(self, client, userdata):
+    # Reconexion fallida de paho (tras el primer connect): cuenta como fallo del enlace.
+    notificar_seguro(getattr(self, "_destino", None), False)
 
   def on_connect(self, client, userdata, flags, rc):
     # Cuerpo COMPLETO en try/except: el paho 2.1.0 vendorizado corre las
@@ -581,6 +650,7 @@ class MQTTEnvioGeneral:
     # red EN SILENCIO. Como para entonces ya habiamos puesto conectado=True, el
     # loop seguia publicando contra un socket que nadie escribe y el dispositivo
     # quedaba mudo mostrando 'conectado' para siempre.
+    notificar_seguro(getattr(self, "_destino", None), rc == 0, rc)
     try:
       if rc == 0:
         self.conectado = True
@@ -677,6 +747,9 @@ class MQTTEnvioGeneral:
     asi no se repite en cada reconexion (el motivo del gate) pero si se rehace
     al cambiar de broker, porque el broker nuevo tiene sus propios retenidos.
     """
+    # Solo por legacy (contrato global G4.5): en funnel la ACL no deja publicar */global.
+    if es_funnel(getattr(self, "_destino", None)):
+      return
     destino = f"{self.broker_address}:{self.broker_port}"
     try:
       if self.params.get("OrbitGlobalRetainPurged") == destino:
@@ -778,6 +851,8 @@ class MQTTEnvioGeneral:
       self.conectado = False
       self.params.put_bool("OrbitConnected", False)
       cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral DESCONECTADO del broker {self.broker_address} (rc={rc})")
+      # Un cierre antes del CONNACK solo llega por aqui: alimenta el reloj de conexion_mqtt.
+      desconectado_seguro(getattr(self, "_destino", None), rc)
     except Exception:
       cloudlog.exception("[Bemposta] on_disconnect fallo (el hilo de red habria muerto en silencio)")
 
@@ -1043,8 +1118,15 @@ class MQTTEnvioGeneral:
     time.sleep(self.TICK_SECS)
 
   def _ciclo_v1(self):
+      # Persistencia del registro de ordenes remotas (OrbitRemoteLog). Va lo PRIMERO,
+      # antes de cualquier return de este ciclo; la seguridad no depende de esto.
+      if getattr(self, "comandos_mqtt", None) is not None:
+        self.comandos_mqtt.volcar_registro()
+
       # Recoger en caliente un cambio de IP del broker hecho desde la UI.
       self._maybe_reload_broker()
+      # Y un cambio de enlace (funnel <-> legacy) de conexion_mqtt.
+      self._maybe_cambiar_destino()
 
       # Recoger en caliente los toggles de canal cambiados desde la UI (panel ORBIT).
       self._maybe_reload_canales()
@@ -1725,7 +1807,9 @@ class MQTTEnvioGeneral:
 
     # 1) lo que haya dejado el hilo de red. Se atiende SIEMPRE, aunque no toque
     #    reconstruir `reported`: un ajuste pedido no puede esperar 5 s por el reloj.
-    entrante = cfg2.get_bus().tomar()
+    #    Con OrbitRemoteOff NO se toma: la casilla conserva el ultimo sobre y se aplica al
+    #    quitar el interruptor (`desired` es estado, no una orden).
+    entrante = None if remoto_apagado(self.params) else cfg2.get_bus().tomar()
     aplicado = False
     if entrante is not None:
       # Contra LOS DOS sobres locales, no solo contra el `desired`. El `desired` es siempre
@@ -2042,18 +2126,25 @@ class MQTTEnvioGeneral:
       if not salio:
         self._diferir(canal, payload)
 
+  ENROLL_SIN_CLAVE_LOG_S = 60.0
+
   def _maybe_announce_enroll(self):
-    """Anuncia el codigo de enrolamiento ORBIT (QR) por MQTT mientras el
-    dispositivo no este reclamado, y rota el codigo cuando expira su TTL.
+    """Anuncia el enrolamiento ORBIT (QR) por MQTT mientras el dispositivo no este
+    reclamado, y rota el codigo cuando expira su TTL.
 
     - Sale si OrbitClaimed (ya emparejado): el QR no debe reaparecer.
     - Exige dongle valido (lo reevalua _refresh_dongle desde el loop): con el
       literal de fallback "DongleID" no anuncia, porque emparejaria contra un id
       inexistente que ademas comparten todos los comma sin registrar.
-    - Rota el codigo (CSPRNG, 8 chars mayusculas, sin O/0/1/I) al inicio y al
-      expirar ENROLL_TTL_S; deja OrbitPairingCode / OrbitEnrollExpiry en Params
-      para que la UI pinte el QR y una cuenta atras opcional.
-    - Publica a telemetry_mqtt/<dongle>/enroll (qos=0, retain=False) cada
+    - Enroll v2 (C-28.2): con la clave del dispositivo, el token de 26 caracteres SOLO
+      vive en la pantalla (OrbitPairingCode); por MQTT viaja su hash ligado a la clave
+      publica y firmado por ella, con `iat`. No se anuncia mientras el reloj no sea valido
+      (la misma comprobacion que el router): ni token ni QR.
+    - Sin clave: solo un PC/simulador (`hw == "pc"`) cae al legacy de 8 caracteres con
+      `pairing_code`. Un comma real no anuncia nada y lo deja en el log; la clave se
+      vuelve a leer en la siguiente iteracion (un "sin clave" no se cachea).
+    - Deja OrbitPairingCode / OrbitEnrollExpiry en Params para que la UI pinte el QR y
+      publica a telemetry_mqtt/<dongle>/enroll (qos=0, retain=False) cada
       ENROLL_ANNOUNCE_SECS.
 
     Best-effort: cualquier fallo se loguea y NUNCA rompe el loop de telemetria.
@@ -2073,15 +2164,32 @@ class MQTTEnvioGeneral:
       if self.params.get_bool("OrbitEnrollRegen"):
         self.params.remove("OrbitEnrollRegen")
         self._pairing_code = None
-      # Rotacion del codigo: primera vez o TTL expirado. Se genera SIEMPRE (aunque
-      # no haya broker) para que la UI pueda pintar el QR/codigo sin conexion.
+      # Rotacion del codigo: primera vez o TTL expirado. Se genera aunque no haya broker
+      # para que la UI pueda pintar el QR/codigo sin conexion.
       if self._pairing_code is None or (now - self._enroll_issued_at) >= self.ENROLL_TTL_S:
         # Re-chequear OrbitClaimed justo antes de escribir: cierra la carrera con
         # handle_enroll_ack (otro hilo) que borra OrbitPairingCode al reclamar.
         if self.params.get_bool("OrbitClaimed"):
           return
-        code = "".join(secrets.choice("ABCDEFGHJKLMNPQRSTUVWXYZ23456789") for _ in range(8))
+        clave = self._clave_enroll_actual()
+        if clave is None and tipo_dispositivo() != "pc":
+          self._log_sin_clave()
+          self._retirar_codigo()
+          return
+        if clave is not None and not self._reloj_valido():
+          self._retirar_codigo()
+          return
         self._enroll_issued_at = now
+        if clave is None:
+          code = "".join(secrets.choice(enroll_v2.ALFABETO) for _ in range(8))
+          self._enroll_firma = None
+        else:
+          alg, privada, publica = clave
+          code = enroll_v2.nuevo_token()
+          h = enroll_v2.hash_enrolamiento(d, code, publica)
+          iat = int(self._enroll_issued_at * 1000) // 1000
+          sig = jwt.encode({"identity": d, "orbit": "enroll", "h": h, "iat": iat}, privada, algorithm=alg)
+          self._enroll_firma = {"v": 2, "h": h, "pubkey": publica, "key_alg": alg, "sig": sig}
         self._pairing_code = code
         # Anunciar el codigo nuevo YA: si se respetara la ventana de 30 s, el
         # backend seguiria validando contra el codigo viejo (bad_code) hasta
@@ -2096,13 +2204,18 @@ class MQTTEnvioGeneral:
           fw = self.params.get("Version") or ""
         except Exception:
           fw = ""
-        payload = {
-          "dongle_id": d,
-          "pairing_code": self._pairing_code,
+        payload = {"dongle_id": d}
+        firma = getattr(self, "_enroll_firma", None)
+        if firma is not None:
+          # v2: NUNCA lleva pairing_code. issued_at y ttl_s van fuera de la firma.
+          payload.update(firma)
+        else:
+          payload["pairing_code"] = self._pairing_code
+        payload.update({
           "issued_at": int(self._enroll_issued_at * 1000),
           "ttl_s": self.ENROLL_TTL_S,
           "fw": fw,
-        }
+        })
         # Modelo real (tici | tizi | mici | pc), el mismo que va en caps. Antes era un
         # "comma3x" fijo, falso en un comma 4. Si no se puede leer, se omite.
         if hw := tipo_dispositivo():
@@ -2111,6 +2224,44 @@ class MQTTEnvioGeneral:
         self._last_enroll = now
     except Exception as e:
       cloudlog.warning(f"[Bemposta] _maybe_announce_enroll fallo: {e}")
+
+  def _clave_enroll_actual(self):
+    """(alg, privada, publica) o None. Solo se cachea un resultado CON clave: sin ella
+    (p. ej. /persist aun sin montar) se vuelve a leer en la siguiente iteracion."""
+    clave = getattr(self, "_clave_enroll", None)
+    if clave is not None:
+      return clave
+    try:
+      alg, privada, publica = get_key_pair()
+    except Exception:
+      return None
+    if alg and privada and publica:
+      self._clave_enroll = (alg, privada, publica)
+      return self._clave_enroll
+    return None
+
+  def _log_sin_clave(self):
+    ahora = time.monotonic()
+    if ahora - getattr(self, "_enroll_sin_clave_log", float("-inf")) >= self.ENROLL_SIN_CLAVE_LOG_S:
+      self._enroll_sin_clave_log = ahora
+      cloudlog.error("[ORBIT ENROLL] sin clave del dispositivo: no se anuncia")
+
+  def _retirar_codigo(self):
+    """Sin poder rotar (sin clave o sin reloj) no queda un QR caducado en pantalla."""
+    if self._pairing_code is not None:
+      self._pairing_code = None
+      self._enroll_firma = None
+      self.params.remove("OrbitPairingCode")
+
+  @staticmethod
+  def _reloj_valido() -> bool:
+    """La MISMA comprobacion que usa el router (_reloj_ok): sin GateMonitor o con la
+    mascara rancia el reloj no se da por bueno."""
+    try:
+      gates = get_command_plane().gates
+      return gates is not None and bool(gates.clock_synced)
+    except Exception:
+      return False
 
   def _maybe_send_unlink(self):
     """Mientras la UI mantenga OrbitUnlinkRequest, publica la peticion de desvinculo

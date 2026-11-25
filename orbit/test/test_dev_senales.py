@@ -18,6 +18,9 @@ class _Params:
   def get(self, key, *args, **kwargs):
     return self.valores.get(key)
 
+  def get_bool(self, key, *args, **kwargs):
+    return bool(self.valores.get(key, False))
+
 
 def _comandos():
   c = MQTTComandos.__new__(MQTTComandos)

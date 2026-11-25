@@ -220,3 +220,36 @@ def test_la_migracion_es_una_vez_por_proceso(rutas):
   plantilla.write_text(json.dumps({"broker": "10.0.0.5"}))
   cb.leer_config()
   assert not persistente.exists()
+
+
+# ------------------------------------------------------------ servidor / legacy (Funnel)
+
+def test_servidor_y_legacy_por_defecto(rutas):
+  cfg = cb.leer_config()
+  assert cfg["servidor"] == {"host": "", "transporte": "mqtts", "puerto": 8443, "path": "/mqtt", "tls": True}
+  assert cfg["legacy"] == {"activo": True}
+  cfg["servidor"]["host"] = "x"   # la copia no contamina los valores por defecto
+  assert cb.VALORES_POR_DEFECTO["servidor"]["host"] == ""
+
+
+def test_un_servidor_persistido_sustituye_entero_al_de_la_plantilla(rutas):
+  plantilla, persistente = rutas
+  plantilla.write_text(json.dumps({"broker": "", "servidor": {"host": "a.ts.net", "transporte": "wss", "puerto": 443}}))
+  persistente.write_text(json.dumps({"servidor": {"host": "b.ts.net"}}))
+  assert cb.leer_config()["servidor"] == {"host": "b.ts.net"}
+
+
+def test_escribir_legacy_activo_va_a_data(rutas):
+  plantilla, persistente = rutas
+  antes = plantilla.read_text()
+  assert cb.escribir_config({"legacy": {"activo": False}})
+  assert _leer(persistente) == {"legacy": {"activo": False}}
+  assert plantilla.read_text() == antes
+  assert cb.leer_config()["legacy"] == {"activo": False}
+
+
+def test_la_migracion_no_congela_servidor_ni_legacy_de_la_plantilla(rutas):
+  plantilla, persistente = rutas
+  plantilla.write_text(json.dumps({"broker": "10.0.0.5", "servidor": {"host": "a.ts.net"}, "legacy": {"activo": True}}))
+  cb.leer_config()
+  assert _leer(persistente) == {"broker": "10.0.0.5"}

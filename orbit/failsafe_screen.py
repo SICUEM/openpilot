@@ -22,8 +22,9 @@ LINE_H = 34
 MAX_COLS = 120
 FPS = 5
 
-TITLE = "ORBIT: el arranque no ha terminado. Registro del arranque (foto = diagnostico):"
-FOOT = "Apaga y enciende para reintentar. Registro completo en /data/orbit_boot.log"
+TITLE = "ORBIT: el arranque no ha terminado. Registro del arranque (foto = diagnóstico):"
+HINT = "Apaga y enciende el comma para reintentar."
+FOOT = "Registro completo en /data/orbit_boot.log"
 
 
 def tail(path: str, n: int) -> list[str]:
@@ -52,7 +53,7 @@ def build_lines(paths: list[str], rows: int) -> list[str]:
 def main(argv: list[str]) -> int:
   once = "--once" in argv
   paths = [a for a in argv[1:] if a != "--once"]
-  rows = (HEIGHT - 2 * MARGIN - 3 * LINE_H) // LINE_H
+  rows = (HEIGHT - 2 * MARGIN - 4 * LINE_H) // LINE_H
   lines = build_lines(paths, rows)
 
   import pyray as rl  # import tardío: si ni esto existe, salimos con codigo != 0 y el shell sigue
@@ -67,6 +68,8 @@ def main(argv: list[str]) -> int:
       font = rl.get_font_default()
       y = MARGIN
       rl.draw_text_ex(font, TITLE, rl.Vector2(MARGIN, y), FONT_SIZE, 2, rl.Color(255, 196, 64, 255))
+      y += LINE_H
+      rl.draw_text_ex(font, HINT, rl.Vector2(MARGIN, y), FONT_SIZE, 2, rl.RAYWHITE)   # la instruccion util, bajo el titulo
       y += LINE_H * 2
       for ln in lines:
         color = rl.Color(255, 120, 120, 255) if ("FALLO" in ln or "error" in ln.lower() or "Traceback" in ln) else rl.RAYWHITE

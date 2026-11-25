@@ -83,6 +83,7 @@ class GateMonitor:
     self._onroad = False
     self._brand = ""
     self._platform = ""
+    self._vehicle = None
     self._carstate_ok = False
     self._ultimo_enlace_mono = 0.0   # 0.0 = nunca hubo trafico valido -> LINK_FRESH rojo
     self._clock_ok = False
@@ -185,6 +186,7 @@ class GateMonitor:
     onroad = False
     brand = ""
     platform = ""
+    vehicle = None
     # Sin carState fresco NO hay velocidad conocida. Se lleva aparte porque evaluate()
     # recalcula SPEED_RANGE con el rango propio del verbo: con carState muerto, v_ego
     # valdria 0.0 y los verbos de banco (rango 0-5 km/h) verian el gate en VERDE con el
@@ -250,6 +252,15 @@ class GateMonitor:
         if not bool(self._campo("carParams", "dashcamOnly", True)) and \
            not bool(self._campo("carParams", "passive", True)):
           mask |= Gate.NOT_DEGRADED
+        # Capacidades del coche para el descriptor (C-24). Sin VIN ni ningun campo mas.
+        steer = str(self._campo("carParams", "steerControlType", "") or "").lower()
+        vehicle = {
+          "long_op": bool(self._campo("carParams", "openpilotLongitudinalControl", False)),
+          "steer_type": steer if steer in ("torque", "angle") else "unknown",
+          "bsm": bool(self._campo("carParams", "enableBsm", False)),
+          "radarless": bool(self._campo("carParams", "radarUnavailable", False)),
+          "pcm_cruise": bool(self._campo("carParams", "pcmCruise", False)),
+        }
 
       if self._vivo("deviceState"):
         onroad = bool(self._campo("deviceState", "started", False))
@@ -269,6 +280,7 @@ class GateMonitor:
       self._onroad = onroad
       self._brand = brand
       self._platform = platform
+      self._vehicle = vehicle
       self._carstate_ok = carstate_ok
       # Sello de vigencia: lo mira todo lo que lee la mascara. Se pone AQUI, al final del
       # tick, y no al principio: si el cuerpo de update() lanzara a medias, la mascara no
@@ -334,6 +346,12 @@ class GateMonitor:
   def platform(self) -> str:
     with self._lock:
       return self._platform
+
+  @property
+  def vehicle(self) -> dict | None:
+    """Bloque `vehicle` de los caps. None mientras no se haya visto carParams."""
+    with self._lock:
+      return dict(self._vehicle) if self._vehicle is not None else None
 
   @property
   def clock_synced(self) -> bool:

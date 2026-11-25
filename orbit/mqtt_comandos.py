@@ -32,9 +32,11 @@ from openpilot.common.swaglog import cloudlog
 import os
 
 from openpilot.orbit import config_v2 as cfg2
+from openpilot.orbit import conexion_mqtt
 from openpilot.orbit.command_router import CommandRouter
 from openpilot.orbit.command_spec import TOPIC_CAPS, TOPIC_CMD, Phase, ahora_epoch_ms, ahora_mono, get_spec
 from openpilot.orbit.command_state import get_command_plane
+from openpilot.orbit.mando_local import get_mando_local, remoto_apagado
 
 # Politica del reintento del connect() inicial. La COMPARTEN los dos hilos de conexion
 # (mqtt_envio_general.py la importa de aqui) para que telemetria y mandos no puedan
@@ -56,6 +58,49 @@ def espera_reintento(fallos_previos: int) -> float:
   `fallos_previos` es cuantos connect() habian fallado YA antes de este (0 en el primero).
   """
   return CONN_RETRY_SECS[min(fallos_previos, len(CONN_RETRY_SECS) - 1)]
+
+
+# Cada cuanto miran los clientes si conexion_mqtt.destino() ha cambiado (funnel <-> legacy).
+REVISAR_DESTINO_S = 5.0
+# Con funnel_ok() y el enlace en legacy solo se escuchan y atienden estos v1: si 83.61.25.38
+# pasa a otro abonado, ese host no puede mandar ordenes (v1, v2, cfg/desired, roundabout,
+# camera_config) a un coche que ya habia usado Funnel (contrato global G4.2). Se comprueba
+# tambien en on_message: un broker hostil puede mandar PUBLISH a topics no suscritos y paho
+# los entrega igual.
+# enroll_ack y unlink_ack tampoco: escriben identidad (OrbitClaimed, OrbitOwner, nonce,
+# resultado del desvinculo) y ese host ya no es de fiar. El estado autoritativo llega por
+# Funnel cuando vuelve el enlace; un desvinculo pendiente sigue reintentandose hasta entonces.
+# healthcheck solo pide un diagnostico (OrbitHealthcheckRequest): no cambia estado del coche.
+TOPICS_V1_SIN_ORDENES = ("healthcheck",)
+
+
+def es_funnel(d) -> bool:
+  return d is not None and d.enlace == conexion_mqtt.ENLACE_FUNNEL
+
+
+def destino_seguro():
+  """conexion_mqtt.destino() que nunca lanza: ante un error, None (camino legacy de siempre)."""
+  try:
+    return conexion_mqtt.destino()
+  except Exception:
+    cloudlog.exception("[ORBIT] conexion_mqtt.destino() fallo; sigo por legacy")
+    return None
+
+
+def notificar_seguro(d, ok: bool, rc=None) -> None:
+  """conexion_mqtt.notificar() que nunca lanza (se llama desde callbacks de paho)."""
+  try:
+    conexion_mqtt.notificar(d, ok, rc)
+  except Exception:
+    cloudlog.exception("[ORBIT] conexion_mqtt.notificar() fallo")
+
+
+def desconectado_seguro(d, rc) -> None:
+  """conexion_mqtt.desconectado() que nunca lanza (on_disconnect de paho)."""
+  try:
+    conexion_mqtt.desconectado(d, rc)
+  except Exception:
+    cloudlog.exception("[ORBIT] conexion_mqtt.desconectado() fallo")
 
 
 # Roles de la cuenta ORBIT del dueno que el firmware acepta en el enroll_ack. Otro valor
@@ -109,6 +154,16 @@ class MQTTComandos:
       self._fw = self.params.get("Version") or ""
     except Exception:
       self._fw = ""
+    # Commit del firmware para caps (snapshot de viaje del backend). Igual que _fw: una vez.
+    try:
+      self._fw_commit = (self.params.get("GitCommit") or "")[:12]
+    except Exception:
+      self._fw_commit = ""
+    # Registro de ordenes remotas: continua el anillo persistido del arranque anterior.
+    try:
+      get_mando_local().cargar(self.params)
+    except Exception:
+      cloudlog.exception("[Orbit] no se pudo cargar OrbitRemoteLog")
     self._caps_huella = None
     self.conectado = False
     self.stop_event = threading.Event()
@@ -178,6 +233,7 @@ class MQTTComandos:
         gates=self.plane.gates,
         store=self.plane.store,
         publish=self._publicar_mqtt,
+        params=self.params,
       )
       for verbo, fn in self._verbos().items():
         self.router.register_handler(verbo, fn)
@@ -207,6 +263,7 @@ class MQTTComandos:
       "steer_mode_request": self._h_steer_mode_request,
       "steering_pulse": self._h_steering_pulse,
       "healthcheck": self._h_healthcheck,
+      "bookmark": self._h_bookmark,
     }
 
   def _publicar_mqtt(self, topic, payload, qos=1, retain=False):
@@ -238,6 +295,15 @@ class MQTTComandos:
       if alg and pub:
         payload["pubkey"] = pub
         payload["key_alg"] = alg
+      # Interruptor local del mando remoto (C-33.4). Solo informativo: el coche decide
+      # leyendo el Param, no los caps. Entra en la huella, asi que se republica al tocarlo.
+      payload["remote_off"] = remoto_apagado(self.params)
+      # Enlace por el que habla este cliente (contrato global G4.6). Entra en la huella:
+      # conmutar funnel <-> legacy republica las caps.
+      if (d := getattr(self, "_destino", None)) is not None:
+        payload["link"] = d.enlace
+      if getattr(self, "_fw_commit", ""):
+        payload["fw_commit"] = self._fw_commit
       # La huella ignora ts_ms: si no, cambiaria en cada tick y republicaria siempre.
       huella = json.dumps({k: v for k, v in payload.items() if k != "ts_ms"}, sort_keys=True)
       if not forzar and huella == self._caps_huella:
@@ -459,6 +525,21 @@ class MQTTComandos:
     # Param tipado STRING.
     self.params.put("OrbitHealthcheckRequest", str(ahora_epoch_ms() // 1000))
 
+  def _h_bookmark(self, cmd):
+    """Marcador remoto (C-10.2). No escribe ningun Param ni publica nada: el router publica
+    `applied`, que confirma que el coche estaba en marcha y lo acepto. El instante y la nota
+    viven en el backend. NO pasa por bookmarkButton/userBookmark: ni alerta al conductor ni
+    preserva segmentos."""
+    return None
+
+  def volcar_registro(self):
+    """Persiste OrbitRemoteLog (como mucho cada 60 s). Lo llama el loop de telemetria; la
+    seguridad no depende de esto. Nunca lanza."""
+    try:
+      get_mando_local().volcar(self.params)
+    except Exception:
+      cloudlog.exception("[Orbit] no se pudo volcar OrbitRemoteLog")
+
   def load_config(self):
     # Plantilla del arbol + lo persistido en /data por encima (ver orbit/config_broker.py).
     config = config_broker.leer_config()
@@ -471,11 +552,18 @@ class MQTTComandos:
     self.mqtt_password = config.get("password") or None
 
   def init_mqtt(self):
-    self.mqttc = mqtt.Client()
-    if self.mqtt_username:
-      self.mqttc.username_pw_set(self.mqtt_username, self.mqtt_password)
+    # Funnel: cliente de la factoria (TLS + credencial). Legacy o sin destino: lo de
+    # siempre, sin un byte de diferencia (es lo que hace tambien la factoria en legacy).
+    self._destino = destino_seguro()
+    if es_funnel(self._destino):
+      self.mqttc = conexion_mqtt.crear_cliente(self._destino, self.DongleID)
+    else:
+      self.mqttc = mqtt.Client()
+      if self.mqtt_username:
+        self.mqttc.username_pw_set(self.mqtt_username, self.mqtt_password)
     self.mqttc.max_queued_messages_set(0)  # No encolar mensajes en RAM si no hay conexión
     self.mqttc.on_connect = self.on_connect
+    self.mqttc.on_connect_fail = self.on_connect_fail
     self.mqttc.on_disconnect = self.on_disconnect
     self.mqttc.on_message = self.on_message
     self.mqttc.reconnect_delay_set(min_delay=1, max_delay=30)
@@ -524,8 +612,13 @@ class MQTTComandos:
       stop = self._conn_stop
     fallos = 0
     sin_broker_avisado = False
+    destino = getattr(self, "_destino", None)
     while not self.stop_event.is_set() and not stop.is_set():
-      if not str(self.broker_address or "").strip():
+      if es_funnel(destino):
+        host, puerto = destino.host, destino.puerto
+      else:
+        host, puerto = self.broker_address, self.broker_port
+      if not str(host or "").strip():
         # config_mqtt.json de fabrica ("broker": ""): paho lanza 'Invalid host.' al
         # instante y esto giraba cada 5 s llenando el rlog de todos los dispositivos
         # sin configurar. Un aviso y a esperar. Va ANTES de coger _conn_lock: la
@@ -537,21 +630,22 @@ class MQTTComandos:
           break
         continue
       try:
-        cloudlog.warning(f"[Bemposta] MQTTComandos conectando a broker {self.broker_address}:{self.broker_port}")
+        cloudlog.warning(f"[Bemposta] MQTTComandos conectando a broker {host}:{puerto}")
         with self._conn_lock:
           # Recomprobar DENTRO del lock: si nos relevaron mientras esperabamos,
           # este connect() cerraria el socket que acaba de abrir el hilo nuevo.
           if self.stop_event.is_set() or stop.is_set():
             return
-          self.mqttc.connect(self.broker_address, self.broker_port, 60)
+          self.mqttc.connect(host, puerto, 60)
           if not self.conectado:
             self.mqttc.loop_start()
             self.conectado = True
         break
       except Exception as e:
+        notificar_seguro(destino, False)
         espera = espera_reintento(fallos)
         fallos += 1
-        cloudlog.warning(f"[Bemposta] MQTTComandos NO pudo conectar a {self.broker_address}:{self.broker_port}: {e}. Reintento en {espera:g}s")
+        cloudlog.warning(f"[Bemposta] MQTTComandos NO pudo conectar a {host}:{puerto}: {e}. Reintento en {espera:g}s")
         # Espera INTERRUMPIBLE: con time.sleep(5) el relevo tardaba hasta 5 s en
         # notarse, y ese es justo el hueco en el que se solapaban los dos hilos.
         if stop.wait(espera):
@@ -579,6 +673,9 @@ class MQTTComandos:
       self.broker_address = new_broker
     if (self.broker_address, self.broker_port, self.mqtt_username, self.mqtt_password) == viejo:
       return
+    if es_funnel(getattr(self, "_destino", None)):
+      # En funnel el broker legacy no esta en uso: queda guardado para cuando se vuelva.
+      return
     cloudlog.warning(f"[Bemposta] MQTTComandos broker/credenciales -> {self.broker_address}:{self.broker_port}, reconectando")
     try:
       self.mqttc.loop_stop()
@@ -593,6 +690,30 @@ class MQTTComandos:
     self.mqttc.username_pw_set(self.mqtt_username, self.mqtt_password)
     self._relanzar_hilo_conexion()
 
+  def revisar_destino(self, nuevo) -> None:
+    """Lo llama MQTTEnvioGeneral (este cliente no tiene loop propio) con el destino que
+    acaba de leer. Si el enlace pasa a o desde funnel, cliente NUEVO: paho no deja quitar
+    tls_set_context ni cambiar transport, asi que reload_broker (que reutiliza el
+    cliente) no sirve. Entre dos legacy manda reload_broker, como siempre."""
+    viejo = getattr(self, "_destino", None)
+    if nuevo == viejo or not (es_funnel(nuevo) or es_funnel(viejo)):
+      return
+    self._cambiar_destino(viejo, nuevo)
+
+  def _cambiar_destino(self, viejo, nuevo) -> None:
+    cloudlog.warning(f"[ORBIT] MQTTComandos: enlace {getattr(viejo, 'enlace', None)} -> {getattr(nuevo, 'enlace', None)}, cliente nuevo")
+    for paso in ("loop_stop", "disconnect"):
+      try:
+        getattr(self.mqttc, paso)()
+      except Exception:
+        pass
+    self.conectado = False
+    self.init_mqtt()
+
+  def on_connect_fail(self, client, userdata):
+    # Reconexion fallida de paho (tras el primer connect): cuenta como fallo del enlace.
+    notificar_seguro(getattr(self, "_destino", None), False)
+
   def on_connect(self, client, userdata, flags, rc):
     # Cuerpo COMPLETO en try/except: paho corre las callbacks con
     # suppress_exceptions=False, asi que una excepcion aqui (p.ej. leer DongleId)
@@ -604,6 +725,8 @@ class MQTTComandos:
       cloudlog.exception("[Bemposta] MQTTComandos on_connect fallo (el hilo de red habria muerto en silencio)")
 
   def _on_connect(self, client, userdata, flags, rc):
+    destino = getattr(self, "_destino", None)
+    notificar_seguro(destino, rc == 0, rc)
     if rc == 0:
       self.conectado = True
       # Recalcular AQUI, no solo en __init__: en el primer arranque el registro
@@ -615,9 +738,16 @@ class MQTTComandos:
         # ajenas. La proxima reconexion vuelve a intentarlo.
         cloudlog.error("[Bemposta] MQTTComandos SIN DongleId valido: NO me suscribo a ningun topic de mando (namespace comun)")
         return
+      # Coche que ya conocio Funnel hablando por legacy: solo telemetria y healthcheck.
+      # Ni una orden ni un cambio de identidad (G4.2, ver TOPICS_V1_SIN_ORDENES).
+      sin_ordenes = self._sin_ordenes()
+      if sin_ordenes:
+        cloudlog.warning("[ORBIT] MQTTComandos por legacy tras haber usado Funnel: NO me suscribo a ordenes")
       # --- namespace v2 (contrato congelado, seccion 3.1). qos 1: el mando no se pierde.
       # El retenido esta PROHIBIDO en este topic y lo rechaza el router incondicionalmente.
-      if self.router is not None:
+      if sin_ordenes:
+        pass  # sin orbit/v2/cmd
+      elif self.router is not None:
         # El router puede haberse construido sin dongle (primer arranque, con el registro
         # aun en curso). Ahora si lo hay: se le pone, y con el su topic de mando y el de ACK.
         self.router.dongle_id = self.DongleID
@@ -638,12 +768,13 @@ class MQTTComandos:
         f"telemetry_config/{self.DongleID}/overtake",        # Adelantamiento automático (detecta BSM automáticamente)
         f"telemetry_config/{self.DongleID}/brutebreak",      # Frenado de emergencia brusco
         f"telemetry_config/{self.DongleID}/camera_config",   # Configuración de cámara desde app ORBIT
-        f"telemetry_config/{self.DongleID}/steer_torque_mode", # Modo de torque del volante (por dongle_id)
         f"telemetry_config/{self.DongleID}/enroll_ack",      # Ack de enrolamiento ORBIT (backend → firmware)
         f"telemetry_config/{self.DongleID}/unlink_ack",      # Respuesta a la peticion de desvinculo (backend → firmware)
         f"telemetry_config/{self.DongleID}/healthcheck"      # Peticion de diagnostico remoto (backend/app → firmware)
       ]
 
+      if sin_ordenes:
+        topics = [t for t in topics if t.rsplit("/", 1)[1] in TOPICS_V1_SIN_ORDENES]
       for topic in topics:
         client.subscribe(topic, qos=0)
 
@@ -651,18 +782,26 @@ class MQTTComandos:
       # no una orden, y el coche tiene que recibirlo al conectar sin preguntarle a nadie.
       # Sustituye a telemetry_config/<dongle>/jetson_config, que ya no se escucha (ver
       # el docstring de on_message): ese topic reescribia jetson_ip sin validar nada.
-      client.subscribe(cfg2.TOPIC_CFG_DESIRED.format(self.DongleID), qos=1)
-      # Senal de prueba de rotonda: "0" retenido (llega al conectar) y "1" de ~500 ms.
-      client.subscribe(cfg2.TOPIC_DEV_ROUNDABOUT.format(self.DongleID), qos=1)
+      if not sin_ordenes:
+        client.subscribe(cfg2.TOPIC_CFG_DESIRED.format(self.DongleID), qos=1)
+        # Senal de prueba de rotonda: "0" retenido (llega al conectar) y "1" de ~500 ms.
+        client.subscribe(cfg2.TOPIC_DEV_ROUNDABOUT.format(self.DongleID), qos=1)
       cloudlog.warning(f"[Bemposta] MQTTComandos CONECTADO (rc={rc}), suscrito a comandos v2+v1 y a cfg/desired para dongle={self.DongleID}")
 
       # Descriptor de capacidades: forzado en cada conexion porque el retenido vive en EL
       # BROKER, y este puede ser otro (cambio de IP desde Ajustes) o haberlo perdido.
       self.maybe_publish_caps(forzar=True)
 
+  def _sin_ordenes(self) -> bool:
+    """Coche que ya conocio Funnel hablando por legacy: nada de ordenes (G4.2)."""
+    destino = getattr(self, "_destino", None)
+    return destino is not None and destino.enlace == conexion_mqtt.ENLACE_LEGACY and conexion_mqtt.funnel_ok()
+
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
     cloudlog.warning(f"[Bemposta] MQTTComandos DESCONECTADO del broker {self.broker_address} (rc={rc})")
+    # Un cierre antes del CONNACK solo llega por aqui: alimenta el reloj de conexion_mqtt.
+    desconectado_seguro(getattr(self, "_destino", None), rc)
     # print("🔌 MQTT Comandos desconectado. Reintentando...")  # Comentado para reducir uso de memoria
 
   def save_debug_message(self, topic, payload):
@@ -757,16 +896,11 @@ class MQTTComandos:
   # sustituye el sobre `orbit/v2/cfg/desired/<dongle>` (seccion 8).
   RETAIN_PERMITIDO = ("/enroll_ack",)
 
-  # steer_torque_mode SI actua sobre el coche y por eso salio de la lista de
-  # arriba: su ejecutor escribe SteerTorqueMode, y controlsd pone
-  # actuators.torque = -1.0 EN CADA CICLO con modo 2 mientras latActive, mientras
-  # que el modo 1 conmuta la fuente de direccion a la Jetson. Como el param es
-  # PERSISTENT y la app publica con retain:true, el retenido se re-entregaba en
-  # CADA reconexion y en cada reinicio del subsistema: par maximo remoto sin que
-  # nadie mande nada. Se admite el retenido SOLO cuando BAJA autoridad (modo 0),
-  # que es la unica direccion que el diseno (§2) permite siempre. El cold-start
-  # legitimo ya lo cubre el propio comma con _publish_state_snapshot_retained().
-  RETAIN_SOLO_SI_BAJA_AUTORIDAD = ("/steer_torque_mode",)
+  # telemetry_config/<d>/steer_torque_mode ya NO es una orden: es el SNAPSHOT DE ESTADO
+  # que publica el propio comma (mqtt_envio_general) y la ACL legacy deja publicarlo a
+  # cualquiera, asi que un anonimo podia forzar disarm_all o pedir torque_mode. El modo
+  # de volante solo cambia por v2 (steer_mode_request con confirmacion en pantalla, o la
+  # UI local); desarmar en remoto es disarm_all por orbit/v2/cmd. Ni suscrito ni atendido.
 
   # ------------------------------------------------------------------ entrada MQTT
 
@@ -823,6 +957,14 @@ class MQTTComandos:
       # que el panel muestre que el mensaje llego y no parezca perdido)
       self.save_debug_message(topic, payload)
 
+      # --- legacy tras Funnel: el filtro de suscripciones no basta (ver TOPICS_V1_SIN_ORDENES).
+      if self._sin_ordenes():
+        prefijo = f"telemetry_config/{self.DongleID}/"
+        if not (isinstance(topic, str) and topic.startswith(prefijo)
+                and topic[len(prefijo):] in TOPICS_V1_SIN_ORDENES):
+          cloudlog.warning(f"[ORBIT] {topic} descartado: legacy tras haber usado Funnel, sin ordenes")
+          return
+
       # --- v2 cfg: configuracion deseada (seccion 8). Aqui el RETENIDO ES LO NORMAL --es
       # estado, no una orden-- asi que va ANTES del filtro de retenidos del namespace v1.
       # Este hilo solo parsea y deja el sobre en el buzon: aplicar toca Params, un JSON con
@@ -832,13 +974,20 @@ class MQTTComandos:
           # Payload vacio = borrado del retenido, no "configuracion sin claves".
           cloudlog.warning(f"[Bemposta] cfg/desired vacio en {topic} (borrado de retenido), ignorado")
           return
-        cfg2.get_bus().recibir(payload)
+        # Con OrbitRemoteOff el sobre se guarda igual (es ESTADO): lo retiene
+        # _mantener_config hasta que se quite el interruptor.
+        if cfg2.get_bus().recibir(payload) and remoto_apagado(self.params):
+          get_mando_local().anotar("cfg", "cfg", "held", "REMOTE_OFF")
         return
 
       # --- senal de prueba de rotonda: no es una orden, no pasa por el router.
       if isinstance(topic, str) and topic == cfg2.TOPIC_DEV_ROUNDABOUT.format(self.DongleID):
-        if payload in ("0", "1"):
+        if payload == "1" and remoto_apagado(self.params):
+          # Encender la senal es mando; apagarla ("0") siempre se acepta.
+          get_mando_local().anotar("dev", "roundabout", "ignored", "REMOTE_OFF")
+        elif payload in ("0", "1"):
           self.params.put_bool("OrbitDevRoundabout", payload == "1")
+          get_mando_local().anotar("dev", "roundabout", "applied")
         else:
           cloudlog.warning(f"[Bemposta] roundabout con payload invalido {payload!r}, ignorado")
         return
@@ -854,8 +1003,7 @@ class MQTTComandos:
       # --- v1: los filtros de retenido y de payload vacio son de este lado, porque el
       # namespace legacy SI tiene topics donde un retenido es legitimo.
       retenido = bool(msg.retain)
-      if retenido and not topic.endswith(self.RETAIN_PERMITIDO) \
-         and not topic.endswith(self.RETAIN_SOLO_SI_BAJA_AUTORIDAD):
+      if retenido and not topic.endswith(self.RETAIN_PERMITIDO):
         cloudlog.warning(f"[Bemposta] MQTTComandos descarta mensaje RETENIDO en {topic} (un mando no se repite)")
         return
 
@@ -869,6 +1017,11 @@ class MQTTComandos:
         return
 
       # --- topics v1 de CONFIGURACION (no son verbos: ver el docstring).
+      if topic.endswith("/steer_torque_mode"):
+        # Estado, no orden (ver el comentario sobre RETAIN_PERMITIDO). Explicito para que
+        # una suscripcion con comodin no lo devuelva al router.
+        cloudlog.warning(f"[Bemposta] {topic} IGNORADO: el modo de volante solo cambia por v2 o en la pantalla")
+        return
       if topic.endswith("/jetson_config"):
         # Ni suscrito ni atendido. Aqui solo puede llegar por una suscripcion con comodin
         # que hoy no existe; el rechazo explicito esta para que, si alguien la anade, el
@@ -876,7 +1029,7 @@ class MQTTComandos:
         cloudlog.warning(f"[Bemposta] {topic} IGNORADO: la config de la Jetson va por orbit/v2/cfg/desired (§8)")
         return
       if topic.endswith("/camera_config"):
-        self.handle_camera_config(payload)
+        self._camera_config_con_interruptor(payload)
         return
       if topic.endswith("/enroll_ack"):
         self.handle_enroll_ack(payload)
@@ -885,6 +1038,9 @@ class MQTTComandos:
         self.handle_unlink_ack(payload)
         return
       if topic.endswith("/speed_increment"):
+        if remoto_apagado(self.params):
+          get_mando_local().anotar("paso", "speed_increment", "ignored", "REMOTE_OFF")
+          return
         self.handle_speed_increment_config(payload)
         return
 
@@ -924,8 +1080,6 @@ class MQTTComandos:
       traduccion = self._v1_overtake(payload)
     elif topic.endswith("/brutebreak"):
       traduccion = self._v1_brutebreak(payload)
-    elif topic.endswith("/steer_torque_mode"):
-      traduccion = self._v1_steer_torque_mode(payload, retenido)
     elif topic.endswith("/healthcheck"):
       traduccion = ("healthcheck", {})
     else:
@@ -1168,79 +1322,6 @@ class MQTTComandos:
       pass  # Error silenciado para no afectar al flujo principal
 
 
-  def _v1_steer_torque_mode(self, payload, retenido=False):
-    """/steer_torque_mode -> verbo torque_mode (o disarm_all si vuelve al modo 0).
-
-    Topic v1:
-      telemetry_config/{dongle_id}/steer_torque_mode
-
-    Payload:
-      {"dongle_id": "...", "steer_torque_mode": 0|1|2|3,
-       "apply_target": "curvature"|"torque",   # obligatorio con mode == 3
-       "source": "app" | "comma_ui"}
-
-    Modos: 0 MODELO COMMA · 1 JETSON · 2 TEST MAX · 3 COMMA+JETSON (esquive).
-
-    Que cambia respecto de v1. Antes esto escribia SteerTorqueMode directamente desde el
-    hilo de red, con un unico gate ad-hoc (el modo 2 exigia OrbitBenchArmed) puesto a mano
-    en la fase de contencion. Ahora los modos 1, 2 y 3 son el verbo `torque_mode`, que
-    command_spec declara de modo BANCO: exigen armado FISICO en la pantalla del comma, con
-    caducidad vigente, y ademas ENGAGED. El modo 1 le da el volante a la Jetson y el 3 le
-    deja sumar offsets de esquive: los tres mueven el volante, asi que los tres van por la
-    misma puerta. El modo 0 NO va por ahi: apagarlo BAJA autoridad y se atiende como
-    disarm_all, que es el unico verbo que no se puede bloquear (seccion 2) -- si tambien
-    exigiera banco, un TEST MAX armado por error no se podria apagar en remoto.
-
-    `retenido` = el broker nos lo re-entrego (reconexion o reinicio del subsistema). En
-    ese caso solo se acepta el modo 0: ver RETAIN_SOLO_SI_BAJA_AUTORIDAD.
-    """
-    try:
-      data = json.loads(payload)
-    except (json.JSONDecodeError, ValueError, TypeError):
-      return None
-    if not isinstance(data, dict):
-      return None
-
-    # Defensa en profundidad: el docstring de v1 prometia "por dongle_id" y el codigo
-    # nunca lo comprobaba. Un payload dirigido a OTRO comma no cambia el volante de este.
-    dongle_msg = data.get("dongle_id")
-    if dongle_msg and dongle_msg != self.DongleID:
-      cloudlog.warning(f"[Bemposta] steer_torque_mode descartado: dongle_id ajeno {dongle_msg!r} != {self.DongleID!r}")
-      return None
-
-    # Anti-eco: el propio comma publica este topic retenido con source="comma_ui".
-    if data.get("source") == "comma_ui":
-      return None
-
-    if "steer_torque_mode" not in data:
-      return None
-    try:
-      mode = int(data["steer_torque_mode"])
-    except (ValueError, TypeError):
-      return None
-    if mode not in (0, 1, 2, 3):
-      return None
-
-    if retenido and mode != 0:
-      # Un retenido se re-entrega en CADA reconexion: volveria a dar el volante a la
-      # Jetson (o par maximo) sin que nadie mande nada en ese momento.
-      cloudlog.warning(f"[Bemposta] steer_torque_mode RETENIDO con mode={mode} descartado (solo se acepta retenido el modo 0)")
-      return None
-
-    if mode == 0:
-      return ("disarm_all", {})
-
-    args = {"mode": mode}
-    if mode == 3:
-      apply_target = data.get("apply_target")
-      if apply_target not in ("curvature", "torque"):
-        # Sin apply_target no se sabe DONDE aplicar el esquive: descartar, no adivinar.
-        cloudlog.warning(f"[Bemposta] steer_torque_mode mode=3 sin apply_target valido ({apply_target!r}), descartado")
-        return None
-      args["apply_target"] = apply_target
-    return ("torque_mode", args)
-
-
   def handle_enroll_ack(self, payload):
     """Maneja el ack de enrolamiento ORBIT enviado por el backend.
 
@@ -1355,6 +1436,25 @@ class MQTTComandos:
     """Establece la referencia al CameraSender para control remoto desde la app."""
     self.camera_sender = camera_sender
 
+  def _camera_config_con_interruptor(self, payload):
+    """camera_config bajo OrbitRemoteOff (C-33.3 camino 6). Con el interruptor activo solo
+    pasa la parte que PARA el envio de imagenes ({"image_sending_enabled": false}); el
+    resto se ignora. Sin interruptor todo va al handler, JSON roto incluido, como antes.
+    El registro dice applied solo si el handler cambio algo de verdad."""
+    if not remoto_apagado(self.params):
+      aplicado = self.handle_camera_config(payload)
+      get_mando_local().anotar("cam", "cam", "applied" if aplicado else "ignored")
+      return
+    try:
+      data = json.loads(payload)
+    except (ValueError, TypeError):
+      return   # JSON roto con el interruptor activo: se descarta sin anotar
+    if isinstance(data, dict) and data.get("image_sending_enabled") is False:
+      aplicado = self.handle_camera_config(json.dumps({"image_sending_enabled": False}))
+      get_mando_local().anotar("cam", "cam", "applied" if aplicado else "ignored")
+    else:
+      get_mando_local().anotar("cam", "cam", "ignored", "REMOTE_OFF")
+
   def handle_camera_config(self, payload):
     """Maneja la configuración de cámara recibida desde la app ORBIT.
 
@@ -1368,9 +1468,14 @@ class MQTTComandos:
       "send_frequency_seconds": 1|2|5|10|30|60,
       "save_images": true|false  (informativo, no afecta al comma)
     }
+
+    Devuelve True solo si el CameraSender cambio algo (envio, frecuencia o camara). Una
+    orden ignorada (privacidad local, valor invalido, sin CameraSender, JSON roto) o que
+    repite el estado actual da False: el registro de ordenes remotas no puede decir
+    'aplicada' por algo que no ocurrio.
     """
     if self.camera_sender is None:
-      return
+      return False
 
     try:
       data = json.loads(payload)
@@ -1408,9 +1513,14 @@ class MQTTComandos:
       if "preferred_camera_type" in data and "camera_type" not in data:
         data["camera_type"] = data["preferred_camera_type"]
 
+      # apply_config no dice que aplico: se compara el estado antes y despues.
+      def estado():
+        return tuple(getattr(self.camera_sender, k, None) for k in ("sending_enabled", "interval_seconds", "camera_type"))
+      antes = estado()
       self.camera_sender.apply_config(data)
+      return estado() != antes
     except (json.JSONDecodeError, Exception):
-      pass
+      return False
 
   def start(self):
     """Inicia el cliente MQTT de comandos."""

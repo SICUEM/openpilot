@@ -246,6 +246,11 @@ class CommandSpec:
   # cierra como expired (no NO_RESULT). El handler puede cerrar al momento devolviendo
   # (phase, reason, detail); si devuelve None la orden queda pendiente de la pantalla.
   confirma_en_pantalla: bool = False
+  # Verbo SIN EFECTO sobre el coche que NO escribe activeVerb/cmdId en el plano de estado.
+  # bookmark se acepta en modo observador y lo puede mandar cualquiera desde el broker:
+  # si pasara por begin_command/end_command pisaria el cmdId que lane_change
+  # (conserva_plano) mantiene hasta su veredicto, y mientras tanto controlsd veria BUSY.
+  toca_plano: bool = True
 
   @property
   def requiere_armado_banco(self) -> bool:
@@ -334,6 +339,19 @@ COMMANDS: MappingProxyType = MappingProxyType({spec.verb: spec for spec in (
     ),
     handler_name="handle_set_mode",
     descripcion="Cambia el modo de mando: observador, copiloto o maniobra. El modo banco solo se alcanza con armado fisico en la pantalla del comma.",
+  ),
+
+  CommandSpec(
+    verb="bookmark",
+    arma_actuador=False,
+    toca_plano=False,
+    mode_min=Mode.OBSERVER,
+    gates=Gate(0),
+    args_schema=_args(),
+    ttl_ms=10_000,
+    limits=_limits(solo_onroad=True, intervalo_min_s=5.0),
+    handler_name="handle_bookmark",
+    descripcion="Marca este momento del viaje en el servidor. Solo en marcha, uno cada 5 s. No avisa al conductor ni preserva segmentos.",
   ),
 
   # ------------------------------------------------------------------ modo copiloto
@@ -533,7 +551,7 @@ COMMANDS: MappingProxyType = MappingProxyType({spec.verb: spec for spec in (
     gates=Gate.ENGAGED,
     args_schema=_args(
       # 1..3, no 0..3. El 0 (volver al modelo del comma) BAJA autoridad y se atiende como
-      # disarm_all -- lo traduce asi el puente v1 (_v1_steer_torque_mode) --, asi que
+      # disarm_all (orbit/v2/cmd), asi que
       # aceptarlo aqui era declarar dos caminos para lo mismo, y uno de ellos exigiendo
       # armado fisico de banco: apagar no puede depender de que el banco siga armado.
       mode=ArgSpec(tipo=int, minimo=1, maximo=3),
@@ -755,14 +773,16 @@ def validar_args(spec: CommandSpec, args) -> tuple[str | None, str, dict]:
     elif esperado is str:
       if not isinstance(valor, str):
         return "TYPE", f"'{nombre}' debe ser cadena, llego {type(valor).__name__}", {}
+      if aspec.maximo is not None and len(valor) > aspec.maximo:
+        return "RANGE", f"'{nombre}' mide {len(valor)}, por encima de {aspec.maximo}", {}
     else:
       return "INTERNAL", f"tipo no soportado en el esquema de '{nombre}'", {}
 
     if aspec.opciones and valor not in aspec.opciones:
       return "RANGE", f"'{nombre}'={valor!r} fuera de {list(aspec.opciones)}", {}
-    if aspec.minimo is not None and valor < aspec.minimo:
+    if aspec.minimo is not None and esperado is not str and valor < aspec.minimo:
       return "RANGE", f"'{nombre}'={valor} por debajo de {aspec.minimo}", {}
-    if aspec.maximo is not None and valor > aspec.maximo:
+    if aspec.maximo is not None and esperado is not str and valor > aspec.maximo:
       return "RANGE", f"'{nombre}'={valor} por encima de {aspec.maximo}", {}
 
     fuera[nombre] = valor
@@ -800,7 +820,8 @@ PHASES = (Phase.NONE, Phase.RECEIVED, Phase.ACCEPTED, Phase.REJECTED, Phase.EXEC
 # Codigos de motivo cerrados de la seccion 3.3. Los GATE_<nombre> se generan con
 # gate_reason() y no se listan aqui uno a uno.
 REASONS = ("OK", "TYPE", "RANGE", "MODE", "DUPLICATE", "EXPIRED", "CLOCK",
-           "UNSUPPORTED_PLATFORM", "UNSUPPORTED_VERB", "BUSY", "SUPERSEDED", "LINK", "INTERNAL")
+           "UNSUPPORTED_PLATFORM", "UNSUPPORTED_VERB", "BUSY", "SUPERSEDED", "LINK", "INTERNAL",
+           "REMOTE_OFF", "OFFROAD")
 
 
 def reason_valido(reason: str) -> bool:

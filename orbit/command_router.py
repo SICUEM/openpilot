@@ -19,6 +19,7 @@ FILTROS, en orden (seccion 3.4 y tabla de la seccion 12):
     v != 2 .................................................. TYPE
     verbo desconocido o sin handler ......................... UNSUPPORTED_VERB
     >>> disarm_all sale por aqui y se ejecuta SIEMPRE <<<
+    interruptor local OrbitRemoteOff ........................ REMOTE_OFF
     id repetido (LRU de 512) ................................ DUPLICATE
     reloj sin sincronizar o desfase > 30 s .................. CLOCK
     ts_ms/seq/ttl_ms mal tipados ............................ TYPE
@@ -28,6 +29,8 @@ FILTROS, en orden (seccion 3.4 y tabla de la seccion 12):
     seq menor o igual que el ultimo aceptado del verbo ...... SUPERSEDED
     modo insuficiente o banco sin armado fisico ............. MODE
     gate en rojo ............................................ GATE_<nombre>
+    verbo solo_onroad con el coche parado o sin GateMonitor .. OFFROAD / INTERNAL
+    intervalo_min_s desde el ultimo aceptado del verbo ...... RANGE
     presupuesto de ritmo agotado ............................ RANGE
 
 Lo que se DESCARTA no lleva ACK a proposito: un retenido, un borrado de retenido o
@@ -47,6 +50,7 @@ from openpilot.orbit.command_gates import LINK_FRESH_MAX_S
 from openpilot.orbit.command_spec import (CONTRACT_VERSION, TOPIC_ACK, TOPIC_CMD, Gate, Mode, Phase,
                                           ahora_epoch_ms, ahora_mono, gate_reason, get_spec, parse_mode, reason_valido,
                                           validar_args)
+from openpilot.orbit.mando_local import get_mando_local, remoto_apagado
 
 # Tope de la LRU de idempotencia (seccion 3.4).
 LRU_MAX = 512
@@ -91,6 +95,8 @@ ECO_VENTANA_S = 2.0
 # rato escribiendo en swaglog, que es justo lo que la seccion 12 pide evitar al saturar.
 LOG_CADA_S = 2.0
 
+DETALLE_REMOTE_OFF = "mando remoto desactivado en la pantalla del comma"
+
 
 @dataclass
 class Resultado:
@@ -129,7 +135,8 @@ class CommandRouter:
   """Un router por dispositivo. Se construye en el hilo ORBIT y se comparte con paho."""
 
   def __init__(self, dongle_id: str, gates=None, store=None, publish=None,
-               queue_max: int = QUEUE_MAX, lru_max: int = LRU_MAX, publicar_received: bool = True):
+               queue_max: int = QUEUE_MAX, lru_max: int = LRU_MAX, publicar_received: bool = True,
+               params=None):
     self.dongle_id = (dongle_id or "").strip()
     self.gates = gates
     self.store = store
@@ -144,6 +151,7 @@ class CommandRouter:
     self._ultimo_seq: dict = {}                 # clave de fuente+verbo -> ultimo seq ACEPTADO
     self._seq_local = 0                         # contador de los sobres que fabricamos aqui
     self._ritmo: dict = {}                      # verbo -> deque[(mono, cantidad)]
+    self._ultimo_aceptado: dict = {}            # verbo -> mono del ultimo aceptado (intervalo_min_s)
     self._eco: dict = {}                        # verbo -> (clave_args, mono, fuente)
     # Verbo dueno de la ventana de actuador que este router abrio por ultima vez. Lo lleva
     # el router y no el plano porque el plano tiene UN solo deadline para todo el
@@ -160,7 +168,7 @@ class CommandRouter:
     # de resultados lee OrbitCmdResult; con el diccionario vacio no toca el disco.
     self._pendientes: dict = {}
     self._hilo_resultados: threading.Thread | None = None
-    self._params_res = None
+    self._params_res = params
 
   def _log(self, clave: str, mensaje: str) -> None:
     """Log acotado por clave. Corre en el hilo de red: nunca puede ser el cuello de botella."""
@@ -208,8 +216,10 @@ class CommandRouter:
     """
     marca = brand or (self.gates.brand if self.gates is not None else "")
     plataforma = platform or (getattr(self.gates, "platform", "") if self.gates is not None else "")
+    vehiculo = getattr(self.gates, "vehicle", None) if self.gates is not None else None
     return spec_mod.capabilities_payload(brand=marca, platform=plataforma, fw=fw,
-                                         verbos_disponibles=self.registered_verbs())
+                                         verbos_disponibles=self.registered_verbs(),
+                                         extra={"vehicle": vehiculo} if isinstance(vehiculo, dict) else None)
 
   # ----------------------------------------------------------------- ciclo de vida
 
@@ -241,6 +251,11 @@ class CommandRouter:
     if self.store is not None:
       try:
         self.store.note_ack(phase, reason)
+      except Exception:
+        pass
+    if phase in self._FASES_TERMINALES:
+      try:
+        get_mando_local().anotar("v1" if cmd_id.startswith("v1-") else "v2", verb, phase, reason)
       except Exception:
         pass
     if self._publish is None or not self.dongle_id:
@@ -371,6 +386,11 @@ class CommandRouter:
       self._recordar_id(cmd_id)
       return self._encolar(cmd)
 
+    # 6.bis) interruptor LOCAL del mando remoto (pantalla del comma). Se lee el Param en
+    # cada mensaje, sin cache: el bucle de telemetria puede estar parado y este cliente no.
+    if self._remoto_apagado():
+      return self._rechazo(cmd_id, verb, "REMOTE_OFF", DETALLE_REMOTE_OFF)
+
     # 7) idempotencia por id (LRU de 512). Es el control anti-reinyeccion: va antes que
     # el reloj y que el TTL para que un comando capturado y reinyectado diga DUPLICATE y
     # no un motivo colateral.
@@ -475,6 +495,28 @@ class CommandRouter:
     if reason is not None:
       return self._rechazo(cmd_id, verb, reason, detail)
 
+    # 13.bis) verbos que solo tienen sentido con el coche en marcha. _comprobar_gates sale
+    # antes de mirar self.gates si el verbo no declara gates, asi que se mira aqui y falla
+    # cerrado sin GateMonitor.
+    limites = spec.limits or {}
+    if limites.get("solo_onroad"):
+      if self.gates is None or self._gates_rancios():
+        return self._rechazo(cmd_id, verb, "INTERNAL", "sin GateMonitor: no se sabe si el coche esta en marcha")
+      try:
+        en_marcha = bool(self.gates.onroad)
+      except Exception:
+        en_marcha = False
+      if not en_marcha:
+        return self._rechazo(cmd_id, verb, "OFFROAD", "solo con el coche en marcha")
+
+    # 13.ter) intervalo minimo entre dos ACEPTADOS del mismo verbo.
+    intervalo = float(limites.get("intervalo_min_s") or 0.0)
+    if intervalo > 0.0:
+      with self._lock:
+        previo = self._ultimo_aceptado.get(verb)
+      if previo is not None and ahora_mono() - previo < intervalo:
+        return self._rechazo(cmd_id, verb, "RANGE", f"un {verb} cada {intervalo:g} s")
+
     # 14) presupuesto de ritmo (p.ej. +-20 km/h por minuto en cruise_delta)
     reason, detail = self._comprobar_ritmo(spec, args, aplicar=True)
     if reason is not None:
@@ -488,7 +530,12 @@ class CommandRouter:
     self._recordar_id(cmd_id)
     with self._lock:
       self._ultimo_seq[clave_seq] = seq
-    return self._encolar(cmd)
+    res = self._encolar(cmd)
+    if res.aceptado and intervalo > 0.0:
+      # El sello se pone solo al ACEPTAR: un rechazo no consume el intervalo.
+      with self._lock:
+        self._ultimo_aceptado[verb] = ahora_mono()
+    return res
 
   # ------------------------------------------------- puente v1 -> sobre v2 (seccion 13)
 
@@ -573,6 +620,14 @@ class CommandRouter:
       return bool(getattr(self.gates, "stale", False))
     except Exception:
       return True
+
+  def _remoto_apagado(self) -> bool:
+    """OrbitRemoteOff, leido del Param en cada llamada. Falla cerrado (ver mando_local)."""
+    try:
+      params = self._params_resultado()
+    except Exception:
+      return True
+    return remoto_apagado(params)
 
   def _reloj_ok(self) -> bool:
     """Sin GateMonitor NO se da por bueno el reloj: fail-closed. La unica orden que
@@ -826,7 +881,8 @@ class CommandRouter:
       self._pendientes[cmd.cmd_id] = (cmd.verb, limite)
 
   def _params_resultado(self):
-    """Params perezoso: importar arriba ataria los tests a un /data/params real."""
+    """Params perezoso: importar arriba ataria los tests a un /data/params real. Es el
+    mismo objeto para OrbitCmdResult y OrbitRemoteOff; se puede inyectar en __init__."""
     if self._params_res is None:
       from openpilot.common.params import Params
       self._params_res = Params()
@@ -1037,6 +1093,24 @@ class CommandRouter:
       return nuevo      # no hay ventana viva de nadie: la de este verbo manda entera
     return min(nuevo, vigente)
 
+  def _desarmar_por_remoto_off(self, cmd: Comando) -> None:
+    """Deshace lo que acaba de escribir un handler con el interruptor ya activo: mismo
+    camino que disarm_all (su handler y el plano a neutro) y la orden queda REMOTE_OFF."""
+    with self._lock:
+      desarme = self._handlers.get("disarm_all")
+    try:
+      if desarme is not None:
+        desarme(cmd)
+    except Exception:
+      cloudlog.exception("[Orbit] disarm_all tras REMOTE_OFF fallo")
+    if self.store is not None:
+      try:
+        self.store.clear_actuators()
+        self._ventana_verb = ""
+      except Exception:
+        pass
+    self._ack(cmd.cmd_id, Phase.REJECTED, "REMOTE_OFF", DETALLE_REMOTE_OFF, verb=cmd.verb)
+
   def _ejecutar(self, cmd: Comando) -> None:
     spec = cmd.spec
 
@@ -1046,6 +1120,11 @@ class CommandRouter:
     if not spec.baja_autoridad:
       if cmd.caducado:
         self._ack(cmd.cmd_id, Phase.EXPIRED, "EXPIRED", "el TTL vencio en la cola", verb=cmd.verb)
+        return
+      # Segunda lectura del interruptor: lo aceptado justo antes de activarlo no se
+      # ejecuta despues del disarm_all que hace la pantalla.
+      if self._remoto_apagado():
+        self._ack(cmd.cmd_id, Phase.REJECTED, "REMOTE_OFF", DETALLE_REMOTE_OFF, verb=cmd.verb)
         return
       reason, detail = self._comprobar_modo(spec, None)
       if reason is None:
@@ -1060,7 +1139,9 @@ class CommandRouter:
       self._ack(cmd.cmd_id, Phase.REJECTED, "UNSUPPORTED_VERB", "el handler desaparecio", verb=cmd.verb)
       return
 
-    if self.store is not None:
+    # CommandSpec.toca_plano: un bookmark no pisa el cmdId de un lane_change pendiente.
+    toca_plano = bool(getattr(spec, "toca_plano", True))
+    if self.store is not None and toca_plano:
       try:
         # Solo los verbos que ABREN una ventana de actuador escriben el deadman. Ver
         # CommandSpec.arma_actuador: con un unico deadline en el plano, un verbo inocuo
@@ -1084,11 +1165,20 @@ class CommandRouter:
     except Exception as e:
       cloudlog.exception(f"[Orbit] handler de '{cmd.verb}' fallo")
       self._ack(cmd.cmd_id, Phase.FAILED, "INTERNAL", f"{type(e).__name__}: {e}", verb=cmd.verb)
-      if self.store is not None:
+      if self.store is not None and toca_plano:
         try:
           self.store.end_command()
         except Exception:
           pass
+      return
+
+    # Tercera lectura del interruptor, DESPUES del handler. La segunda no cierra la
+    # ventana: la pantalla vive en otro proceso y puede escribir OrbitRemoteOff y hacer su
+    # disarm_all entre esa lectura y la escritura del handler, que volveria a subir
+    # autoridad. Si ya esta puesto, se desarma aqui, en el worker, para que lo ultimo
+    # escrito sea el neutro.
+    if not spec.baja_autoridad and self._remoto_apagado():
+      self._desarmar_por_remoto_off(cmd)
       return
 
     cierra_consumidor = bool(getattr(spec, "cierra_consumidor", False))
@@ -1104,7 +1194,7 @@ class CommandRouter:
       self._registrar_pendiente(cmd)
     else:
       self._ack(cmd.cmd_id, Phase.APPLIED, "OK", verb=cmd.verb)
-    if self.store is not None:
+    if self.store is not None and toca_plano:
       try:
         # disarm_all deja el plano de estado en neutro AHORA (deadline a 0). El resto de
         # verbos conservan su deadline: el actuador puede seguir vivo hasta el deadman

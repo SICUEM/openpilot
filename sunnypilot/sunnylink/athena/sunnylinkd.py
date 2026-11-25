@@ -55,6 +55,15 @@ BLOCKED_PARAMS = {
   "HasAcceptedTermsSP",
   "OnroadCycleRequested",      # Prevent remote cycle trigger
   "ParamsVersion",         # Device-managed version counter
+  # Orbit: mando remoto, armado presencial y privacidad. Solo los escribe la pantalla del comma.
+  "OrbitRemoteOff",
+  "OrbitRemoteLog",
+  "OrbitPrivacyMute",
+  "OrbitCommandMode",
+  "OrbitBenchArmed",
+  "OrbitBenchExpiry",
+  "OrbitSteerModeLocal",
+  "SteerTorqueMode",
 }
 
 

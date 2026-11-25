@@ -346,69 +346,30 @@ def test_overtake_v1_apagado_si_desarma():
 
 # -------------------------------------------------------------------- torque_mode
 
-@pytest.mark.parametrize("modo", [1, 2, 3])
-def test_steer_torque_mode_v1_exige_armado_fisico_de_banco(modo):
-  """Los tres modos mueven el volante: el 1 se lo da a la Jetson, el 2 pone par maximo y
-  el 3 deja sumar offsets de esquive. Los tres son modo BANCO."""
-  c = _comandos(modo=Mode.BENCH, banco=False, verde=True)
-  payload = json.dumps({"steer_torque_mode": modo, "source": "app", "apply_target": "curvature"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload) == 0
-  assert c.params.valores.get("SteerTorqueMode") != modo
-  assert (Phase.REJECTED, "MODE") in _acks(c)
-
-
-def test_steer_torque_mode_v1_con_banco_armado_se_aplica():
-  c = _comandos(modo=Mode.BENCH, banco=True, verde=True)
-  payload = json.dumps({"steer_torque_mode": 2, "source": "app"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload) == 1
-  assert c.params.valores["SteerTorqueMode"] == 2
-
-
-def test_steer_torque_mode_v1_modo_0_es_disarm_all_y_no_exige_banco():
-  """Si apagar el TEST MAX exigiera banco, un modo 2 armado por error no se podria
-  apagar en remoto."""
+@pytest.mark.parametrize("retain", [False, True])
+@pytest.mark.parametrize("modo", [0, 1, 2, 3])
+def test_steer_torque_mode_v1_ya_no_es_una_orden(modo, retain):
+  """telemetry_config/<d>/steer_torque_mode es el snapshot de estado que publica el comma
+  y la ACL legacy deja publicarlo a cualquiera: un anonimo forzaba disarm_all (modo 0) o
+  pedia torque_mode. Ya no ejecuta nada, ni con el banco armado ni con todo en verde."""
   p = _ParamsFalsos({"SteerTorqueMode": 2})
-  c = _comandos(modo=Mode.OBSERVER, banco=False, verde=False, params=p)
-  payload = json.dumps({"steer_torque_mode": 0, "source": "app"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload) == 1
-  assert p.valores["SteerTorqueMode"] == 0
-
-
-def test_steer_torque_mode_v1_retenido_solo_acepta_el_modo_0():
-  c = _comandos(modo=Mode.BENCH, banco=True, verde=True)
-  payload = json.dumps({"steer_torque_mode": 2, "source": "app"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload, retain=True) == 0
-  assert "SteerTorqueMode" not in c.params.valores
-  assert _acks(c) == []          # ni ACK: el retenido se corta antes de fabricar sobre
-
-
-def test_steer_torque_mode_v1_de_otro_dongle_se_descarta():
-  c = _comandos(modo=Mode.BENCH, banco=True, verde=True)
-  payload = json.dumps({"dongle_id": "otro", "steer_torque_mode": 2, "source": "app"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload) == 0
-  assert "SteerTorqueMode" not in c.params.valores
-
-
-def test_steer_torque_mode_v1_eco_del_propio_comma_se_ignora():
-  c = _comandos(modo=Mode.BENCH, banco=True, verde=True)
-  payload = json.dumps({"steer_torque_mode": 2, "source": "comma_ui"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload) == 0
+  c = _comandos(modo=Mode.BENCH, banco=True, verde=True, params=p)
+  payload = json.dumps({"steer_torque_mode": modo, "source": "app", "apply_target": "curvature"})
+  assert _entregar(c, f"{V1}/steer_torque_mode", payload, retain=retain) == 0
+  assert p.valores["SteerTorqueMode"] == 2
   assert _acks(c) == []
 
 
-def test_steer_torque_mode_v1_modo_3_sin_apply_target_se_descarta():
-  c = _comandos(modo=Mode.BENCH, banco=True, verde=True)
-  payload = json.dumps({"steer_torque_mode": 3, "source": "app"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload) == 0
-  assert "SteerTorqueMode" not in c.params.valores
-
-
-def test_steer_torque_mode_v1_modo_3_con_apply_target_se_aplica():
-  c = _comandos(modo=Mode.BENCH, banco=True, verde=True)
-  payload = json.dumps({"steer_torque_mode": 3, "source": "app", "apply_target": "torque"})
-  assert _entregar(c, f"{V1}/steer_torque_mode", payload) == 1
-  assert c.params.valores["SteerTorqueMode"] == 3
-  assert c.params.valores["JetsonObstacleApplyTarget"] == "torque"
+def test_el_comma_sigue_publicando_el_snapshot_de_steer_torque_mode(tmp_path):
+  """Lo que deja de ser orden es la ENTRADA: el snapshot de estado retenido sigue saliendo."""
+  from openpilot.orbit.mqtt_envio_general import MQTTEnvioGeneral
+  e = object.__new__(MQTTEnvioGeneral)
+  e.conectado, e.dongle_valido, e.DongleID = True, True, DONGLE
+  e.params, e.mqttc, e.base_path = _ParamsFalsos({"SteerTorqueMode": 1}), _ClienteFalso(), str(tmp_path)
+  e._publish_state_snapshot_retained()
+  topic, payload, _, retain = e.mqttc.publicados[0]
+  assert topic == f"{V1}/steer_torque_mode" and retain is True
+  assert json.loads(payload)["steer_torque_mode"] == 1
 
 
 # ------------------------------------------------------- GateMonitor muerto o rancio
