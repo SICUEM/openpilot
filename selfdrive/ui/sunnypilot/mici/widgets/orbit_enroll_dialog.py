@@ -7,7 +7,7 @@ See the LICENSE.md file in the root directory for more details.
 QR de vinculacion con la app ORBIT en la pantalla del comma 4 (536x240).
 
 El mismo contrato que el dialogo de la UI grande (selfdrive/ui/widgets/orbit_enroll_dialog.py,
-de donde sale la textura del QR): carga orbit://enroll?d={DongleId}&c={OrbitPairingCode},
+de donde sale la textura del QR): carga orbit://enroll?d={DongleId}&c={OrbitPairingCode}[&v=2],
 modulos negros sobre blanco con zona de silencio, codigo y dongle en texto para la entrada
 manual, cuenta atras de OrbitEnrollExpiry, "nuevo codigo" (OrbitEnrollRegen) y pantalla de
 exito al pasar OrbitClaimed a True.
@@ -19,6 +19,7 @@ import time
 
 import pyray as rl
 
+from openpilot.orbit.enroll_v2 import codigo_legible
 from openpilot.selfdrive.ui.mici.widgets.button import LABEL_COLOR, COMPLICATION_GREY
 from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import a_salvo, recortar
 from openpilot.selfdrive.ui.ui_state import device, ui_state
@@ -73,7 +74,7 @@ class OrbitEnrollDialogMici(NavWidget):
     self._f_bold = gui_app.font(FontWeight.BOLD)
     self._f_display = gui_app.font(FontWeight.DISPLAY)
     self._f_roman = gui_app.font(FontWeight.ROMAN)
-    self._titulo = UnifiedLabel("escanea con\nla app orbit", 30, font_weight=FontWeight.BOLD, text_color=LABEL_COLOR, line_height=0.9)
+    self._titulo = UnifiedLabel("en la app orbit:\nvincular tu coche\ny escanea", 24, font_weight=FontWeight.BOLD, text_color=LABEL_COLOR, line_height=0.9)
     self._icono_ok = gui_app.texture("icons_mici/setup/driver_monitoring/dm_check.png", 64, 64)
     self._boton = _BotonTexto("nuevo código", self._regenerar)
     self._boton.set_enabled(lambda: self.enabled and not self.is_dismissing)
@@ -127,9 +128,16 @@ class OrbitEnrollDialogMici(NavWidget):
       # Sin codigo (p. ej. justo tras desvincular: el claim borra OrbitPairingCode pero no
       # OrbitEnrollExpiry) un QR con `c=` vacio y una cuenta atras parecen un codigo valido.
       rl.draw_rectangle_rounded(qr_rect, 0.08, 12, rl.Color(255, 255, 255, 20))
-      tam = measure_text_cached(self._f_bold, "sin código", 28)
-      rl.draw_text_ex(self._f_bold, "sin código", rl.Vector2(qr_rect.x + (lado - tam.x) / 2, qr_rect.y + (lado - tam.y) / 2),
-                      28, 0, COMPLICATION_GREY)
+      # Sin reloj valido el firmware no genera token ni anuncia: se dice, no se pinta un QR.
+      if not ajustes.reloj_sincronizado(getattr(ui_state, "orbit_command", None)):
+        for i, linea in enumerate(("sincronizando", "la hora", "del comma...")):
+          tam = measure_text_cached(self._f_bold, linea, 24)
+          rl.draw_text_ex(self._f_bold, linea, rl.Vector2(qr_rect.x + (lado - tam.x) / 2, qr_rect.y + lado / 2 - 40 + i * 30),
+                          24, 0, COMPLICATION_GREY)
+      else:
+        tam = measure_text_cached(self._f_bold, "sin código", 28)
+        rl.draw_text_ex(self._f_bold, "sin código", rl.Vector2(qr_rect.x + (lado - tam.x) / 2, qr_rect.y + (lado - tam.y) / 2),
+                        28, 0, COMPLICATION_GREY)
     else:
       self._refrescar_qr()
       if self._qr is not None:
@@ -143,10 +151,22 @@ class OrbitEnrollDialogMici(NavWidget):
     self._titulo.set_position(x, rect.y + 12)
     self._titulo.render()
 
-    codigo = self._codigo or "esperando código..."
-    tam_codigo = 40 if self._codigo else 26
-    rl.draw_text_ex(self._f_display, recortar(self._f_display, codigo, tam_codigo, ancho), rl.Vector2(x, rect.y + 82),
-                    tam_codigo, 0, rl.WHITE)
+    if self._codigo:
+      # Grupos de 4, una linea si cabe y dos como mucho: el tamano mas grande que quepa en la columna.
+      grupos = codigo_legible(self._codigo).split(" ")
+      mitad = (len(grupos) + 1) // 2
+      opciones = [[" ".join(grupos)], [" ".join(grupos[:mitad]), " ".join(grupos[mitad:])]]
+      tam, lineas = 22, opciones[-1]
+      for tam in range(40, 21, -2):
+        lineas = next((o for o in opciones if all(measure_text_cached(self._f_display, ln, tam).x <= ancho for ln in o)), None)
+        if lineas:
+          break
+      lineas = lineas or opciones[-1]
+      for i, linea in enumerate(lineas):
+        rl.draw_text_ex(self._f_display, linea, rl.Vector2(x, rect.y + 84 + i * (tam + 4)), tam, 0, rl.WHITE)
+    else:
+      rl.draw_text_ex(self._f_display, recortar(self._f_display, "esperando código...", 26, ancho), rl.Vector2(x, rect.y + 88),
+                      26, 0, rl.WHITE)
     if self._codigo and self._caducidad:
       rl.draw_text_ex(self._f_roman, self._caducidad, rl.Vector2(x, rect.y + 134), 24, 0, COMPLICATION_GREY)
     if self._dongle:

@@ -13,6 +13,7 @@ selfdrive/ui/widgets/orbit_ajustes.py y es la misma que usa el comma 3X.
 """
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 
 import pyray as rl
@@ -30,11 +31,37 @@ from openpilot.system.ui.widgets.scroller import NavScroller
 GRIS = COMPLICATION_GREY
 # Tinta de cada tono de orbit_ajustes.lineas_mando (los mismos tokens que la UI grande).
 TONOS = {"ok": t.OK, "aviso": t.AVISO, "peligro": t.PELIGRO, "normal": LABEL_COLOR}
+# Caracteres por tarjeta de texto: 3 lineas a ~28 px en los 416 px utiles (guia: una idea, 3 lineas).
+MAX_CAR_TARJETA = 72
 _FONDO_TARJETA = rl.Color(255, 255, 255, int(255 * 0.15))  # el de GreyBigButton
 
 
+_INICIO_FRASE = re.compile(r"(^|[.?!]\s+|\n)([¿¡]?)([A-ZÁÉÍÓÚÑ])(?=[a-záéíóúñ])")
+
+
+def minuscula(texto: str) -> str:
+  """Gramatica mici (guia 5.3): cada frase empieza en minuscula, como titulos y baldosas.
+
+  Solo baja la inicial de una palabra normal («Este» -> «este»): siglas (GPS, QR) y nombres
+  a mitad de frase se quedan como estan."""
+  return _INICIO_FRASE.sub(lambda m: m[1] + m[2] + m[3].lower(), texto)
+
+
+def trozos_mici(texto: str, max_car: int = MAX_CAR_TARJETA) -> list[str]:
+  """`trocear` para las tarjetas mici: minuscula y, en las listas, un elemento por tarjeta sin vineta."""
+  trozos: list[str] = []
+  for trozo in ajustes.trocear(texto, max_car):
+    lineas = trozo.split("\n")
+    trozos += [ln.removeprefix("- ") for ln in lineas] if all(ln.startswith("- ") for ln in lineas) else [trozo]
+  return [minuscula(trozo) for trozo in trozos]
+
+
 def aviso(titulo: str, texto: str = "") -> None:
-  gui_app.push_widget(BigDialog(titulo, texto))
+  # BigDialog trunca lo largo ("...a este comma;..."): un texto largo va en tarjetas.
+  if len(texto) > 60:
+    gui_app.push_widget(PaginaConfirmacion(titulo, texto, None, None))
+  else:
+    gui_app.push_widget(BigDialog(titulo, texto))
 
 
 def a_salvo(etiqueta: str, avisar: bool = False):
@@ -103,7 +130,10 @@ class TarjetaTexto(_ValorAjustable, GreyBigButton):
   """Tarjeta gris de texto (sin toque) con el texto ajustado al hueco."""
 
   def __init__(self, texto: str, titulo: str = "", icono: rl.Texture | None = None):
-    super().__init__(titulo, texto, icono)
+    super().__init__(minuscula(titulo), minuscula(texto), icono)
+
+  def set_value(self, value: str):
+    super().set_value(minuscula(value))
 
 
 class TarjetaEstado(Widget):
@@ -126,6 +156,8 @@ class TarjetaEstado(Widget):
     self._f_valor = gui_app.font(FontWeight.BOLD)
     self.filas: list[tuple[str, str, rl.Color]] = []
     self.chip: tuple[str, rl.Color] | None = None
+    # (etiqueta, vivo): regla bajo esa etiqueta, continua PULSO si vive, discontinua PELIGRO si no.
+    self.pulso: tuple[str, bool] | None = None
 
   def _render(self, _):
     r = self._rect
@@ -150,6 +182,8 @@ class TarjetaEstado(Widget):
         break
       if etiqueta:
         rl.draw_text_ex(self._f_etiqueta, etiqueta, rl.Vector2(x, y + 3), self.TAM_ETIQUETA, 0, GRIS)
+        if self.pulso is not None and self.pulso[0] == etiqueta:
+          self._regla(x, y + self.LINEA - 1, measure_text_cached(self._f_etiqueta, etiqueta, self.TAM_ETIQUETA).x, self.pulso[1])
       lineas = wrap_text(self._f_valor, valor, self.TAM_VALOR, int(ancho)) or [""]
       for n, linea in enumerate(lineas):
         ultima = y + 2 * self.LINEA > fondo
@@ -162,12 +196,23 @@ class TarjetaEstado(Widget):
       y += 4
 
 
+  @staticmethod
+  def _regla(x: float, y: float, ancho: float, vivo: bool) -> None:
+    if vivo:
+      rl.draw_rectangle_rec(rl.Rectangle(x, y, ancho, 3), t.PULSO)
+      return
+    for dx in range(0, int(ancho), 10):  # discontinua: 6 px de raya y 4 de hueco
+      rl.draw_rectangle_rec(rl.Rectangle(x + dx, y, min(6, ancho - dx), 3), t.PELIGRO)
+
+
 class BotonRojo(Baldosa):
   """BigButton con relleno rojo de accion destructiva/de panico (token FRENO).
 
   Los fondos de BigButton son texturas PNG grises y no hay version roja rectangular,
   asi que se pinta el rectangulo redondeado a mano con la misma animacion de pulsado.
   """
+
+  gris = False  # el exito ("desarmado") se pinta gris con texto blanco, no rojo
 
   def __init__(self, text: str, value: str = "", icon: rl.Texture | None = None):
     super().__init__(text, value, icon)
@@ -176,7 +221,8 @@ class BotonRojo(Baldosa):
   def _render(self, _):
     _, btn_x, btn_y, escala = self._handle_background()
     rect = rl.Rectangle(btn_x, btn_y, self._rect.width * escala, self._rect.height * escala)
-    color = t.mezcla(t.FRENO, 0.75, rl.BLACK) if self.is_pressed else t.FRENO
+    base = t.SUP3 if self.gris else t.FRENO
+    color = t.mezcla(base, 0.75, rl.BLACK) if self.is_pressed else base
     rl.draw_rectangle_rounded(rect, 0.35, 12, color)
     self._draw_content(btn_y)
 
@@ -193,9 +239,10 @@ class PaginaConfirmacion(NavScroller):
   def __init__(self, titulo: str, texto: str, deslizar: str | None, al_confirmar: Callable[[], None] | None,
                rojo: bool = False, opciones: list[tuple[str, str, Callable[[], None]]] | None = None):
     super().__init__()
-    icono_aviso = gui_app.texture("icons_mici/setup/warning.png", 64, 64)
+    # Un aviso sin deslizador no lleva icono: el titulo ("no se pudo desvincular") necesita todo el ancho.
+    icono_aviso = gui_app.texture("icons_mici/setup/warning.png", 64, 64) if deslizar is not None else None
     items: list[Widget] = [TarjetaTexto("desliza para leer", titulo, icono_aviso)]
-    items += [TarjetaTexto(trozo) for trozo in ajustes.trocear(texto)]
+    items += [TarjetaTexto(trozo) for trozo in trozos_mici(texto)]
 
     if deslizar is not None and al_confirmar is not None:
       icono = gui_app.texture("icons_mici/setup/red_warning.png" if rojo else "icons_mici/setup/driver_monitoring/dm_check.png", 64, 64)

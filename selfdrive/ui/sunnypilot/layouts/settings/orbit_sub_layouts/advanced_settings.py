@@ -76,65 +76,65 @@ class AdvancedSettingsLayout(Widget):
   # ---------------------------------------------------------------- items
   def _initialize_items(self):
     self._jetson_enabled_toggle = toggle_item_sp(
-      title=lambda: tr("Activar envio a la Jetson"),
-      description=lambda: tr("Habilita el envio de imagenes a la Jetson y la recepcion de su torque."),
+      title=lambda: tr("Enviar datos a la Jetson"),
+      description=lambda: tr("Envía imágenes a la Jetson y recibe su par directo."),
       initial_state=bool(self._config.get("jetson_enabled", False)),
       callback=self._on_jetson_enabled,
     )
 
     self._ip_button = button_item_sp(
       title=lambda: tr("IP de la Jetson"),
-      button_text=lambda: tr("EDITAR"),
+      button_text=lambda: tr("Editar"),
       callback=lambda: self._edit_config_field("jetson_ip", tr("IP de la Jetson"), is_int=False),
     )
     self._comma_ip_button = button_item_sp(
       title=lambda: tr("IP del Comma (este dispositivo)"),
-      button_text=lambda: tr("EDITAR"),
+      button_text=lambda: tr("Editar"),
       callback=lambda: self._edit_config_field("comma_ip", tr("IP del Comma (este dispositivo)"), is_int=False),
     )
     self._img_port_button = button_item_sp(
-      title=lambda: tr("Puerto de imagenes"),
-      button_text=lambda: tr("EDITAR"),
-      callback=lambda: self._edit_config_field("jetson_img_port", tr("Puerto de imagenes"), is_int=True),
+      title=lambda: tr("Puerto de imágenes"),
+      button_text=lambda: tr("Editar"),
+      callback=lambda: self._edit_config_field("jetson_img_port", tr("Puerto de imágenes"), is_int=True),
     )
     self._torque_port_button = button_item_sp(
-      title=lambda: tr("Puerto de torque"),
-      button_text=lambda: tr("EDITAR"),
-      callback=lambda: self._edit_config_field("jetson_torque_port", tr("Puerto de torque"), is_int=True),
+      title=lambda: tr("Puerto de par directo"),
+      button_text=lambda: tr("Editar"),
+      callback=lambda: self._edit_config_field("jetson_torque_port", tr("Puerto de par directo"), is_int=True),
     )
     self._quality_button = button_item_sp(
       title=lambda: tr("Calidad de imagen (10-100)"),
-      button_text=lambda: tr("EDITAR"),
+      button_text=lambda: tr("Editar"),
       callback=lambda: self._edit_config_field("jpeg_quality", tr("Calidad de imagen (10-100)"), is_int=True,
                                                clamp=(10, 100), step=10),
     )
 
     # ESTADO: read-only live rows (param reads throttled in _update_state)
-    self._status_torque = text_item(lambda: tr("Torque actual"), self._torque_text)
-    self._status_obstacle = text_item(lambda: tr("Obstaculo detectado"), self._obstacle_yesno_text)
+    self._status_torque = text_item(lambda: tr("Par directo actual"), self._torque_text)
+    self._status_obstacle = text_item(lambda: tr("Obstáculo detectado"), self._obstacle_yesno_text)
 
     self._show_blindspot_toggle = toggle_item_sp(
       param="show_blindspot",
-      title=lambda: tr("MOSTRAR ANGULO MUERTO"),
-      description=lambda: tr("Muestra el estado del angulo muerto en la pantalla de conduccion."),
+      title=lambda: tr("Mostrar ángulo muerto"),
+      description=lambda: tr("Muestra el estado del ángulo muerto en la pantalla de conducción."),
     )
     self._lane_warn_toggle = toggle_item_sp(
       param="c_carril",
-      title=lambda: tr("AVISOS EN CAMBIO DE CARRIL"),
-      description=lambda: tr("Anade avisos en pantalla si hay un vehiculo en el angulo muerto " +
+      title=lambda: tr("Avisos al cambiar de carril"),
+      description=lambda: tr("Añade avisos en pantalla si hay un vehículo en el ángulo muerto " +
                              "durante un cambio de carril."),
     )
 
     items = [
-      SectionHeaderSP(tr("PANTALLA"), seccion='desarrollo'),
+      SectionHeaderSP(tr("Pantalla"), seccion='desarrollo'),
       self._show_blindspot_toggle,
       self._lane_warn_toggle,
-      SectionHeaderSP(tr("JETSON"), seccion='desarrollo'),
+      SectionHeaderSP(tr("Jetson"), seccion='desarrollo'),
       self._jetson_enabled_toggle,
-      SectionHeaderSP(tr("ESTADO"), seccion='desarrollo'),
+      SectionHeaderSP(tr("Estado"), seccion='desarrollo'),
       self._status_torque,
       self._status_obstacle,
-      SectionHeaderSP(tr("RED"), seccion='desarrollo'),
+      SectionHeaderSP(tr("Red"), seccion='desarrollo'),
       self._ip_button,
       self._comma_ip_button,
       self._img_port_button,

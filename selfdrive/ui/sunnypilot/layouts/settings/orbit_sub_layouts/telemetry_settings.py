@@ -40,7 +40,7 @@ REFRESH_SECONDS = 0.5
 
 def _avisar_fallo(etiqueta: str) -> None:
   gui_app.push_widget(alert_dialog(tr("Fallo interno en:") + f" {etiqueta}\n" +
-                                   tr("La accion no se ha completado. Revisa el log de la UI.")))
+                                   tr("La acción no se ha completado. Revisa el log de la UI.")))
 
 
 def _a_salvo(etiqueta: str, avisar: bool = False):
@@ -75,16 +75,16 @@ class TelemetrySettingsLayout(Widget):
       )
 
     self._ahorro_fila = toggle_item_sp(
-      title=lambda: tr("Ahorro automatico en red movil"),
+      title=lambda: tr("Ahorro automático en red móvil"),
       description=ajustes.texto_ahorro_movil,
       initial_state=grupos.ahorro_movil_activo(ui_state.params),
       callback=self._on_ahorro,
     )
 
     return [
-      SectionHeaderSP(tr("DATOS QUE SE ENVIAN A LA APP"), seccion='ajustes'),
+      SectionHeaderSP(tr("Datos que se envían a la app"), seccion='ajustes'),
       *self._filas.values(),
-      SectionHeaderSP(tr("RED MOVIL"), seccion='ajustes'),
+      SectionHeaderSP(tr("Red móvil"), seccion='ajustes'),
       self._ahorro_fila,
     ]
 
@@ -93,7 +93,7 @@ class TelemetrySettingsLayout(Widget):
   def _on_grupo(self, grupo, encendido: bool):
     fallos = ajustes.cambiar_grupo(ui_state.params, grupo, encendido, self._silenciado)
     if fallos:
-      gui_app.push_widget(alert_dialog(tr("No se pudo cambiar la telemetria:") + "\n" + "\n".join(fallos)))
+      gui_app.push_widget(alert_dialog(tr("No se pudo cambiar la telemetría:") + "\n" + "\n".join(fallos)))
     # Con un fallo (o la posicion bloqueada) el interruptor ya cambio de posicion pero lo
     # escrito no coincide: se vuelve a leer en el siguiente frame. Si fue bien NO se relee
     # ya: put_bool no bloquea y se leeria el valor viejo.
@@ -103,7 +103,7 @@ class TelemetrySettingsLayout(Widget):
   def _on_ahorro(self, encendido: bool):
     fallos = ajustes.cambiar_ahorro_movil(ui_state.params, encendido)
     if fallos:
-      gui_app.push_widget(alert_dialog(tr("No se pudo cambiar el ahorro en red movil:") + "\n" + "\n".join(fallos)))
+      gui_app.push_widget(alert_dialog(tr("No se pudo cambiar el ahorro en red móvil:") + "\n" + "\n".join(fallos)))
       self._ultimo_refresco = 0.0
 
   # ------------------------------------------------------------------------ estado vivo

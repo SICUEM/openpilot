@@ -5,6 +5,15 @@ Módulo hoja (solo importa pyray): es la ÚNICA fuente de color de la UI ORBIT
 del firmware. Antes la paleta navy estaba copiada a mano en cinco ficheros.
 Los colores de sección orientan («estás en el Mando»); nunca son relleno de
 botón, texto de estado ni borde con significado.
+
+Reglas de uso (mismas que la app; guía visual 2 §5):
+  * PULSO: «en vivo» (la línea de pulso de la conexión). OK: solo «el coche lo confirmó»;
+    nunca el botón de confirmar un diálogo.
+  * ACCION: lo que se puede pulsar y la acción principal (vincular, armar, restablecer).
+  * AVISO: algo espera o bloquea. PELIGRO: tinta de fallo o de acción peligrosa (texto).
+  * FRENO: único relleno rojo (desarmar todo, desvincular, test max).
+  * El rol de una persona, el modelo de un comma o una sección no son hechos del coche:
+    van en texto TEXTO1/TEXTO2, sin color propio.
 """
 from __future__ import annotations
 
@@ -56,7 +65,8 @@ def con_alfa(c: rl.Color, a01: float) -> rl.Color:
 
 def mezcla(fg: rl.Color, alfa: float, fondo: rl.Color) -> rl.Color:
   """fg al `alfa` compuesto sobre un fondo opaco."""
-  m = lambda a, b: round(alfa * a + (1 - alfa) * b)
+  def m(a: int, b: int) -> int:
+    return round(alfa * a + (1 - alfa) * b)
   return rl.Color(m(fg.r, fondo.r), m(fg.g, fondo.g), m(fg.b, fondo.b), 255)
 
 

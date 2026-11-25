@@ -69,6 +69,35 @@ def probar_servidor(ip: str, port: int, timeout: float = 3.0) -> tuple[bool, boo
   return probe_server(ip, port, timeout=timeout), probe_backend(ip, read_backend_port(), timeout=timeout)
 
 
+def read_funnel() -> tuple[str, int]:
+  """(host, puerto) del bloque servidor del Funnel; host vacio si no esta configurado."""
+  srv = _read_config().get("servidor")
+  if not isinstance(srv, dict):
+    return "", 8443
+  host = srv.get("host") or ""
+  try:
+    port = int(srv.get("puerto", 8443) or 8443)
+  except Exception:
+    port = 8443
+  return (host if isinstance(host, str) else ""), port
+
+
+def sondear_funnel(timeout: float = 3.0) -> tuple[bool, bool]:
+  """(broker_ok, backend_ok) contra servidor.host: TCP a host:puerto + GET https://host/api/health. Bloqueante."""
+  host, port = read_funnel()
+  if not host:
+    return False, False
+  backend_ok = False
+  try:
+    from openpilot.orbit import conexion_mqtt
+    with urllib.request.urlopen(f"https://{host}/api/health", timeout=timeout,
+                                context=conexion_mqtt.contexto_tls()) as resp:
+      backend_ok = 200 <= resp.status < 300
+  except Exception:
+    pass
+  return probe_server(host, port, timeout=timeout), backend_ok
+
+
 class ServerMonitor:
   """Background poller that keeps the current server IP and reachability
   (broker TCP + backend HTTP health)."""
@@ -85,9 +114,13 @@ class ServerMonitor:
 
   def _loop(self) -> None:
     while not self._stop.is_set():
-      ip, port = read_broker()
-      broker_ok = probe_server(ip, port)
-      backend_ok = probe_backend(ip, read_backend_port())
+      ip = read_funnel()[0]
+      if ip:
+        broker_ok, backend_ok = sondear_funnel(timeout=2.0)
+      else:
+        ip, port = read_broker()
+        broker_ok = probe_server(ip, port)
+        backend_ok = probe_backend(ip, read_backend_port())
       with self._lock:
         self._ip = ip
         self._broker_ok = broker_ok

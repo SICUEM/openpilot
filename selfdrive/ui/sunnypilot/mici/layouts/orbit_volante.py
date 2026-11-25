@@ -43,7 +43,7 @@ def nombre_modo(modo: int) -> str:
 # Titulo del deslizador de cada modo: el BigSlider pinta a 48 px, dos lineas de ~12 letras.
 DESLIZAR = {0: "desliza para\nusar comma", 1: "desliza para\nusar jetson", 2: "desliza para\ntest max",
             3: "desliza para\nactivar"}
-DESLIZAR_TORQUE = "desliza para\nusar torque"
+DESLIZAR_TORQUE = "desliza para\npar directo"
 
 
 class VolanteLayoutMici(NavScroller):
@@ -99,15 +99,15 @@ class VolanteLayoutMici(NavScroller):
   @a_salvo("elegir el esquive de la jetson", avisar=True)
   def _preguntar_esquive(self) -> None:
     texto, curvatura, otra = ajustes.texto_esquive_curvatura()
-    gui_app.push_widget(PaginaConfirmacion("comma+jetson", texto, None, None, opciones=[
+    gui_app.push_widget(PaginaConfirmacion("comma + jetson", texto, None, None, opciones=[
       (curvatura.lower(), "", lambda: self._fijar_esquive("curvature")),
-      (otra.lower(), "beta", self._preguntar_torque),
+      (otra.lower(), "en pruebas", self._preguntar_torque),
     ]))
 
   @a_salvo("elegir el esquive en torque", avisar=True)
   def _preguntar_torque(self) -> None:
     texto, _ = ajustes.texto_esquive_torque("Desliza hacia abajo para no cambiar nada.")
-    gui_app.push_widget(PaginaConfirmacion("torque (beta)", texto, DESLIZAR_TORQUE, lambda: self._fijar_esquive("torque")))
+    gui_app.push_widget(PaginaConfirmacion("par directo", texto, DESLIZAR_TORQUE, lambda: self._fijar_esquive("torque")))
 
   @a_salvo("fijar el esquive de la jetson", avisar=True)
   def _fijar_esquive(self, objetivo: str) -> None:

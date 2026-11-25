@@ -47,17 +47,18 @@ class ServerRows:
     self._pending_test: str | None = None
 
     self._broker_row = button_item_sp(
-      title=lambda: tr("Servidor ORBIT (broker MQTT)"),
-      button_text=lambda: tr("EDITAR"),
-      description=lambda: tr("Direccion actual:") + f" {self._broker_label()}",
+      title=lambda: tr("Servidor"),
+      button_text=lambda: tr("Editar"),
+      description=lambda: tr("Dirección actual:") + f" {self._broker_label()}",
       callback=self._edit_broker,
+      button_style=ButtonStyle.LIST_ACTION,   # «Editar» casaba con una palabra clave y salia con relleno azul
     )
     self._test_row = button_item_sp(
-      title=lambda: tr("Probar conexion con ORBIT"),
-      button_text=lambda: tr("PROBAR"),
-      description=lambda: self._test_status or tr("Comprueba el broker MQTT y la API del backend."),
+      title=lambda: tr("Comprobar la conexión"),
+      button_text=lambda: tr("Probar"),
+      description=lambda: self._test_status or tr("Comprueba que el comma llega al servidor."),
       callback=self._test_connection,
-      button_style=ButtonStyle.ACTION,
+      button_style=ButtonStyle.LIST_ACTION,
     )
 
   @property
@@ -98,7 +99,7 @@ class ServerRows:
       # como host y el broker no conectaba nunca.
       error = validar_host(text)
       if error:
-        gui_app.push_widget(alert_dialog(tr("Direccion del servidor no valida:") + f"\n{error}"))
+        gui_app.push_widget(alert_dialog(tr("Dirección del servidor no válida:") + f"\n{error}"))
         return
       # Solo la key "broker": el resto (puerto, backend, credenciales) se preserva.
       # Un fallo de escritura se dice: antes se tragaba y la pantalla seguia
@@ -115,7 +116,7 @@ class ServerRows:
     if not ip:
       gui_app.push_widget(alert_dialog(tr("No hay IP configurada")))
       return
-    self._test_status = tr("Probando...")
+    self._test_status = tr("Probando…")
 
     def _run():
       broker_ok, backend_ok = probar_servidor(ip, port, timeout=3.0)

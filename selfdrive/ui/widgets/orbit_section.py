@@ -1,11 +1,11 @@
 """
 SectionHeaderSP - cabecera de seccion para los paneles de ajustes ORBIT.
 
-Etiqueta corta en MAYUSCULAS (color de seccion) + hairline hasta el borde
-derecho. Con `seccion`, ademas dibuja a la izquierda el icono propio de esa
-seccion (con orbita+satelite, unico sitio del panel offroad donde se mueve)
-y un filete corto en el color de la seccion bajo el titulo. Sin seccion, la
-cabecera queda igual que antes de la Tarea 8 (solo texto + hairline).
+Etiqueta corta en sentence case, sin tracking (color de seccion) + hairline hasta
+el borde derecho. Con `seccion`, ademas dibuja a la izquierda el icono propio de esa
+seccion (con orbita+satelite, unico sitio del panel offroad donde se mueve). Sin
+subrayado: la guia visual retira el filete bajo el titulo. Sin seccion, solo texto +
+hairline.
 No es interactiva y no dibuja tarjeta, para que las secciones se distingan de
 las filas (los ListItemSP renderizan como tarjetas NAVY y parecen pulsables).
 Uso: elemento normal de un Scroller, igual que Spacer/LineSeparatorSP.
@@ -23,11 +23,9 @@ from openpilot.system.ui.widgets import Widget
 
 _HEADER_HEIGHT = 96
 _FONT_SIZE = 36
-_LETTER_SPACING = 3
+_LETTER_SPACING = 0
 _ICONO_TAM = 40
 _ICONO_MARGEN = 12
-_FILETE_ANCHO = 24
-_FILETE_ALTO = 4
 
 # Con orbita=True el dibujo ocupa una caja de lado tam*44/24 centrada en la
 # caja nominal (orbit_icons.py:67-69): sobresale tam*10/24 a cada lado.
@@ -74,10 +72,6 @@ class SectionHeaderSP(Widget):
       orbit_icons.draw_orbit_icon(glifo, icon_x, icono_y, _ICONO_TAM, self._acento, orbita=True, t=tiempo)
 
     rl.draw_text_ex(self._font, self._text, rl.Vector2(text_x, text_y), _FONT_SIZE, _LETTER_SPACING, self._color)
-
-    if self._seccion:
-      filete_y = text_y + size.y + 6
-      rl.draw_rectangle_rounded(rl.Rectangle(text_x, filete_y, _FILETE_ANCHO, _FILETE_ALTO), 1.0, 8, self._acento)
 
     line_x = text_x + size.x + 28
     line_y = text_y + size.y / 2 + 2

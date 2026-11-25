@@ -21,3 +21,9 @@ def test_toda_seccion_tiene_glifo():
   for seccion in t.SECCION:
     glifo = s._GLIFO_POR_SECCION.get(seccion, seccion)
     assert glifo in orbit_icons.GLIFOS, f'{seccion} -> {glifo} no esta en GLIFOS'
+
+
+def test_cabecera_sin_tracking_ni_subrayado():
+  # Guia visual 5.4: sentence case, sin tracking y sin filete bajo el titulo.
+  assert s._LETTER_SPACING == 0
+  assert not hasattr(s, '_FILETE_ALTO')

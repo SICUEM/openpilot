@@ -7,12 +7,12 @@ See the LICENSE.md file in the root directory for more details.
 Panel ORBIT de los ajustes del comma 4 (536x240): lo mismo que el panel ORBIT de la UI
 grande (sunnypilot/layouts/settings/orbit_panel.py), en baldosas mici.
 
-  * DESARMAR TODO, la primera baldosa y en rojo: se ve nada mas abrir el panel, sin
+  * desarmar todo, la primera baldosa y en rojo: se ve nada mas abrir el panel, sin
     arrastrar. Un boton de panico al que hay que llegar haciendo scroll no lo es.
   * estado del MANDO (de cereal via ui_state.orbit_command, nunca rancio) y de la
     CONEXION (servidor, enlace, cuenta con su rol),
-  * modo banco, "que significa esto", selector de volante,
-  * vincular con la app (QR) / cuenta + desvincular, IP del servidor y prueba,
+  * modo taller, "que significa esto", selector de volante,
+  * vincular con la app (QR) / cuenta + desvincular (orden por estado: ver _reordenar), IP del servidor y prueba,
   * interruptor maestro de privacidad, telemetria (que grupos de datos se envian a la app),
     ajustes avanzados y valores seguros.
 
@@ -21,46 +21,46 @@ orbit_server: la misma que usa el comma 3X. Aqui solo hay baldosas. Params se le
 2 Hz como mucho; todo callback va envuelto en a_salvo (una excepcion no puede matar el
 proceso ui).
 """
+import re
 import threading
 import time
 
-import pyray as rl
-
 from openpilot.orbit import config_broker
 from openpilot.selfdrive.ui import orbit_theme as t
-from openpilot.selfdrive.ui.mici.widgets.button import BigToggle
+from openpilot.selfdrive.ui.mici.widgets.button import LABEL_COLOR, BigToggle
 from openpilot.selfdrive.ui.sunnypilot.mici.layouts.orbit_avanzado import AvanzadoLayoutMici
+from openpilot.selfdrive.ui.sunnypilot.mici.layouts.orbit_registro_remoto import OrbitRegistroRemotoMici
 from openpilot.selfdrive.ui.sunnypilot.mici.layouts.orbit_telemetria import TelemetriaLayoutMici
 from openpilot.selfdrive.ui.sunnypilot.mici.layouts.orbit_volante import VolanteLayoutMici, estado_volante, nombre_modo
 from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_enroll_dialog import OrbitEnrollDialogMici
 from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import (
-  GRIS, TONOS, Baldosa, BotonRojo, PaginaConfirmacion, TarjetaEstado, TarjetaTexto, a_salvo, aviso, dialogo_numerico,
+  GRIS, TONOS, Baldosa, BotonRojo, PaginaConfirmacion, TarjetaEstado, TarjetaTexto, a_salvo, aviso, dialogo_numerico, minuscula,
+  trozos_mici,
 )
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.selfdrive.ui.widgets import orbit_ajustes as ajustes
 from openpilot.selfdrive.ui.widgets import orbit_mando as mando
 from openpilot.selfdrive.ui.widgets.orbit_server import ServerMonitor, probar_servidor, read_broker
 from openpilot.system.ui.lib.application import gui_app
-from openpilot.system.ui.widgets.html_render import ElementType, HtmlRenderer
-from openpilot.system.ui.widgets.scroller import NavRawScrollPanel, NavScroller
+from openpilot.system.ui.widgets.scroller import NavScroller
 
 REFRESH_S = 0.5            # Params y config a 2 Hz como mucho
 DESARMADO_FEEDBACK_S = 2.5
+TXT_DESARMAR = "cancela órdenes"
 
 
-class AyudaOrbitMici(NavRawScrollPanel):
-  """"Que significa esto": las mismas definiciones que el dialogo de la UI grande."""
+class AyudaOrbitMici(NavScroller):
+  """"Que significa esto": las mismas definiciones que el dialogo de la UI grande, en tarjetas."""
 
   def __init__(self):
     super().__init__()
     # Import perezoso: orbit_panel arrastra la UI grande entera; solo se paga al abrir.
     from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_panel import ayuda_html
-    self._html = HtmlRenderer(text=ayuda_html(), text_size={ElementType.P: 26})
-
-  def _render(self, rect):
-    alto = self._html.get_total_height(int(rect.width - 40)) + 40
-    desplazamiento = round(self._scroll_panel.update(rect, alto))
-    self._html.render(rl.Rectangle(rect.x + 20, rect.y + 20 + desplazamiento, rect.width - 40, alto))
+    tarjetas: list[TarjetaTexto] = []
+    for titulo, cuerpo in re.findall(r"<h2>(.*?)</h2><p>(.*?)</p>", ayuda_html(), re.S):
+      for i, trozo in enumerate(trozos_mici(cuerpo)):
+        tarjetas.append(TarjetaTexto(trozo, minuscula(titulo) if i == 0 else ""))
+    self._scroller.add_widgets(tarjetas)
 
 
 class OrbitLayoutMici(NavScroller):
@@ -75,15 +75,17 @@ class OrbitLayoutMici(NavScroller):
     self._cuenta = ""
     self._enlace = False
     self._banco_restante = 0.0
+    self._orden_clave: tuple[bool, bool] | None = None
+    self._desvinculando = False
 
-    self._btn_desarmar = BotonRojo("desarmar todo", "cancela órdenes")
+    self._btn_desarmar = BotonRojo("desarmar todo", TXT_DESARMAR)
     self._btn_desarmar.set_click_callback(self._desarmar_todo)
 
     self._tarjeta_mando = TarjetaEstado("mando")
-    self._tarjeta_ultimo = TarjetaEstado("último comando")
+    self._tarjeta_ultimo = TarjetaEstado("última orden")
     self._tarjeta_conexion = TarjetaEstado("conexión")
 
-    self._btn_banco = Baldosa("modo banco", "")
+    self._btn_banco = Baldosa("modo taller", "")
     self._btn_banco.set_click_callback(self._pulsar_banco)
 
     self._volante = VolanteLayoutMici()
@@ -91,15 +93,13 @@ class OrbitLayoutMici(NavScroller):
     self._btn_volante.set_click_callback(lambda: gui_app.push_widget(self._volante))
 
     self._ayuda: AyudaOrbitMici | None = None
-    self._btn_ayuda = Baldosa("qué significa esto", "definiciones")
+    self._btn_ayuda = Baldosa("qué significa cada cosa", "definiciones")
     self._btn_ayuda.set_click_callback(self._abrir_ayuda)
 
     self._qr: OrbitEnrollDialogMici | None = None
     self._btn_vincular = Baldosa("vincular con la app", "muestra el qr")
     self._btn_vincular.set_click_callback(self._abrir_qr)
     self._btn_vincular.set_visible(lambda: not self._claimed)
-    self._tarjeta_cuenta = TarjetaTexto("", "cuenta orbit")
-    self._tarjeta_cuenta.set_visible(lambda: self._claimed)
     self._btn_desvincular = Baldosa("desvincular", "quitar la cuenta")
     self._btn_desvincular.set_click_callback(self._pedir_desvincular)
     self._btn_desvincular.set_visible(lambda: self._claimed)
@@ -109,8 +109,15 @@ class OrbitLayoutMici(NavScroller):
     self._btn_probar = Baldosa("probar conexión", "broker y api")
     self._btn_probar.set_click_callback(self._probar)
 
-    self._tgl_privacidad = BigToggle("no emitir", "posición ni cámara", initial_state=mando.privacy_muted(),
+    self._tgl_privacidad = BigToggle("no enviar", "posición ni cámara", initial_state=mando.privacy_muted(),
                                      toggle_callback=self._on_privacidad)
+
+    self._tgl_remoto = BigToggle("bloquear mando remoto", "ignora la app", initial_state=ajustes.remoto_apagado(ui_state.params),
+                                 toggle_callback=self._on_remoto)
+    self._registro = OrbitRegistroRemotoMici()
+    self._btn_registro = Baldosa("órdenes remotas", "últimas 50")
+    self._btn_registro.set_click_callback(lambda: gui_app.push_widget(self._registro))
+    self._btn_registro.set_visible(lambda: ui_state.is_offroad())
 
     self._telemetria = TelemetriaLayoutMici()
     self._btn_telemetria = Baldosa("telemetría", "qué se envía a la app")
@@ -123,24 +130,24 @@ class OrbitLayoutMici(NavScroller):
     self._btn_seguros = Baldosa("valores seguros", "restablecer")
     self._btn_seguros.set_click_callback(self._pedir_valores_seguros)
 
-    self._scroller.add_widgets([
-      self._btn_desarmar,
-      self._tarjeta_mando,
-      self._tarjeta_ultimo,
-      self._tarjeta_conexion,
-      self._btn_banco,
-      self._btn_volante,
-      self._btn_ayuda,
-      self._btn_vincular,
-      self._tarjeta_cuenta,
-      self._btn_desvincular,
-      self._btn_servidor,
-      self._btn_probar,
-      self._tgl_privacidad,
-      self._btn_telemetria,
-      self._btn_avanzado,
-      self._btn_seguros,
-    ])
+    self._reordenar()
+
+  def _reordenar(self) -> None:
+    """Orden por estado: lo que toca hacer ahora, arriba. Solo se rehace si cambia el estado."""
+    clave = (self._claimed, self._desvinculando)
+    if clave == self._orden_clave:
+      return
+    self._orden_clave = clave
+    resto = [self._btn_ayuda, self._btn_servidor, self._btn_probar, self._tgl_privacidad, self._tgl_remoto,
+             self._btn_registro, self._btn_telemetria, self._btn_avanzado, self._btn_seguros]
+    if not self._claimed:
+      orden = [self._btn_desarmar, self._btn_vincular, self._tarjeta_conexion, self._tarjeta_mando, self._tarjeta_ultimo,
+               self._btn_volante, self._btn_banco, *resto]
+    else:
+      orden = [self._btn_desarmar, *([self._btn_desvincular] if self._desvinculando else []), self._tarjeta_mando,
+               self._tarjeta_conexion, self._tarjeta_ultimo, self._btn_volante, self._btn_banco,
+               *([] if self._desvinculando else [self._btn_desvincular]), *resto]
+    self._scroller.items[:] = orden
 
   # ================================================================ estado vivo
   @a_salvo("refresco del panel ORBIT")
@@ -158,11 +165,15 @@ class OrbitLayoutMici(NavScroller):
     modo, estado = estado_volante()
     self._btn_volante.set_value(f"{nombre_modo(modo)}\n{estado.lower()}")
 
-    self._tarjeta_cuenta.set_value(self._cuenta)
     # Desvinculo en curso: la baldosa dice en que punto va; un fallo sale UNA vez.
-    self._btn_desvincular.set_value(ajustes.estado_desvinculo(p, self._enlace) or "quitar la cuenta")
+    estado = ajustes.estado_desvinculo(p, self._enlace)
+    self._desvinculando = bool(estado)
+    self._btn_desvincular.set_value(estado or "quitar la cuenta")
+    self._reordenar()
     if fallo := ajustes.fallo_desvinculo_pendiente(p):
-      aviso("no se pudo desvincular", fallo)
+      # "No se pudo desvincular. <que hacer>": el titulo y la salida, sin truncar.
+      titulo, _, salida = fallo.partition(". ")
+      aviso(titulo.lower(), salida.lower())
     ip, _ = read_broker()
     self._btn_servidor.set_value(ip or "sin configurar")
 
@@ -171,32 +182,37 @@ class OrbitLayoutMici(NavScroller):
     """Cada frame, pero solo RAM: el mando es la vista cereal que UIStateSP refresca."""
     st = getattr(ui_state, "orbit_command", None)
     tm, tu = self._tarjeta_mando, self._tarjeta_ultimo
+    tu.set_visible(False)
     if st is None or not st.available:
       # Un plano muerto no se pinta en verde ni con el ultimo valor conocido.
-      tm.filas = [("", "subsistema de mando caído", t.PELIGRO),
-                  ("", "no se publica orbitCommandState: sin mando remoto y sin gates", GRIS)]
+      tm.filas = [("", "no disponible", t.PELIGRO),   # el titulo de la tarjeta ya dice «mando»
+                  ("", "la app no puede mandar órdenes. reinicia el comma si sigue así", GRIS)]
       tm.chip = None
-      tu.filas = [("", "sin datos del mando", GRIS)]
     else:
       (_, modo, tono_m), (_, enlace, tono_e), (_, ultimo, tono_u) = ajustes.lineas_mando(st)
       tm.filas = [("modo", modo.lower(), TONOS[tono_m]), ("enlace", enlace.lower(), TONOS[tono_e])]
-      tm.chip = (f"banco {int(self._banco_restante)}s", t.AVISO) if st.bench_armed else None
-      tu.filas = [("", ultimo.lower(), TONOS[tono_u])]
+      tm.chip = (f"taller {int(self._banco_restante)}s", t.AVISO) if st.bench_armed else None
+      # La tarjeta de la ultima orden solo existe si hay una.
+      if st.last_ack_phase != "none":
+        tu.filas = [("", ultimo.lower(), TONOS[tono_u])]
+        tu.set_visible(True)
 
     mon = self._monitor
     if mon is None:
       servidor, color = "comprobando...", GRIS
     elif mon.broker_ok and mon.backend_ok:
-      servidor, color = "ok", t.OK
+      servidor, color = "ok", LABEL_COLOR
     elif mon.broker_ok:
       servidor, color = "broker ok, sin api", GRIS
     else:
-      servidor, color = "sin respuesta", GRIS
+      servidor, color = "sin respuesta", t.PELIGRO
     self._tarjeta_conexion.filas = [
       ("servidor", servidor, color),
-      ("enlace", "ok" if self._enlace else "caído", t.OK if self._enlace else GRIS),
-      ("cuenta", self._cuenta or "sin vincular", TONOS["normal"] if self._cuenta else GRIS),
+      ("enlace", "ok" if self._enlace else "caído", LABEL_COLOR if self._enlace else t.PELIGRO),
+      ("cuenta", self._cuenta or "sin vincular", LABEL_COLOR if self._cuenta else GRIS),
     ]
+    # La regla bajo "enlace": continua si vive, discontinua si no (la unica marca grafica del panel).
+    self._tarjeta_conexion.pulso = ("enlace", self._enlace)
 
   def _update_state(self):
     super()._update_state()
@@ -206,9 +222,13 @@ class OrbitLayoutMici(NavScroller):
       self._refrescar()
     self._pintar_tarjetas()
 
-    texto = "desarmado" if ahora < self._desarmado_hasta else "desarmar todo"
+    hecho = ahora < self._desarmado_hasta
+    texto = "desarmado" if hecho else "desarmar todo"
     if self._btn_desarmar.text != texto:
       self._btn_desarmar.set_text(texto)
+      # El exito es gris: el rojo despues de un exito se lee como fallo.
+      self._btn_desarmar.set_value("ninguna orden en curso" if hecho else TXT_DESARMAR)
+      self._btn_desarmar.gris = hecho
 
     if self._resultado_prueba is not None:
       ip, puerto, broker_ok, api_ok = self._resultado_prueba
@@ -221,7 +241,7 @@ class OrbitLayoutMici(NavScroller):
     self._ultimo_refresco = float("-inf")
 
   # ================================================================ desarmar todo
-  @a_salvo("DESARMAR TODO", avisar=True)
+  @a_salvo("desarmar todo", avisar=True)
   def _desarmar_todo(self) -> None:
     # Funciona con el hilo ORBIT caido: ademas del disparo baja la autoridad en Params.
     fallos = mando.disarm_all()
@@ -236,12 +256,12 @@ class OrbitLayoutMici(NavScroller):
       self._desarmado_hasta = time.monotonic() + DESARMADO_FEEDBACK_S
 
   # ================================================================ modo banco
-  @a_salvo("modo banco", avisar=True)
+  @a_salvo("modo taller", avisar=True)
   def _pulsar_banco(self) -> None:
     if mando.bench_armed():  # sin cache: es una accion, no un pintado
       self._desarmar_banco()
       return
-    gui_app.push_widget(PaginaConfirmacion("modo banco", ajustes.texto_armar_banco(), "desliza para\narmar 5 min",
+    gui_app.push_widget(PaginaConfirmacion("modo taller", ajustes.texto_armar_banco(), "desliza para\narmar 5 min",
                                            self._armar_banco))
 
   @a_salvo("armar el banco", avisar=True)
@@ -344,6 +364,26 @@ class OrbitLayoutMici(NavScroller):
     if fallos:
       aviso("el corte de emisión falló en", "\n".join(fallos))
 
+  # ================================================================ bloqueo del mando remoto
+  @a_salvo("bloquear mando remoto", avisar=True)
+  def _on_remoto(self, activo: bool) -> None:
+    """Activar no pide confirmacion; quitarlo si (vuelve a dar autoridad a la app)."""
+    if activo:
+      self._aplicar_remoto(True)
+      return
+    # El toggle ya cambio de posicion: se devuelve a su sitio hasta que se confirme.
+    self._tgl_remoto.set_checked(True)
+    gui_app.push_widget(PaginaConfirmacion("mando remoto", "¿Volver a aceptar órdenes remotas?", "desliza para\naceptar órdenes",
+                                           lambda: self._aplicar_remoto(False)))
+
+  @a_salvo("bloquear mando remoto", avisar=True)
+  def _aplicar_remoto(self, apagar: bool) -> None:
+    fallos = ajustes.cambiar_remoto(ui_state.params, apagar)
+    self._tgl_remoto.set_checked(ajustes.remoto_apagado(ui_state.params))
+    self._forzar_refresco()
+    if fallos:
+      aviso("el bloqueo falló en", "\n".join(fallos))
+
   # ================================================================ valores seguros
   @a_salvo("restablecer valores seguros", avisar=True)
   def _pedir_valores_seguros(self) -> None:
@@ -366,6 +406,7 @@ class OrbitLayoutMici(NavScroller):
     super().show_event()
     self._forzar_refresco()
     self._tgl_privacidad.set_checked(mando.privacy_muted())
+    self._tgl_remoto.set_checked(ajustes.remoto_apagado(ui_state.params))
     # El sondeo del servidor (TCP + HTTP cada 5 s) solo corre con el panel abierto.
     if self._monitor is None:
       self._monitor = ServerMonitor()

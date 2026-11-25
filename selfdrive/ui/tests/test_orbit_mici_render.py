@@ -47,7 +47,7 @@ import openpilot.selfdrive.ui.sunnypilot.mici.layouts.orbit_telemetria as tel_mo
 from openpilot.selfdrive.ui.widgets import orbit_mando
 from openpilot.selfdrive.ui.mici.widgets.dialog import BigDialog, BigInputDialog
 from openpilot.selfdrive.ui.sunnypilot.mici.widgets import orbit_enroll_dialog as qr
-from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import PaginaConfirmacion
+from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import PaginaConfirmacion, minuscula
 
 
 class _Monitor:
@@ -185,7 +185,7 @@ frames(3)
 assert not pos._checked and mem.get("tel2_pos_toggle") is False
 orbit_mando.privacy_muted = lambda: False
 frames(3)
-assert pos.enabled and tele._descripciones["posicion"].value == tg.GRUPOS[0].descripcion
+assert pos.enabled and tele._descripciones["posicion"].value == minuscula(tg.GRUPOS[0].descripcion)
 cierra()
 
 # IP invalida: se reabre la entrada con lo escrito y el motivo encima; nada se guarda.
@@ -203,6 +203,16 @@ pila[-1]._confirm_callback()
 frames(150)
 assert pila[-1] is panel and escritos == [{"broker": "10.0.0.5"}], escritos
 
+def orden():
+  return [i for i in panel._scroller.items if i.is_visible]
+
+
+# Sin vincular: desarmar todo, vincular con la app, conexion. Sin plano de mando: nada de jerga ni tarjeta de ultima orden.
+assert orden()[:3] == [panel._btn_desarmar, panel._btn_vincular, panel._tarjeta_conexion], orden()[:3]
+assert panel._tarjeta_ultimo not in orden()
+assert "orbitCommandState" not in str(panel._tarjeta_mando.filas) and "no disponible" in str(panel._tarjeta_mando.filas)
+assert panel._tarjeta_conexion.pulso == ("enlace", False)
+
 # QR: timeout interactivo ampliado mientras esta abierto; se cierra solo al vincular.
 dialogo = abre(panel._btn_vincular, qr.OrbitEnrollDialogMici)
 assert dialogo._qr is not None and dialogo._codigo == "K7QX4MPA"
@@ -213,8 +223,10 @@ p.put("OrbitOwnerRole", "superadmin", True)
 frames(150)
 assert pila[-1] is panel, [type(w).__name__ for w in pila]
 assert device._override_interactive_timeout is None
-assert panel._cuenta == "Adrian • superadmin" and not panel._btn_vincular.is_visible
+assert panel._cuenta == "Adrian, superadmin" and not panel._btn_vincular.is_visible
 assert panel._btn_desvincular.is_visible
+# Vinculado: desarmar todo, mando, conexion, volante, modo taller.
+assert orden()[:5] == [panel._btn_desarmar, panel._tarjeta_mando, panel._tarjeta_conexion, panel._btn_volante, panel._btn_banco], orden()[:5]
 # Desvincular: la confirmacion dice a quien esta vinculado y que pasa; confirmar SOLO pide
 # el desvinculo al servidor (el estado local no se toca: lo limpia su respuesta).
 pagina = abre(panel._btn_desvincular, PaginaConfirmacion)
@@ -231,12 +243,15 @@ cierra()
 panel._desvincular()
 frames(5)
 assert p.get_bool("OrbitUnlinkRequest") and p.get_bool("OrbitClaimed") and p.get("OrbitOwner") == "Adrian Garcia"
-assert panel._btn_desvincular.is_visible and "esperando al servidor" in str(panel._btn_desvincular.value), panel._btn_desvincular.value
+assert panel._btn_desvincular.is_visible and "desvinculando" in str(panel._btn_desvincular.value), panel._btn_desvincular.value
+assert orden()[1] is panel._btn_desvincular, orden()[:3]  # desvinculando: sube a la segunda posicion
 # El servidor rechaza: el comma borra la peticion y deja el resultado; sale UNA vez.
 p.remove("OrbitUnlinkRequest")
 p.put("OrbitUnlinkResult", '{"ok":false,"reason":"bad_signature","ts":1}', True)
 frames(5)
-assert isinstance(pila[-1], BigDialog) and p.get("OrbitUnlinkResult") is None
+# El fallo es largo: va en tarjetas (BigDialog lo truncaba), con el titulo y la salida separados.
+assert isinstance(pila[-1], PaginaConfirmacion) and p.get("OrbitUnlinkResult") is None
+assert pila[-1]._scroller.items[0].text == "no se pudo desvincular", pila[-1]._scroller.items[0].text
 cierra()
 frames(5)
 assert pila[-1] is panel
@@ -256,7 +271,7 @@ p.put("SteerTorqueMode", 2, True)
 panel._btn_desarmar._click_callback()
 frames(5)
 assert p.get("SteerTorqueMode") == 0 and p.get_bool("OrbitDisarmAll")
-assert panel._btn_desarmar.text == "desarmado"
+assert panel._btn_desarmar.text == "desarmado" and panel._btn_desarmar.gris  # el exito no es rojo
 
 print("RENDER_OK", flush=True)
 rl.close_window()

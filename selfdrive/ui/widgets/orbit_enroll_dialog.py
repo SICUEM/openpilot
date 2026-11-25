@@ -13,8 +13,10 @@ from openpilot.system.ui.lib.multilang import tr
 from openpilot.system.ui.lib.wrap_text import wrap_text
 from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.widgets.button import Button, ButtonStyle, IconButton
+from openpilot.orbit.enroll_v2 import codigo_legible
 from openpilot.selfdrive.ui import orbit_theme as t
-from openpilot.selfdrive.ui.widgets.orbit_ajustes import texto_caducidad, url_enrolamiento
+from openpilot.selfdrive.ui.ui_state import ui_state
+from openpilot.selfdrive.ui.widgets.orbit_ajustes import reloj_sincronizado, texto_caducidad, texto_sin_codigo, url_enrolamiento
 from openpilot.selfdrive.ui.widgets.orbit_mando import PARAM_OWNER_ROLE, rol_etiqueta
 
 
@@ -49,6 +51,17 @@ def generar_textura_qr(url: str, previa: rl.Texture | None = None) -> rl.Texture
     return None
 
 
+def _titulo_equilibrado(font, texto: str, size: int, ancho: int) -> list[str]:
+  """Una linea si cabe; si no, dos lineas lo mas parejas posible (nunca «ORBIT» solo en la segunda)."""
+  if measure_text_cached(font, texto, size).x <= ancho:
+    return [texto]
+  palabras = texto.split()
+  cortes = [(" ".join(palabras[:i]), " ".join(palabras[i:])) for i in range(1, len(palabras))]
+  if not cortes:
+    return wrap_text(font, texto, size, ancho)
+  return list(min(cortes, key=lambda c: max(measure_text_cached(font, c[0], size).x, measure_text_cached(font, c[1], size).x)))
+
+
 class OrbitEnrollDialog(Widget):
   """Dialog for linking this device to ORBIT with a QR code."""
 
@@ -64,7 +77,7 @@ class OrbitEnrollDialog(Widget):
     self._claimed_at: float | None = None
     self._close_btn = IconButton(gui_app.texture("icons/close2.png", 80, 80))
     self._close_btn.set_click_callback(gui_app.pop_widget)
-    self._regen_btn = Button(tr("REGENERAR CODIGO"), self._request_regen, font_size=44,
+    self._regen_btn = Button(tr("Nuevo código"), self._request_regen, font_size=44,
                              button_style=ButtonStyle.NORMAL, border_radius=16)
 
   def _get_pairing_code(self) -> str:
@@ -83,6 +96,8 @@ class OrbitEnrollDialog(Widget):
     return url_enrolamiento(dongle_id, self._get_pairing_code())
 
   def _generate_qr_code(self) -> None:
+    if not self._get_pairing_code():
+      return   # sin codigo no hay QR (ver _render_qr_code)
     self.qr_texture = generar_textura_qr(self._get_pairing_url(), self.qr_texture)
 
   def _check_qr_refresh(self) -> None:
@@ -151,17 +166,13 @@ class OrbitEnrollDialog(Widget):
     y += close_size + 40
 
     # Title
-    title = tr("Vincula este dispositivo a ORBIT")
-    title_font = gui_app.font(FontWeight.NORMAL)
+    title = tr("Vincula este comma con ORBIT")
+    title_font = gui_app.font(FontWeight.BOLD)   # el titulo manda sobre los pasos: peso mayor
     left_width = int(content_rect.width * 0.5 - 15)
 
-    title_wrapped = wrap_text(title_font, title, 75, left_width)
-    rl.draw_text_ex(title_font, "\n".join(title_wrapped), rl.Vector2(content_rect.x, y), 75, 0.0, t.TEXTO1)  # titulo
-    # Acento de seccion (vehiculo): filete corto bajo el titulo, como SectionHeaderSP.
-    # Nunca relleno: solo esta marca.
-    rl.draw_rectangle_rounded(rl.Rectangle(content_rect.x, y + len(title_wrapped) * 75 + 10, 24, 4),
-                              1.0, 8, t.SECCION['vehiculo'])
-    y += len(title_wrapped) * 75 + 60
+    title_wrapped = _titulo_equilibrado(title_font, title, 64, left_width)
+    rl.draw_text_ex(title_font, "\n".join(title_wrapped), rl.Vector2(content_rect.x, y), 64, 0.0, t.TEXTO1)  # titulo
+    y += len(title_wrapped) * 64 + 60
 
     # Two columns: instructions and QR code
     remaining_height = content_rect.height - (y - content_rect.y)
@@ -191,11 +202,12 @@ class OrbitEnrollDialog(Widget):
   def _render_instructions(self, rect: rl.Rectangle) -> None:
     instructions = [
       tr("Abre la app ORBIT"),
-      tr("Ve a Inicio - Vincular dispositivo"),
-      tr("Escanea el QR (o escribe el código de abajo)"),
+      tr("Toca Vincular tu coche"),
+      tr("Escanea el QR o escribe el código"),
     ]
 
-    font = gui_app.font(FontWeight.BOLD)
+    font = gui_app.font(FontWeight.MEDIUM)   # pasos mas finos que el titulo (jerarquia)
+    num_font = gui_app.font(FontWeight.BOLD)
     y = rect.y
 
     for i, text in enumerate(instructions):
@@ -211,14 +223,25 @@ class OrbitEnrollDialog(Widget):
       # Circulo: relleno de boton (ACCION), no color de seccion; numero en SOBRE_ACCION.
       rl.draw_circle(int(circle_x), int(circle_y), circle_radius, t.ACCION)
       number = str(i + 1)
-      number_size = measure_text_cached(font, number, 30)
-      rl.draw_text_ex(font, number, (int(circle_x - number_size.x // 2), int(circle_y - number_size.y // 2)), 30, 0, t.SOBRE_ACCION)
+      number_size = measure_text_cached(num_font, number, 30)
+      rl.draw_text_ex(num_font, number, (int(circle_x - number_size.x // 2), int(circle_y - number_size.y // 2)), 30, 0, t.SOBRE_ACCION)
 
       # Text
       rl.draw_text_ex(font, "\n".join(wrapped), rl.Vector2(text_x, y), 47, 0.0, t.TEXTO1)
       y += text_height + 50
 
   def _render_qr_code(self, rect: rl.Rectangle) -> None:
+    if not self._get_pairing_code():
+      # Sin codigo no hay QR que valga (sin reloj valido el firmware no anuncia; tampoco
+      # sin clave): un QR con `c=` vacio parece un codigo bueno.
+      rl.draw_rectangle_rounded(rect, 0.1, 20, t.SUP1)
+      font = gui_app.font(FontWeight.BOLD)
+      texto = texto_sin_codigo(reloj_sincronizado(getattr(ui_state, "orbit_command", None)))
+      lineas = wrap_text(font, texto, 40, int(rect.width - 40))
+      for i, linea in enumerate(lineas):
+        rl.draw_text_ex(font, linea, rl.Vector2(rect.x + 20, rect.y + rect.height / 2 - len(lineas) * 22 + i * 44), 40, 0.0, t.TEXTO2)
+      return
+
     if not self.qr_texture:
       rl.draw_rectangle_rounded(rect, 0.1, 20, t.SUP1)  # placeholder, texto de error en tinta PELIGRO
       error_font = gui_app.font(FontWeight.BOLD)
@@ -238,8 +261,11 @@ class OrbitEnrollDialog(Widget):
     # Human-readable raw pairing code (manual-entry fallback) beneath the QR
     code = self._get_pairing_code()
     code_font = gui_app.font(FontWeight.BOLD)
-    code_text = code if code else tr("esperando código...")
-    code_size = 40
+    code_size = 56
+    # El token de 26 caracteres en grupos de 4, en una linea: si aun asi no cabe bajo el QR, baja el tamano.
+    code_text = codigo_legible(code)
+    while code_size > 28 and measure_text_cached(code_font, code_text, code_size).x > rect.width + 80:
+      code_size -= 2
     code_measure = measure_text_cached(code_font, code_text, code_size)
     code_x = rect.x + (rect.width - code_measure.x) // 2
     code_y = rect.y + rect.height + 20

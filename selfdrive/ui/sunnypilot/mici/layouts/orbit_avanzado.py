@@ -28,7 +28,7 @@ ETIQUETAS = {
   "jetson_ip": "ip de la jetson",
   "comma_ip": "ip del comma",
   "jetson_img_port": "puerto de imágenes",
-  "jetson_torque_port": "puerto de torque",
+  "jetson_torque_port": "puerto de par directo",
   "jpeg_quality": "calidad (10-100)",  # se redondea a decenas y se limita a este rango
 }
 
@@ -116,7 +116,7 @@ class AvanzadoLayoutMici(NavScroller):
   def _refrescar(self) -> None:
     torque = ajustes.texto_torque(self._param("JetsonTorque"), self._param("JetsonTorqueTimestamp"), time.time_ns() / 1e9)
     obstaculo = ajustes.texto_obstaculo(self._param("JetsonObstaclePulse")).lower()
-    self._estado.set_value(f"torque actual: {torque}\nobstáculo detectado: {obstaculo}")
+    self._estado.set_value(f"par directo actual: {torque}\nobstáculo detectado: {obstaculo}")
     # Recarga si alguien mas cambio el fichero (MQTT, el interruptor de privacidad...).
     mtime = self._leer_mtime()
     if mtime and mtime != self._mtime:

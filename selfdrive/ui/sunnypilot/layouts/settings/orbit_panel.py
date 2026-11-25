@@ -38,6 +38,7 @@ from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.selfdrive.ui.widgets import orbit_mando as mando
 from openpilot.selfdrive.ui.widgets import orbit_ajustes as ajustes
 from openpilot.selfdrive.ui.widgets.orbit_enroll_dialog import OrbitEnrollDialog
+from openpilot.selfdrive.ui.widgets.orbit_registro_remoto import OrbitRegistroRemoto
 from openpilot.selfdrive.ui.widgets.orbit_section import SectionHeaderSP
 from openpilot.selfdrive.ui.widgets.orbit_server import ServerMonitor
 from openpilot.system.ui.lib.application import gui_app, FontWeight
@@ -46,7 +47,6 @@ from openpilot.system.ui.lib.text_measure import measure_text_cached
 from openpilot.system.ui.sunnypilot.widgets.list_view import toggle_item_sp, button_item_sp
 from openpilot.system.ui.widgets import Widget, DialogResult
 from openpilot.system.ui.widgets.button import Button, ButtonStyle
-from openpilot.system.ui.widgets.confirm_dialog import ConfirmDialog, alert_dialog
 from openpilot.system.ui.widgets.scroller_tici import Scroller
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_sub_layouts.advanced_settings import AdvancedSettingsLayout
 from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_sub_layouts.server_settings import ServerRows
@@ -85,9 +85,14 @@ def _a_salvo(etiqueta: str, avisar: bool = False):
   return ajustes.a_salvo(etiqueta, _avisar_fallo if avisar else None)
 
 
+def _aviso(msg: str):
+  """Aviso de un solo boton «Entendido» (neutro): el OK verde de alert_dialog se lee como exito."""
+  return ajustes.dialogo_orbit(msg, tr("Entendido"), ButtonStyle.NORMAL, cancelar="")
+
+
 def _avisar_fallo(etiqueta: str) -> None:
-  gui_app.push_widget(alert_dialog(tr("Fallo interno en:") + f" {etiqueta}\n" +
-                                   tr("La accion no se ha completado. Revisa el log de la UI.")))
+  gui_app.push_widget(_aviso(tr("Fallo interno en:") + f" {etiqueta}\n" +
+                            tr("La acción no se ha completado. Revisa el log de la UI.")))
 
 
 # Tinta de cada tono de ajustes.lineas_mando.
@@ -101,25 +106,23 @@ def ayuda_html() -> str:
   (sunnypilot/mici/layouts/orbit.py), asi que las dos pantallas dicen lo mismo.
   """
   return (
-    "<h2>" + tr("ARMAR (modo banco)") + "</h2><p>" +
-    tr("Habilita durante 5 minutos los verbos de control fisico (torque del volante, " +
-       "pulso de direccion, control directo) para que se ejecuten DE FORMA REMOTA " +
-       "desde la app. Se arma solo desde esta pantalla, con el coche parado y alguien " +
-       "delante. Se desarma solo al agotarse el tiempo, al superar los 5 km/h o al " +
-       "pasar a offroad.") + "</p>" +
-    "<h2>" + tr("DESARMAR TODO") + "</h2><p>" +
-    tr("Cancela cualquier orden en curso y devuelve el control. Es la unica accion " +
-       "que funciona siempre, desde cualquier pantalla y aunque la conexion vaya mal.") + "</p>" +
-    "<h2>" + tr("MODO (observador / copiloto / maniobra)") + "</h2><p>" +
+    "<h2>" + tr("Modo taller") + "</h2><p>" +
+    tr("Durante 5 minutos la app podrá mover el volante. Se arma solo desde esta pantalla, " +
+       "con el coche parado. Se desarma a los 5 minutos, al pasar de 5 km/h o al " +
+       "apagar el coche.") + "</p>" +
+    "<h2>" + tr("Desarmar todo") + "</h2><p>" +
+    tr("Cancela cualquier orden en curso y te devuelve el control. Funciona siempre, " +
+       "aunque falle la conexión.") + "</p>" +
+    "<h2>" + tr("Modo (observador / copiloto / maniobra)") + "</h2><p>" +
     tr("El nivel de autoridad que la app tiene sobre el coche. El coche arranca " +
-       "siempre en observador; subir el modo desde la app solo dura un rato " +
-       "(copiloto 15 min, maniobra 2 min).") + "</p>" +
-    "<h2>" + tr("ENLACE") + "</h2><p>" +
-    tr("Salud de la conexion de mando con el servidor. Si esta caido, las ordenes " +
+       "siempre en observador. Subir de modo desde la app dura poco: copiloto 15 min, " +
+       "maniobra 2 min.") + "</p>" +
+    "<h2>" + tr("Enlace") + "</h2><p>" +
+    tr("Salud de la conexión de mando con el servidor. Si está caído, las órdenes " +
        "remotas no llegan.") + "</p>" +
-    "<h2>" + tr("BANCO ARMADO") + "</h2><p>" +
-    tr("El modo banco esta activo y quedan los segundos que se muestran. Mientras " +
-       "este armado, la app puede ejecutar verbos de control fisico.") + "</p>"
+    "<h2>" + tr("Taller armado") + "</h2><p>" +
+    tr("El modo taller está activo y quedan los segundos que se muestran. Mientras " +
+       "esté armado, la app puede mover el volante.") + "</p>"
   )
 
 
@@ -127,6 +130,7 @@ class PanelType(IntEnum):
   MAIN = 0
   ADVANCED = 1
   TELEMETRY = 2
+  REGISTRO = 3
 
 
 class _MandoCard(Widget):
@@ -143,15 +147,16 @@ class _MandoCard(Widget):
 
   Los tres salen del mensaje cereal `orbitCommandState` a traves de
   `ui_state.orbit_command`, que UIStateSP refresca en cada frame. Si el plano no publica
-  NO se pinta verde ni se conserva el ultimo valor conocido: se pinta "SUBSISTEMA DE
-  MANDO CAIDO". Un panel de mando que miente sobre el estado del mando es peor que no
+  NO se pinta verde ni se conserva el ultimo valor conocido: se pinta "Mando no
+  disponible: reinicia el comma". Un panel de mando que miente sobre el estado del mando es peor que no
   tenerlo.
 
   Lo que se lee de Params (chips y cuenta atras) esta limitado a _REFRESH_SECONDS; por
   frame no se lee nada.
   """
 
-  HEIGHT = 300
+  HEIGHT = 340
+  LINEA_BLOQUEO = 56   # alto extra de la linea «Mando remoto bloqueado»
 
   def __init__(self, monitor: ServerMonitor):
     super().__init__()
@@ -165,8 +170,10 @@ class _MandoCard(Widget):
       self._logo = None
 
     self._last_refresh = 0.0
-    self._chips: list[tuple[str, bool]] = []
+    # (texto, falla): una sola linea de estado; el punto de color solo marca lo que falla.
+    self._estado: list[tuple[str, bool]] = []
     self._bench_restante = 0.0
+    self._remoto_off = False
 
   def set_parent_rect(self, parent_rect: rl.Rectangle) -> None:
     super().set_parent_rect(parent_rect)
@@ -184,18 +191,26 @@ class _MandoCard(Widget):
     _, self._bench_restante = mando.bench_snapshot()
 
     params = ui_state.params
+    # Mando remoto bloqueado desde este comma: la tarjeta crece una linea para explicarlo.
+    self._remoto_off = ajustes.remoto_apagado(params)
+    self._rect.height = self.HEIGHT + (self.LINEA_BLOQUEO if self._remoto_off else 0)
     connected = ajustes.enlace_orbit(params)
     # Dueno + rol ("ADRIAN • SUPERADMIN"): el rol lo escribe mqtt_comandos desde el
     # enroll_ack del backend (contrato C2).
-    cuenta = ajustes.etiqueta_cuenta(params.get(mando.PARAM_OWNER), params.get(mando.PARAM_OWNER_ROLE)).upper()
+    cuenta = ajustes.etiqueta_cuenta(params.get(mando.PARAM_OWNER), params.get(mando.PARAM_OWNER_ROLE))
 
     server_ok = self._monitor.broker_ok and self._monitor.backend_ok
 
-    self._chips = [
-      (tr("SERVIDOR"), server_ok),
-      (tr("ENLACE"), connected),
-      (cuenta or tr("SIN VINCULAR"), bool(cuenta)),
+    self._estado = [
+      (tr("Servidor conectado") if server_ok else tr("Servidor caído"), not server_ok),
+      (tr("Enlace conectado") if connected else tr("Enlace caído"), not connected),
+      (tr("Cuenta:") + f" {cuenta}" if cuenta else tr("Sin vincular"), False),
     ]
+    # Desvinculo esperando al servidor: lo mismo que la fila gris de Dispositivo y el comma 4.
+    # Sustituye a la cuenta (que se va) para que la linea siga cabiendo.
+    if cuenta and ajustes.estado_desvinculo(params, connected):
+      # Tres puntos ASCII: la fuente bold de la cabecera no tiene «…» (salia «?»).
+      self._estado[-1] = (tr("Desvinculando..."), False)
 
   # --------------------------------------------------------------------- pintado
   def _draw_identity(self, card: rl.Rectangle, pad: float) -> float:
@@ -215,32 +230,24 @@ class _MandoCard(Widget):
     wm = measure_text_cached(self._font_bold, "ORBIT", 36, 3)
     titulo_y = y + (strip_h - wm.y) / 2
     rl.draw_text_ex(self._font_bold, "ORBIT", rl.Vector2(x, titulo_y), 36, 3, OP.ORBIT_INK)
-    # Filete corto en el color de seccion bajo el titulo (como SectionHeaderSP):
-    # el borde de la tarjeta ya no lleva el color de seccion, solo esto.
-    rl.draw_rectangle_rounded(rl.Rectangle(x, titulo_y + wm.y + 6, 24, 4), 1.0, 8, t.SECCION['mando'])
-    x += wm.x
-
-    chip_h = 46
-    chip_y = y + (strip_h - chip_h) / 2
-    right = card.x + card.width - pad
-    for label, ok in reversed(self._chips):
-      size = measure_text_cached(self._font_bold, label, 24, 1)
-      chip_w = size.x + chip_h + 30
-      if right - chip_w < x + 30:
-        break
-      chip = rl.Rectangle(right - chip_w, chip_y, chip_w, chip_h)
-      rl.draw_rectangle_rounded(chip, 1.0, 12, OP.ORBIT_VOID)
-      rl.draw_rectangle_rounded_lines_ex(chip, 1.0, 12, 2, OP.ORBIT_HAIRLINE)
-      dot = OP.ORBIT_GREEN if ok else rl.Color(OP.ORBIT_MUTED.r, OP.ORBIT_MUTED.g, OP.ORBIT_MUTED.b, 120)
-      rl.draw_circle(int(chip.x + 24), int(chip_y + chip_h / 2), 7, dot)
-      rl.draw_text_ex(self._font_bold, label, rl.Vector2(chip.x + 42, chip_y + (chip_h - size.y) / 2),
-                      24, 1, OP.ORBIT_INK if ok else OP.ORBIT_MUTED)
-      right -= chip_w + 14
-
     sep_y = y + strip_h + 16
     rl.draw_line_ex(rl.Vector2(card.x + pad, sep_y), rl.Vector2(card.x + card.width - pad, sep_y),
                     2, OP.ORBIT_HAIRLINE)
     return sep_y + 18
+
+  def _draw_estado(self, x: float, y: float, ancho: float) -> float:
+    """Linea de estado de una sola linea a 36 px: «Servidor conectado. Enlace caído. Sin vincular»."""
+    cx = x
+    for i, (texto, falla) in enumerate(self._estado):
+      if falla:
+        rl.draw_circle(int(cx + 10), int(y + 20), 8, _RED)
+        cx += 28
+      suf = "." if i < len(self._estado) - 1 else ""
+      rl.draw_text_ex(self._font_bold, texto + suf, rl.Vector2(cx, y), 36, 0, OP.ORBIT_INK)
+      cx += measure_text_cached(self._font_bold, texto + suf, 36, 0).x + 18
+      if cx > x + ancho:
+        break
+    return y + 62
 
   # Columna de valores: "ULTIMO COMANDO" a 26 px mide ~300, asi que el valor arranca
   # despues o se solapa con su propia etiqueta.
@@ -261,12 +268,19 @@ class _MandoCard(Widget):
     pad = 28
     x = card.x + pad
     y = self._draw_identity(card, pad)
+    y = self._draw_estado(x, y, card.width - 2 * pad)
+
+    # Un bloqueo se explica junto a lo que bloquea; en ambar (restrictivo, no «todo bien») y
+    # con prioridad sobre «reinicia el comma».
+    if self._remoto_off:
+      rl.draw_text_ex(self._font_bold, tr("Mando remoto bloqueado desde este comma"), rl.Vector2(x, y), 34, 0, _AMBER)
+      y += self.LINEA_BLOQUEO
 
     st = getattr(ui_state, "orbit_command", None)
     if st is None or not st.available:
-      rl.draw_text_ex(self._font_bold, tr("SUBSISTEMA DE MANDO CAIDO"), rl.Vector2(x, y), 34, 0, _RED)
-      rl.draw_text_ex(self._font, tr("No se publica orbitCommandState: sin mando remoto y sin gates."),
-                      rl.Vector2(x, y + 48), 26, 0, OP.ORBIT_MUTED)
+      if self._remoto_off:
+        return
+      rl.draw_text_ex(self._font_bold, tr("Mando no disponible: reinicia el comma"), rl.Vector2(x, y), 36, 0, _RED)
       return
 
     # Modo / enlace / ultimo comando: el texto y el tono salen de ajustes.lineas_mando
@@ -276,7 +290,7 @@ class _MandoCard(Widget):
     # 1) modo vigente + chip de armado con cuenta atras
     self._line(y, x, modo_et, modo_val, _TONOS[modo_tono])
     if st.bench_armed:
-      etiqueta = tr("BANCO ARMADO") + f"  {int(self._bench_restante)}s"
+      etiqueta = tr("Taller armado") + f"  {int(self._bench_restante)} s"
       size = measure_text_cached(self._font_bold, etiqueta, 24, 1)
       chip = rl.Rectangle(card.x + card.width - pad - size.x - 36, y - 2, size.x + 36, 42)
       rl.draw_rectangle_rounded(chip, 1.0, 10, _AMBER)
@@ -303,12 +317,14 @@ class OrbitLayout(Widget):
     self._current_panel = PanelType.MAIN
     self._advanced_layout = AdvancedSettingsLayout(lambda: self._set_current_panel(PanelType.MAIN))
     self._telemetry_layout = TelemetrySettingsLayout(lambda: self._set_current_panel(PanelType.MAIN))
+    self._registro_layout = OrbitRegistroRemoto(lambda: self._set_current_panel(PanelType.MAIN))
 
     self._monitor = ServerMonitor()
     self._server_rows = ServerRows()
     self._steer_rows = SteerModeRows()
 
     self._last_refresh = 0.0
+    self._fallo_desvinculo_t = 0.0
     self._bench_status = ""
     # Cacheados en _refresh_status (1 Hz): los lambdas de las filas se evaluan en cada
     # frame y leer Params ahi es abrir ficheros 60 veces por segundo.
@@ -318,7 +334,7 @@ class OrbitLayout(Widget):
     # DESARMAR TODO vive FUERA del Scroller: anclado abajo, siempre a la vista. Un boton
     # de panico al que hay que llegar haciendo scroll no es un boton de panico.
     self._disarm_button = Button(
-      lambda: tr("DESARMADO") if time.monotonic() < self._disarm_feedback_until else tr("DESARMAR TODO"),
+      lambda: tr("Desarmado, ninguna orden en curso") if self._desarmado_ahora() else tr("Desarmar todo"),
       click_callback=self._do_disarm_all,
       font_size=52,
       font_weight=FontWeight.BOLD,
@@ -329,62 +345,87 @@ class OrbitLayout(Widget):
     items = self._initialize_items()
     self._scroller = Scroller(items, line_separator=False, spacing=0)
 
+  @staticmethod
+  def _vinculado() -> bool:
+    try:
+      return bool(ui_state.params.get_bool("OrbitClaimed"))
+    except Exception:
+      return False
+
+  def _desarmado_ahora(self) -> bool:
+    return time.monotonic() < self._disarm_feedback_until
+
   # ------------------------------------------------------------------------- items
   def _initialize_items(self):
     self._mando_card = _MandoCard(self._monitor)
 
     self._bench_button = button_item_sp(
-      title=lambda: tr("Modo banco (armado local)"),
-      button_text=lambda: tr("DESARMAR") if self._bench_armed else tr("ARMAR"),
+      title=lambda: tr("Modo taller"),
+      button_text=lambda: tr("Desarmar") if self._bench_armed else tr("Armar"),
       description=lambda: self._bench_status,
       callback=self._toggle_bench,
     )
 
     self._help_button = button_item_sp(
-      title=lambda: tr("Qué significa esto"),
-      button_text=lambda: tr("VER"),
-      description=lambda: tr("Definiciones de ARMAR, DESARMAR, los modos y el enlace."),
+      title=lambda: tr("Qué significa cada cosa"),
+      button_text=lambda: tr("Abrir"),
+      description=lambda: tr("Definiciones de armar, desarmar, los modos y el enlace."),
       callback=self._show_help,
     )
 
     self._privacy_toggle = toggle_item_sp(
-      title=lambda: tr("NO EMITIR POSICION NI CAMARA"),
-      description=lambda: tr("Interruptor maestro local. Corta el envio de posicion y de imagen " +
-                             "desde el propio coche: funciona sin red y con el movil apagado."),
+      title=lambda: tr("No enviar posición ni cámara"),
+      description=lambda: tr("Interruptor maestro local. Corta el envío de posición y de imagen " +
+                             "desde el propio coche: funciona sin red y con el móvil apagado."),
       initial_state=mando.privacy_muted(),
       callback=self._on_privacy,
     )
 
-    self._enroll_button = button_item_sp(
-      title=lambda: tr("Vincular con la app (QR)"),
-      button_text=lambda: tr("MOSTRAR"),
-      description=lambda: tr("Muestra el codigo QR de enrolamiento en esta pantalla."),
-      callback=lambda: gui_app.push_widget(OrbitEnrollDialog()),
+    self._remote_off_toggle = toggle_item_sp(
+      title=lambda: tr("Bloquear mando remoto"),
+      description=ajustes.texto_remoto_off,
+      initial_state=ajustes.remoto_apagado(ui_state.params),
+      callback=self._on_remote_off,
     )
 
+    self._remote_log_button = button_item_sp(
+      title=lambda: tr("Órdenes remotas"),
+      button_text=lambda: tr("Abrir"),
+      description=lambda: tr("Las últimas 50 órdenes que llegaron de la app o el servidor y qué se hizo con ellas."),
+      callback=lambda: self._set_current_panel(PanelType.REGISTRO),
+      enabled=lambda: ui_state.is_offroad(),
+    )
+
+    self._enroll_button = button_item_sp(
+      title=lambda: tr("Vincular con la app"),
+      button_text=lambda: tr("Mostrar"),
+      description=lambda: tr("Muestra en esta pantalla el código QR para vincular el comma."),
+      callback=lambda: gui_app.push_widget(OrbitEnrollDialog()),
+    )
+    # Ya vinculado no hace falta: la cuenta sale en la linea de estado de la cabecera.
+    self._enroll_button.set_visible(lambda: not self._vinculado())
+
     self._telemetry_button = button_item_sp(
-      title=lambda: tr("Telemetria"),
-      button_text=lambda: tr("ABRIR"),
-      description=lambda: tr("Que datos manda el dispositivo a la app: posicion, vehiculo, percepcion... " +
-                             "y el ahorro automatico en red movil."),
+      title=lambda: tr("Telemetría"),
+      button_text=lambda: tr("Abrir"),
+      description=lambda: tr("Qué datos manda el dispositivo a la app: posición, vehículo, percepción... " +
+                             "y el ahorro automático en red móvil."),
       callback=lambda: self._set_current_panel(PanelType.TELEMETRY),
     )
 
     self._advanced_button = button_item_sp(
       title=lambda: tr("Ajustes avanzados"),
-      button_text=lambda: tr("ABRIR"),
-      description=lambda: tr("Avisos de HUD (angulo muerto, cambio de carril) y enlace con la " +
+      button_text=lambda: tr("Abrir"),
+      description=lambda: tr("Avisos en pantalla (ángulo muerto, cambio de carril) y enlace con la " +
                              "Jetson (IPs, puertos, calidad de imagen)."),
       callback=lambda: self._set_current_panel(PanelType.ADVANCED),
     )
 
     self._safe_reset_button = button_item_sp(
-      title=lambda: tr("Restablecer valores seguros"),
-      # "RESTABLECER" (11 caracteres) no cabe en los 300 px del ButtonAction y se partia
-      # en dos lineas ("RESTABLECE" / "R"). El titulo de la fila ya dice que restablece.
-      button_text=lambda: tr("APLICAR"),
-      description=lambda: tr("Devuelve los params ORBIT que afectan a la conduccion a su estado " +
-                             "seguro (volante COMMA, sin comandos remotos pendientes, alertas visibles)."),
+      title=lambda: tr("Valores seguros"),
+      button_text=lambda: tr("Restablecer"),
+      description=lambda: tr("Devuelve los ajustes de conducción de ORBIT a su estado " +
+                             "seguro (volante Comma, sin órdenes remotas pendientes, alertas visibles)."),
       callback=self._confirm_safe_reset,
     )
 
@@ -393,21 +434,23 @@ class OrbitLayout(Widget):
       self._mando_card,
       self._bench_button,
       self._help_button,
-      SectionHeaderSP(tr("VOLANTE"), seccion='mando'),
+      SectionHeaderSP(tr("Volante"), seccion='mando'),
       *self._steer_rows.items,
-      SectionHeaderSP(tr("CONEXION"), seccion='ajustes'),
+      SectionHeaderSP(tr("Conexión"), seccion='ajustes'),
       self._enroll_button,
       # Solo la fila del broker: "Probar conexion" sigue en el modal SERVIDOR de la home.
       self._server_rows.items[0],
-      SectionHeaderSP(tr("DISPOSITIVO"), seccion='mando'),
+      SectionHeaderSP(tr("Dispositivo"), seccion='mando'),
       self._privacy_toggle,
+      self._remote_off_toggle,
+      self._remote_log_button,
       self._telemetry_button,
       self._advanced_button,
       self._safe_reset_button,
     ]
 
   # --------------------------------------------------------------- armado de banco
-  @_a_salvo("modo banco", avisar=True)
+  @_a_salvo("modo taller", avisar=True)
   def _toggle_bench(self):
     if mando.bench_armed():   # sin cache: es una accion, no un pintado
       self._apply_bench_disarm()
@@ -420,9 +463,9 @@ class OrbitLayout(Widget):
         return
       self._apply_bench_arm()
 
-    gui_app.push_widget(ConfirmDialog(msg, tr("SI, armar 5 minutos"), tr("Cancelar"), callback=on_result))
+    gui_app.push_widget(ajustes.dialogo_orbit(msg, tr("Armar 5 minutos"), ButtonStyle.ACTION, tr("Cancelar"), callback=on_result))
 
-  @_a_salvo("armar el banco", avisar=True)
+  @_a_salvo("armar el modo taller", avisar=True)
   def _apply_bench_arm(self):
     """Corre como callback del ConfirmDialog, o sea dentro del render: a salvo."""
     fallos = mando.arm_bench()
@@ -431,9 +474,9 @@ class OrbitLayout(Widget):
       guard.note_local_arm(mando.ARM_REASON_BENCH)
     self._last_refresh = 0.0
     if fallos:
-      gui_app.push_widget(alert_dialog(tr("No se pudo armar el banco:") + "\n" + "\n".join(fallos)))
+      gui_app.push_widget(_aviso(tr("No se pudo armar el modo taller:") + "\n" + "\n".join(fallos)))
 
-  @_a_salvo("desarmar el banco", avisar=True)
+  @_a_salvo("desarmar el modo taller", avisar=True)
   def _apply_bench_disarm(self):
     fallos = mando.disarm_bench()
     guard = getattr(ui_state, "orbit_bench_guard", None)
@@ -441,7 +484,7 @@ class OrbitLayout(Widget):
       guard.note_disarm()
     self._last_refresh = 0.0
     if fallos:
-      gui_app.push_widget(alert_dialog(tr("No se pudo desarmar el banco:") + "\n" + "\n".join(fallos)))
+      gui_app.push_widget(_aviso(tr("No se pudo desarmar el modo taller:") + "\n" + "\n".join(fallos)))
 
   # ------------------------------------------------------------------ definiciones
   @_a_salvo("definiciones del panel", avisar=True)
@@ -457,10 +500,10 @@ class OrbitLayout(Widget):
     Con rich el contenido se desplaza y nada se pierde.
     """
     msg = ayuda_html()
-    gui_app.push_widget(ConfirmDialog(msg, tr("OK"), rich=True))
+    gui_app.push_widget(ajustes.dialogo_orbit(msg, tr("Entendido"), ButtonStyle.ACTION, cancelar="", rich=True))
 
   # ------------------------------------------------------------------ desarmar todo
-  @_a_salvo("DESARMAR TODO", avisar=True)
+  @_a_salvo("desarmar todo", avisar=True)
   def _do_disarm_all(self):
     fallos = mando.disarm_all()
     self._steer_rows.sync()
@@ -469,7 +512,7 @@ class OrbitLayout(Widget):
       guard.note_disarm()
     self._last_refresh = 0.0
     if fallos:
-      gui_app.push_widget(alert_dialog(tr("DESARME INCOMPLETO. Han fallado:") + "\n" + "\n".join(fallos)))
+      gui_app.push_widget(_aviso(tr("Desarme incompleto. Han fallado:") + "\n" + "\n".join(fallos)))
     else:
       self._disarm_feedback_until = time.monotonic() + _DISARM_FEEDBACK_S
 
@@ -478,7 +521,31 @@ class OrbitLayout(Widget):
   def _on_privacy(self, enabled: bool):
     fallos = mando.set_privacy_mute(bool(enabled))
     if fallos:
-      gui_app.push_widget(alert_dialog(tr("El corte de emision fallo en:") + "\n" + "\n".join(fallos)))
+      gui_app.push_widget(_aviso(tr("El corte de envío falló en:") + "\n" + "\n".join(fallos)))
+
+  # -------------------------------------------------- bloqueo del mando remoto
+  @_a_salvo("bloquear mando remoto", avisar=True)
+  def _on_remote_off(self, apagar: bool):
+    """Activar no pide confirmacion; quitarlo si (vuelve a dar autoridad a la app)."""
+    if apagar:
+      self._aplicar_remote_off(True)
+      return
+
+    def on_result(result: DialogResult):
+      if result == DialogResult.CONFIRM:
+        self._aplicar_remote_off(False)
+      else:
+        self._remote_off_toggle.action_item.toggle.set_state(ajustes.remoto_apagado(ui_state.params))
+
+    gui_app.push_widget(ajustes.dialogo_orbit(tr("¿Volver a aceptar órdenes remotas?"), tr("Aceptar órdenes"),
+                                              ButtonStyle.ACTION, tr("Cancelar"), callback=on_result))
+
+  @_a_salvo("bloquear mando remoto", avisar=True)
+  def _aplicar_remote_off(self, apagar: bool):
+    fallos = ajustes.cambiar_remoto(ui_state.params, apagar)
+    self._remote_off_toggle.action_item.toggle.set_state(ajustes.remoto_apagado(ui_state.params))
+    if fallos:
+      gui_app.push_widget(_aviso(tr("El bloqueo del mando remoto falló en:") + "\n" + "\n".join(fallos)))
 
   # -------------------------------------------------- restablecer valores seguros
   def _confirm_safe_reset(self):
@@ -489,7 +556,7 @@ class OrbitLayout(Widget):
         return
       self._apply_safe_reset()
 
-    gui_app.push_widget(ConfirmDialog(msg, tr("SI, restablecer"), tr("Cancelar"), callback=on_result))
+    gui_app.push_widget(ajustes.dialogo_orbit(msg, tr("Restablecer"), ButtonStyle.ACTION, tr("Cancelar"), callback=on_result))
 
   @_a_salvo("restablecer valores seguros", avisar=True)
   def _apply_safe_reset(self):
@@ -503,7 +570,7 @@ class OrbitLayout(Widget):
     self._last_refresh = 0.0  # repintar el estado vivo de inmediato
 
     if fallos:
-      gui_app.push_widget(alert_dialog(tr("RESTABLECIMIENTO INCOMPLETO. Han fallado:") +
+      gui_app.push_widget(_aviso(tr("Restablecimiento incompleto. Han fallado:") +
                                        "\n" + "\n".join(fallos)))
 
   # ------------------------------------------------------------------ estado vivo
@@ -530,13 +597,30 @@ class OrbitLayout(Widget):
     if panel == PanelType.TELEMETRY:
       # Relee los toggles al abrir: la app o el interruptor de privacidad pudieron cambiarlos.
       self._telemetry_layout.show_event()
+    if panel == PanelType.REGISTRO:
+      self._registro_layout.show_event()
+
+  @_a_salvo("aviso de desvinculo fallido")
+  def _avisar_fallo_desvinculo(self):
+    """Como Dispositivo: un desvinculo fallido se cuenta UNA vez (lo consume), aunque la
+    persona este en este panel. A 1 Hz: por frame no se lee nada."""
+    now = time.monotonic()
+    if now - self._fallo_desvinculo_t < _REFRESH_SECONDS:
+      return
+    self._fallo_desvinculo_t = now
+    if fallo := ajustes.fallo_desvinculo_pendiente(ui_state.params):
+      gui_app.push_widget(_aviso(fallo))   # el texto ya empieza por «No se pudo desvincular»
 
   def _render(self, rect):
+    self._avisar_fallo_desvinculo()
     if self._current_panel == PanelType.ADVANCED:
       self._advanced_layout.render(rect)
       return
     if self._current_panel == PanelType.TELEMETRY:
       self._telemetry_layout.render(rect)
+      return
+    if self._current_panel == PanelType.REGISTRO:
+      self._registro_layout.render(rect)
       return
 
     self._refresh_status()
@@ -547,12 +631,20 @@ class OrbitLayout(Widget):
     # si compartieran rect, un toque en el boton contaria tambien como arrastre.
     bar_h = _DISARM_BAR_HEIGHT + _DISARM_BAR_GAP
     self._scroller.render(rl.Rectangle(rect.x, rect.y, rect.width, max(0.0, rect.height - bar_h)))
-    self._disarm_button.render(rl.Rectangle(rect.x, rect.y + rect.height - _DISARM_BAR_HEIGHT,
-                                            rect.width, _DISARM_BAR_HEIGHT))
+    barra = rl.Rectangle(rect.x, rect.y + rect.height - _DISARM_BAR_HEIGHT, rect.width, _DISARM_BAR_HEIGHT)
+    # Confirmacion neutra sobre baldosa SUP3: el rojo tras un exito se lee como fallo (guia visual 5.4).
+    # El boton se queda sin relleno propio y la baldosa se pinta debajo.
+    if self._desarmado_ahora():
+      rl.draw_rectangle_rounded(barra, 16 / (barra.height / 2), 10, t.SUP3)
+      self._disarm_button.set_button_style(ButtonStyle.TRANSPARENT_WHITE_TEXT)
+    else:
+      self._disarm_button.set_button_style(ButtonStyle.DANGER)
+    self._disarm_button.render(barra)
 
   def show_event(self):
     self._set_current_panel(PanelType.MAIN)
     self._last_refresh = 0.0
     self._steer_rows.sync()
     self._privacy_toggle.action_item.toggle.set_state(mando.privacy_muted())
+    self._remote_off_toggle.action_item.toggle.set_state(ajustes.remoto_apagado(ui_state.params))
     self._scroller.show_event()

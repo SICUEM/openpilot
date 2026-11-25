@@ -25,6 +25,9 @@ VERBO = "steer_mode_request"
 # Mismos nombres que los botones del selector local (orbit_ajustes.MODE_BUTTONS).
 NOMBRES = {modo: ajustes.MODE_BUTTONS[i] for modo, i in ajustes.MODE_TO_INDEX.items()}
 OBJETIVOS = {"curvature": "CURVATURA", "torque": "TORQUE"}
+# Lo que lee la persona en la pantalla (sentence case, como en la app). NOMBRES sigue
+# siendo el de los detalles del veredicto que viajan a la app.
+NOMBRES_PANTALLA = {1: "Jetson", 2: "Test max", 3: "Comma + Jetson"}
 
 # Veredictos que aun no han cabido en OrbitCmdResult.
 _por_escribir: list[dict] = []
@@ -74,6 +77,11 @@ def tick(params, ahora: float | None = None) -> dict | None:
   if pet is None:
     params.remove(PARAM)   # basura: no hay nada que preguntar ni a quien contestar
     return None
+  if params.get_bool(ajustes.PARAM_REMOTE_OFF):
+    # Con el interruptor activo no se pregunta nada: se cierra como rechazada, igual que
+    # el router rechaza cualquier orden remota mientras el mando esta bloqueado.
+    _cerrar(params, pet, Phase.REJECTED, "REMOTE_OFF", "mando remoto desactivado en la pantalla del comma")
+    return None
   if (ahora_mono() if ahora is None else ahora) > pet["deadline_mono"]:
     _cerrar(params, pet, Phase.EXPIRED, "EXPIRED", "nadie confirmo en el comma a tiempo")
     return None
@@ -81,10 +89,8 @@ def tick(params, ahora: float | None = None) -> dict | None:
 
 
 def texto(pet: dict) -> str:
-  t = f"La app pide modo {NOMBRES[pet['mode']]}"
-  if pet["apply_target"]:
-    t += f" ({OBJETIVOS[pet['apply_target']]})"
-  return t
+  """Cabecera del aviso. El esquive no va aqui: el par directo tiene su propia pagina."""
+  return f"La app pide {NOMBRES_PANTALLA[pet['mode']]}"
 
 
 def aceptar(params, engaged: bool, ahora: float | None = None) -> bool:

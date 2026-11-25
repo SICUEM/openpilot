@@ -18,7 +18,7 @@ import time
 
 from openpilot.orbit import telemetria_grupos as grupos
 from openpilot.selfdrive.ui.mici.widgets.button import BigToggle
-from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import TarjetaTexto, a_salvo, aviso
+from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import TarjetaTexto, a_salvo, aviso, minuscula, trozos_mici
 from openpilot.selfdrive.ui.ui_state import ui_state
 from openpilot.selfdrive.ui.widgets import orbit_ajustes as ajustes
 from openpilot.selfdrive.ui.widgets import orbit_mando as mando
@@ -38,14 +38,14 @@ class TelemetriaLayoutMici(NavScroller):
     self._descripciones: dict[str, TarjetaTexto] = {}
     widgets = []
     for grupo in grupos.GRUPOS:
-      boton = BigToggle(grupo.titulo.lower(), toggle_callback=lambda activo, g=grupo: self._on_grupo(g, activo))
+      boton = BigToggle(minuscula(grupo.titulo), toggle_callback=lambda activo, g=grupo: self._on_grupo(g, activo))
       self._grupos[grupo.clave] = boton
       self._descripciones[grupo.clave] = TarjetaTexto(grupo.descripcion)
       widgets += [boton, self._descripciones[grupo.clave]]
 
     self._ahorro = BigToggle("ahorro en red móvil", toggle_callback=self._on_ahorro)
     widgets.append(self._ahorro)
-    widgets += [TarjetaTexto(trozo) for trozo in ajustes.trocear(ajustes.texto_ahorro_movil())]
+    widgets += [TarjetaTexto(trozo) for trozo in trozos_mici(ajustes.texto_ahorro_movil())]
 
     self._scroller.add_widgets(widgets)
     self.sync()

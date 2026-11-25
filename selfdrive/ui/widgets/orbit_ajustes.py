@@ -24,6 +24,8 @@ from collections.abc import Callable
 
 from openpilot.common.basedir import BASEDIR
 from openpilot.common.swaglog import cloudlog
+from openpilot.orbit import enroll_v2
+from openpilot.orbit import mando_local
 from openpilot.orbit import telemetria_grupos as grupos
 from openpilot.selfdrive.ui.widgets import orbit_mando as mando
 from openpilot.system.ui.lib.multilang import tr
@@ -90,7 +92,7 @@ def validar_host(texto: str) -> str:
   etiquetas = host.split(".")
   if all(e.isascii() and e.isdigit() for e in etiquetas):
     if len(etiquetas) != 4 or any(int(e) > 255 for e in etiquetas):
-      return tr("4 números de 0 a 255 con puntos")
+      return tr("escribe 4 números del 0 al 255, p. ej. 192.168.1.20")
     return ""
   if not all(_ETIQUETA_HOST.match(e) for e in etiquetas):
     return tr("solo letras, números, '-' y '.'")
@@ -126,21 +128,125 @@ def enlace_orbit(params) -> bool:
 
 
 def etiqueta_cuenta(owner, rol) -> str:
-  """'Adrian • superadmin' (primer nombre, 12 car. max, y el rol si se conoce); '' sin dueno.
-
-  '•' y no '·': el punto medio no esta en las fuentes .fnt del comma.
-  """
+  """'Adrian, superadmin' (primer nombre, 12 car. max, y el rol si se conoce); '' sin dueno."""
   owner = owner.strip() if isinstance(owner, str) else ""
   if not owner:
     return ""
   nombre = owner.split()[0][:12]
   rol_txt = mando.rol_etiqueta(rol)
-  return f"{nombre} • {rol_txt}" if rol_txt else nombre
+  return f"{nombre}, {rol_txt}" if rol_txt else nombre
 
 
 def url_enrolamiento(dongle_id, codigo) -> str:
   """Carga del QR de vinculacion. El backend y la app parsean exactamente este formato."""
-  return f"orbit://enroll?d={dongle_id or ''}&c={codigo or ''}"
+  return enroll_v2.url_enrolamiento(dongle_id or "", codigo or "")
+
+
+def reloj_sincronizado(st) -> bool:
+  """Vista del mando (ui_state.orbit_command): solo se acusa al reloj si el plano esta vivo y lo dice."""
+  return st is None or not st.available or bool(st.clock_synced)
+
+
+def texto_sin_codigo(reloj_sincronizado: bool) -> str:
+  """Lo que se pinta en lugar del QR cuando no hay codigo: sin reloj valido el firmware
+  no anuncia (ni genera token), y decirlo evita un 'no pasa nada' sin explicacion."""
+  return tr("esperando código...") if reloj_sincronizado else tr("Sincronizando la hora del comma...")
+
+
+# ======================================================================== mando remoto
+PARAM_REMOTE_OFF = mando_local.PARAM_REMOTE_OFF
+PARAM_REMOTE_LOG = mando_local.PARAM_REMOTE_LOG
+
+_FASES_TXT = {
+  "applied": "aplicada", "rejected": "rechazada", "failed": "falló", "expired": "caducada",
+  "superseded": "sustituida", "held": "retenida", "ignored": "ignorada",
+}
+
+
+def remoto_apagado(params) -> bool:
+  return mando_local.remoto_apagado(params)
+
+
+def cambiar_remoto(params, apagar: bool) -> list[str]:
+  """Escribe OrbitRemoteOff y DESPUES, al apagar, desarma todo (orden que importa: con el
+  Param ya puesto, nada nuevo se acepta mientras se desarma). Devuelve los fallos."""
+  fallos: list[str] = []
+  try:
+    params.put_bool(PARAM_REMOTE_OFF, bool(apagar), True)   # bloqueante: el Param ya esta antes de desarmar
+  except Exception:
+    cloudlog.exception(f"[Orbit/UI] cambiar_remoto: fallo {PARAM_REMOTE_OFF}")
+    fallos.append(PARAM_REMOTE_OFF)
+  if apagar:
+    fallos += mando.disarm_all()
+    # Una peticion de modo de volante ya pendiente se cierra ahora como REMOTE_OFF: la
+    # pantalla no puede seguir mostrando 'la app pide...' con el mando bloqueado.
+    from openpilot.selfdrive.ui.widgets import orbit_peticion_modo as peticion   # import circular
+    try:
+      peticion.tick(params)
+    except Exception:
+      cloudlog.exception("[Orbit/UI] cambiar_remoto: fallo al cerrar la peticion de modo")
+      fallos.append(peticion.PARAM)
+  return fallos
+
+
+def texto_remoto_off() -> str:
+  return tr("Mientras esté activo, el coche ignora las órdenes y ajustes que lleguen desde la app o el servidor. " +
+            "«Desarmar todo» sigue funcionando. Solo se puede quitar desde esta pantalla.")
+
+
+# Nombres de persona para el registro: el conductor no ve identificadores internos (verbos,
+# codigos de motivo, origenes). Lo desconocido cae en un texto neutro, nunca en el codigo crudo.
+_VERBOS_TXT = {
+  "disarm_all": "Desarmar todo", "set_mode": "Cambio de modo", "bookmark": "Marcador",
+  "healthcheck": "Comprobación", "location_now": "Posición", "cruise_delta": "Ajuste de crucero",
+  "cruise_button": "Botón de crucero", "follow_distance": "Distancia de seguimiento",
+  "mads": "Dirección asistida", "experimental": "Modo experimental", "dec": "Modo experimental dinámico",
+  "nnlc": "Dirección neuronal", "openpilot_enable": "Activar openpilot", "device_admin": "Gestión del comma",
+  "steer_mode_request": "Modo de volante", "lane_change": "Cambio de carril",
+  "assisted_decel": "Frenada asistida", "torque_mode": "Modo de volante", "steering_pulse": "Pulso de dirección",
+  "physical_control": "Control directo", "cfg": "Configuración", "cam": "Cámara", "roundabout": "Rotondas",
+  "speed_increment": "Paso de velocidad",
+}
+_MOTIVOS_TXT = {
+  "TYPE": "orden mal formada", "RANGE": "valor fuera de rango", "MODE": "modo insuficiente",
+  "DUPLICATE": "repetida", "EXPIRED": "llegó tarde", "CLOCK": "hora sin sincronizar",
+  "UNSUPPORTED_PLATFORM": "no vale para este coche", "UNSUPPORTED_VERB": "no disponible",
+  "BUSY": "había otra en curso", "SUPERSEDED": "sustituida por otra", "LINK": "enlace caído",
+  "INTERNAL": "fallo del comma", "REMOTE_OFF": "mando remoto bloqueado", "OFFROAD": "coche apagado",
+  "NO_KEY": "sin clave de seguridad",
+  "GATE_ENGAGED": "openpilot no activo", "GATE_LAT_ACTIVE": "dirección no activa",
+  "GATE_LONG_ACTIVE": "aceleración no activa", "GATE_SPEED_RANGE": "velocidad no permitida",
+  "GATE_DRIVER_IDLE": "el conductor intervino", "GATE_DRIVER_PRESENT": "conductor no listo",
+  "GATE_CALIBRATED": "calibración pendiente", "GATE_NOT_DEGRADED": "sistema degradado",
+  "GATE_LINK_FRESH": "enlace sin datos recientes", "GATE_CLOCK_SYNCED": "hora sin sincronizar",
+}
+
+
+def lineas_registro_remoto(raw) -> list[str]:
+  """Una linea por orden, la mas nueva primero: '14:03:22  Cambio de carril  rechazada (mando remoto bloqueado)'.
+
+  Nunca lanza: un registro roto o ausente da lista vacia y una fila rota se salta.
+  """
+  try:
+    if isinstance(raw, bytes):
+      raw = raw.decode("utf-8", "replace")
+    datos = json.loads(raw) if raw else []
+  except Exception:
+    return []
+  if not isinstance(datos, list):
+    return []
+  lineas = []
+  for d in datos[:mando_local.REGISTRO_MAX]:
+    try:
+      hora = time.strftime("%H:%M:%S", time.localtime(int(d["t"])))
+      fase = _FASES_TXT.get(d["f"], str(d["f"]))
+      verbo = _VERBOS_TXT.get(d["v"], "Orden desconocida")
+      motivo = f" ({_MOTIVOS_TXT[d['r']]})" if d.get("r") in _MOTIVOS_TXT else ""
+      veces = f"  x{d['n']}" if int(d.get("n", 1)) > 1 else ""
+      lineas.append(f"{hora}  {verbo}  {fase}{motivo}{veces}")
+    except Exception:
+      continue
+  return lineas
 
 
 def texto_caducidad(expiry_raw, ahora_ms: int) -> str:
@@ -160,12 +266,13 @@ PARAM_UNLINK_REQUEST = "OrbitUnlinkRequest"
 PARAM_UNLINK_RESULT = "OrbitUnlinkResult"
 
 # Por que fallo el desvinculo, en lenguaje de persona (codigos de contrato C4/C5).
+_NO_RECONOCE = "No se pudo desvincular. El servidor no reconoce este comma. Desvincúlalo desde la app, en Cuenta, Coches."
 _MOTIVOS_DESVINCULO = {
-  "no_key": "este comma se vinculó sin clave de dispositivo; desvincúlalo desde la app ORBIT",
-  "no_nonce": "conecta el comma a internet y vuelve a intentarlo",
-  "bad_signature": "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT",
-  "bad_nonce": "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT",
-  "bad_request": "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT",
+  "no_key": "No se pudo desvincular. Este comma se vinculó sin clave de dispositivo. Desvincúlalo desde la app, en Cuenta, Coches.",
+  "no_nonce": "No se pudo desvincular. Conecta el comma a internet y vuelve a intentarlo.",
+  "bad_signature": _NO_RECONOCE,
+  "bad_nonce": _NO_RECONOCE,
+  "bad_request": _NO_RECONOCE,
 }
 
 
@@ -173,8 +280,9 @@ def texto_desvincular(owner) -> str:
   """Texto de la confirmacion de las dos pantallas: a quien esta vinculado y que pasa."""
   owner = owner.strip() if isinstance(owner, str) else ""
   quien = owner or "una cuenta ORBIT"
-  return (f"Este comma está vinculado a {quien}. Si lo desvinculas, dejará de salir en la app ORBIT de esa " +
-          "cuenta y tendrás que volver a vincularlo con el QR.")
+  # Frases de <= 72 caracteres: en el comma 4 cada tarjeta lleva frases enteras (guia 5.3).
+  return (f"Este comma está vinculado a {quien}. Si lo desvinculas, dejará de salir en la app ORBIT de " +
+          "esa cuenta. Para volver a usarlo, vincúlalo otra vez con el QR.")
 
 
 def pedir_desvinculo(params) -> list[str]:
@@ -205,7 +313,8 @@ def estado_desvinculo(params, enlace: bool) -> str:
       return ""
   except Exception:
     return ""
-  return "desvinculando..." if enlace else "esperando al servidor"
+  # Sin enlace la peticion espera igual: se dice lo mismo, en gris, no como un aviso (guia visual §5.5).
+  return "desvinculando..."
 
 
 def texto_fallo_desvinculo(resultado) -> str:
@@ -218,7 +327,7 @@ def texto_fallo_desvinculo(resultado) -> str:
     motivo = resultado.get("reason")
   except (ValueError, TypeError):
     return ""
-  return _MOTIVOS_DESVINCULO.get(motivo, "no se pudo desvincular; desvincúlalo desde la app ORBIT")
+  return _MOTIVOS_DESVINCULO.get(motivo, "No se pudo desvincular. Desvincúlalo desde la app, en Cuenta, Coches.")
 
 
 def fallo_desvinculo_pendiente(params) -> str:
@@ -239,26 +348,26 @@ def lineas_mando(st) -> list[tuple[str, str, str]]:
 
   (etiqueta, valor, tono) con tono 'ok' | 'aviso' | 'peligro' | 'normal'. Cada pantalla
   pone el color. Mismo criterio que la tarjeta de mando de la UI grande: nada rancio en
-  verde, el enlace caido en rojo, el ultimo comando en rojo si acabo mal.
+  verde, el enlace caido en rojo, la ultima orden en rojo si acabo mal.
   """
-  modo = (tr("MODO"), st.mode_label, "ok" if st.mode == "observer" else "aviso")
+  modo = (tr("Modo"), st.mode_label, "ok" if st.mode == "observer" else "aviso")
 
   if not st.link_ok:
-    enlace = (tr("ENLACE"), tr("CAIDO"), "peligro")
+    enlace = (tr("Enlace"), tr("Caído"), "peligro")
   elif not st.clock_synced:
-    # Sin reloj sincronizado el router rechaza todo verbo de banco: decirlo evita el
+    # Sin reloj sincronizado el router rechaza todo verbo de taller: decirlo evita el
     # "el coche no responde y no se por que".
-    enlace = (tr("ENLACE"), tr("OK - reloj sin sincronizar"), "aviso")
+    enlace = (tr("Enlace"), tr("OK, reloj sin sincronizar"), "aviso")
   else:
-    enlace = (tr("ENLACE"), tr("OK"), "ok")
+    enlace = (tr("Enlace"), tr("OK"), "ok")
 
   if st.last_ack_phase != "none":
-    texto = f"{st.active_verb or '-'}  -  {st.phase_label}"
+    texto = f"{st.active_verb or '-'}: {st.phase_label}"
     if st.last_reason:
       texto += f"  ({st.last_reason})"
   else:
-    texto = tr("ninguno")
-  ultimo = (tr("ULTIMO COMANDO"), texto, "peligro" if st.phase_is_bad else "normal")
+    texto = tr("ninguna")
+  ultimo = (tr("Última orden"), texto, "peligro" if st.phase_is_bad else "normal")
   return [modo, enlace, ultimo]
 
 
@@ -267,29 +376,30 @@ def texto_armar_banco() -> str:
   # El texto dice que habilita mandos REMOTOS porque es exactamente lo que hace, y es el
   # dato que decide si armar o no. Elegir el modo de volante en la pantalla no necesita
   # esto: eso va por OrbitSteerModeLocal y no abre nada por MQTT.
-  return tr("Armar el MODO BANCO durante 5 minutos?\n\n" +
-            "Mientras este armado, los verbos de control fisico (torque del volante, pulso " +
-            "de direccion, control directo) pasan a ser ejecutables DE FORMA REMOTA desde " +
-            "la app. Armalo solo con el coche parado y contigo delante.\n\n" +
-            "No hace falta para elegir el modo de volante en esta pantalla.\n\n" +
-            "Se desarma solo al agotarse los 5 minutos, al superar los 5 km/h y al pasar " +
-            "a offroad.")
+  # Sin «5 minutos» en la pregunta: en el comma 4 la tarjeta partia el numero de su unidad
+  # (el espacio duro no lo respeta el troceo de lineas). La frase siguiente ya dice cuanto dura.
+  return tr("¿Armar el modo taller?\n\n" +
+            "Durante 5 minutos la app podrá mover el volante. Ármalo solo con el coche parado " +
+            "y contigo delante.\n\n" +
+            "Se desarma a los 5 minutos, al pasar de 5 km/h o al apagar el coche.")
 
 
 def texto_estado_banco(armado: bool, restante_s: float) -> str:
   if armado:
-    return tr("ARMADO") + f" - {int(restante_s)}s " + tr("restantes")
-  return tr("Desarmado. Los verbos de banco se rechazan.")
+    return tr("Armado") + f", quedan {int(restante_s)} s"
+  return tr("Desarmado. Las órdenes de taller se rechazan.")
 
 
 # ======================================================================== volante
 # Indice del boton -> valor de SteerTorqueMode. El orden replica el Qt original:
 #   ['COMMA', 'COMMA+JETSON', 'JETSON', 'TEST MAX'] -> 0, 3, 1, 2
 # (etiquetas cortas: 'MODELO COMMA' desbordaba los 320 px del boton de la UI grande)
+# ponytail: siguen en mayusculas porque orbit_peticion_modo.NOMBRES (FW-C) y sus tests de
+# orbit/test dependen de ellas; pasan a sentence case con el selector de 3 + «Test max» (FW-B).
 MODE_BUTTONS = ["COMMA", "COMMA+JETSON", "JETSON", "TEST MAX"]
 INDEX_TO_MODE = {0: 0, 1: 3, 2: 1, 3: 2}
 MODE_TO_INDEX = {v: k for k, v in INDEX_TO_MODE.items()}
-MODE_NAMES = {0: "MODELO COMMA", 1: "JETSON", 2: "TEST MAX", 3: "COMMA+JETSON"}
+MODE_NAMES = {0: "MODELO COMMA", 1: "JETSON", 2: "TEST MAX", 3: "COMMA + JETSON"}
 
 # Modos cuyo override de torque controlsd solo aplica con autorizacion vigente.
 MODES_REQUIRING_BENCH = (1, 2)
@@ -309,72 +419,61 @@ def texto_estado_volante(modo: int, objetivo, armado: bool, restante_s: float, l
   justo despues de elegir JETSON aqui, con la Jetson llevando el volante.
   """
   if modo == 0:
-    return tr("torque del modelo interno")
+    return tr("par del modelo interno")
   if modo == 3:
-    tgt_label = tr("TORQUE") if objetivo == "torque" else tr("CURVATURA")
-    return tr("esquive en") + f" {tgt_label}"
+    tgt_label = tr("par directo") if objetivo == "torque" else tr("curvatura")
+    return tr("esquive con") + f" {tgt_label}"
   if local:
-    return tr("ACTIVO, elegido en pantalla")
+    return tr("activo, elegido en pantalla")
   if armado:
-    return tr("ACTIVO, banco armado") + f" ({int(restante_s)}s)"
-  return tr("SIN EFECTO: banco no armado, manda COMMA")
+    return tr("activo, taller armado") + f" ({int(restante_s)}s)"
+  return tr("sin efecto: taller sin armar, manda Comma")
 
 
 def confirmacion_modo(modo: int) -> tuple[str, str]:
-  """(texto, boton de confirmar) del cambio al modo `modo`."""
+  """(texto, boton de confirmar) del cambio al modo `modo`.
+
+  Guia 5.5: como mucho tres frases, sin repetir el titulo (lo pone cada pantalla) ni
+  «¿Continuar?» (lo dice el boton). Lo comparten el selector local y el aviso remoto.
+  """
   if modo == 0:
-    return (tr("Volver al MODELO COMMA (recomendado).\n\n" +
-               "El volante usara el torque calculado por el modelo interno de openpilot. " +
-               "Esta es la opcion mas segura y probada."),
-            tr("Cambiar a MODELO COMMA"))
+    return (tr("El volante usará el modelo interno de openpilot.\n\n" +
+               "Es la opción más segura y probada."),
+            tr("Cambiar a modelo Comma"))
   if modo == 1:
-    return (tr("ATENCION\n\n" +
-               "Vas a delegar el control del volante a la JETSON (PilotNet). " +
-               "El volante obedecera al torque que calcule la red neuronal externa.\n\n" +
-               "Es una autorizacion PRESENCIAL: dura hasta volver a COMMA o pasar a offroad. " +
-               "No arma el banco ni habilita mandos remotos.\n\n" +
-               "Asegurate de que la Jetson esta conectada y enviando torque por ZMQ, " +
-               "de estar en un entorno controlado y de tener las manos sobre el volante.\n\n" +
-               "Deseas continuar?"),
-            tr("SI, usar JETSON"))
+    return (tr("El volante obedecerá al par directo que calcule la Jetson.\n\n" +
+               "Comprueba que la Jetson envía par directo y ten las manos en el volante.\n\n" +
+               "Dura hasta volver a Comma o apagar el coche."),
+            tr("Usar Jetson"))
   if modo == 2:
-    return (tr("PELIGRO - MODO DE PRUEBA\n\n" +
-               "Este modo fija el torque del volante al MAXIMO hacia la DERECHA de forma continua. " +
-               "SOLO sirve para verificar la interceptacion del torque.\n\n" +
-               "Es una autorizacion PRESENCIAL y no arma el banco. Se retira sola al superar " +
-               "los 5 km/h (vuelve a COMMA) y al pasar a offroad.\n\n" +
-               "USALO SOLO EN PRUEBAS CONTROLADAS, CON LAS MANOS EN EL VOLANTE. " +
-               "NO LO USES EN VIA PUBLICA.\n\n" +
-               "Deseas continuar?"),
-            tr("SI, ACTIVAR TEST MAX"))
-  return (tr("Activar COMMA + JETSON.\n\n" +
-             "El volante usara el torque del MODELO COMMA (comportamiento normal). " +
-             "Si la Jetson detecta un obstaculo, aplicara temporalmente un esquive lateral.\n\n" +
-             "No necesita armado de banco.\n\n" +
-             "Requisitos: Jetson conectada y enviando alertas por ZMQ, y modelo de " +
-             "deteccion de obstaculos cargado."),
-          tr("SI, activar COMMA+JETSON"))
+    return (tr("El volante girará con toda su fuerza a la derecha hasta pasar de 5 km/h.\n\n" +
+               "Solo en circuito y con las manos en el volante.\n\n" +
+               "También se retira al apagar el coche."),
+            tr("Activar test max"))
+  return (tr("El volante usa el modelo Comma y esquiva si la Jetson ve un obstáculo.\n\n" +
+             "Necesita la Jetson conectada y su detector de obstáculos en marcha.\n\n" +
+             "No hace falta armar el modo taller."),
+          tr("Activar Comma + Jetson"))
 
 
 def texto_esquive_curvatura() -> tuple[str, str, str]:
-  """Paso 1 de COMMA+JETSON: (texto, CURVATURA, otra opcion)."""
-  return (tr("COMMA + JETSON - Como debe esquivar la Jetson?\n\n" +
-             "CURVATURA suma un offset a la curvatura deseada. Comportamiento historico, " +
-             "mas suave y predecible (RECOMENDADO).\n\n" +
-             "Pulsa CURVATURA para usarla, o Otra opcion para elegir TORQUE (beta)."),
-          tr("CURVATURA (recomendado)"), tr("Otra opcion (TORQUE)"))
+  """Paso 1 de COMMA+JETSON: (texto, curvatura, otra opcion)."""
+  return (tr("Comma + Jetson: ¿cómo debe esquivar la Jetson?\n\n" +
+             "Curvatura suma un desvío a la curvatura deseada. Es más suave y predecible " +
+             "(recomendado).\n\n" +
+             "Otra opción esquiva con par directo (en pruebas)."),
+          tr("Curvatura (recomendado)"), tr("Otra opción (par directo)"))
 
 
 def texto_esquive_torque(cancelar: str = "Pulsa Cancelar para no cambiar nada.") -> tuple[str, str]:
-  """Paso 2 de COMMA+JETSON: (texto, confirmar TORQUE).
+  """Paso 2 de COMMA+JETSON: (texto, confirmar par directo).
 
   `cancelar` dice como se cancela en cada pantalla: el comma 4 no tiene boton Cancelar,
   se desliza hacia abajo.
   """
-  return (tr("COMMA + JETSON - Usar TORQUE para esquivar? (BETA)\n\n" +
-             "TORQUE pisa directamente el torque del volante mientras dura el esquive. " +
-             "Reaccion mas fuerte e inmediata.\n\n") + tr(cancelar),
-          tr("SI, usar TORQUE"))
+  return (tr("¿Esquivar con par directo?\n\n" +
+             "Reacciona más fuerte y más rápido. En pruebas.\n\n") + tr(cancelar),
+          tr("Usar par directo"))
 
 
 def _dongle(params) -> str | None:
@@ -441,7 +540,7 @@ def encendido_grupo(params, grupo, silenciado: bool) -> bool:
 
 def descripcion_grupo(grupo, silenciado: bool) -> str:
   if grupo_bloqueado(grupo, silenciado):
-    return tr("Apagada: el interruptor de privacidad esta puesto. Quitalo para poder activarla.")
+    return tr("Apagada por el interruptor de privacidad. Quítalo para activarla.")
   return tr(grupo.descripcion)
 
 
@@ -456,8 +555,8 @@ def cambiar_grupo(params, grupo, encendido: bool, silenciado: bool) -> list[str]
 
 
 def texto_ahorro_movil() -> str:
-  return tr("Si la red movil esta marcada como de pago, baja al perfil AHORRO y deja de enviar " +
-            "percepcion, alertas, marcha y pedales. Apagado por defecto.")
+  return tr("Si la red móvil está marcada como de pago, baja al perfil de ahorro y deja de enviar " +
+            "percepción, alertas, marcha y pedales. Apagado por defecto.")
 
 
 def cambiar_ahorro_movil(params, encendido: bool) -> list[str]:
@@ -472,15 +571,14 @@ def cambiar_ahorro_movil(params, encendido: bool) -> list[str]:
 
 # ======================================================================== valores seguros
 def texto_valores_seguros() -> str:
-  return tr("Restablecer los params ORBIT de conduccion a valores seguros?\n\n" +
-            "- Modo de volante: COMMA\n" +
-            "- Armado de banco y modo del mando: desarmados\n" +
-            "- Frenado de emergencia remoto: OFF\n" +
+  return tr("¿Volver a los valores seguros de conducción?\n\n" +
+            "- Modo de volante: Comma\n" +
+            "- Modo taller y modo del mando: desarmados\n" +
+            "- Frenado de emergencia remoto: apagado\n" +
             "- Cambios de carril forzados pendientes: borrados\n" +
-            "- Pulso de direccion remoto: borrado\n" +
-            "- Alertas de comunicacion: visibles\n\n" +
-            "No toca la configuracion de servidor, telemetria ni Jetson (IPs/puertos), " +
-            "ni el interruptor de privacidad.")
+            "- Pulso de dirección remoto: borrado\n" +
+            "- Alertas de comunicación: visibles\n\n" +
+            "No toca el servidor, la telemetría ni la Jetson. Tampoco el interruptor de privacidad.")
 
 
 def aplicar_valores_seguros(params) -> list[str]:
@@ -647,6 +745,45 @@ def texto_obstaculo(raw) -> str:
     except (TypeError, ValueError):
       pass
   return tr("NO")
+
+
+# ======================================================================== dialogos
+def html_dialogo(mensaje: str) -> str:
+  """«Pregunta\n\ncuerpo» -> HTML: la pregunta en <h2>, los parrafos en <p> y las lineas «- x» en <ul>."""
+  pregunta, *resto = [p.strip() for p in mensaje.split("\n\n") if p.strip()]
+  html = f"<h2>{pregunta}</h2>"
+  for parrafo in resto:
+    lineas = parrafo.split("\n")
+    if all(ln.startswith("- ") for ln in lineas):
+      html += "<ul>" + "".join(f"<li>{ln[2:]}</li>" for ln in lineas) + "</ul>"
+    else:
+      html += "".join(f"<p>{ln}</p>" for ln in lineas)
+  return html
+
+
+def dialogo_orbit(mensaje: str, confirmar: str, estilo=None, cancelar: str | None = None, rich: bool = False, callback=None):
+  """ConfirmDialog de ORBIT con el boton de confirmar en el estilo pedido.
+
+  ConfirmDialog pinta SIEMPRE el boton de confirmar en PRIMARY (verde) y ese verde esta
+  reservado a «el coche lo confirmo»: aqui se le cambia el estilo sin tocar system/ui.
+  `estilo`: ButtonStyle.DANGER (desvincular, test max), ButtonStyle.ACTION (armar taller,
+  restablecer) o None para dejar el de siempre. `cancelar=""` da un unico boton (informativo).
+  Import tardio: este modulo es logica pura y los tests corren sin pyray.
+  """
+  from openpilot.system.ui.widgets.confirm_dialog import ConfirmDialog
+  # «Pregunta\n\ncuerpo»: ConfirmDialog lo pinta todo al mismo tamano y centrado. Se maqueta aparte
+  # (pregunta grande en negrita, cuerpo normal a la izquierda, listas con vinetas) sin tocar system/ui.
+  maquetar = not rich and "\n\n" in mensaje
+  dialogo = ConfirmDialog(html_dialogo(mensaje) if maquetar else mensaje, confirmar, cancelar,
+                          rich=rich or maquetar, callback=callback)
+  if maquetar:
+    from openpilot.system.ui.widgets.html_render import HtmlRenderer, ElementType
+    from openpilot.system.ui.widgets.scroller_tici import Scroller
+    dialogo._html_renderer = HtmlRenderer(text=html_dialogo(mensaje), text_size={ElementType.P: 42}, center_text=False)
+    dialogo._scroller = Scroller([dialogo._html_renderer], line_separator=False, spacing=0)
+  if estilo is not None:
+    dialogo._confirm_button.set_button_style(estilo)
+  return dialogo
 
 
 # ======================================================================== texto en tarjetas

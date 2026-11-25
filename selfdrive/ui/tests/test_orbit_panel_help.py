@@ -6,7 +6,7 @@ test_orbit_panel_refs.py): no importa pyray ni Params, asi que corre en cualquie
 sin build ni ventana.
 
 Lo que se comprueba:
-  * el panel crea un boton "Qué significa esto" y lo mete en la lista de items,
+  * el panel crea un boton "Qué significa cada cosa" y lo mete en la lista de items,
   * existe el metodo `_show_help` que abre un dialogo informativo,
   * el texto del dialogo define ARMAR, DESARMAR, MODO, ENLACE y BANCO ARMADO.
 """
@@ -34,10 +34,10 @@ def _textos(tree: ast.Module) -> list[str]:
 
 
 def test_el_panel_tiene_boton_de_definiciones():
-  tree = _leer()
+  _leer()  # el panel debe seguir parseando
   src = PANEL.read_text(encoding="utf-8")
   # El boton se crea y se anade a la lista de items del scroller.
-  assert "Qué significa esto" in src, "falta el boton de definiciones"
+  assert "Qué significa cada cosa" in src, "falta el boton de definiciones"
   assert "self._help_button" in src, "falta el atributo del boton"
   assert "self._help_button," in src, "el boton no esta en la lista de items"
 
@@ -49,13 +49,13 @@ def test_show_help_abre_un_dialogo_informativo():
   # Es informativo (sin confirmacion) y usa rich=True para que el texto largo
   # se desplace en vez de recortarse con scissor.
   assert "rich=True" in src, "_show_help no usa el dialogo con scroll"
-  assert "ConfirmDialog(msg, tr(\"OK\"), rich=True)" in src, "_show_help no abre el dialogo informativo"
+  assert 'dialogo_orbit(msg, tr("Entendido"), ButtonStyle.ACTION, cancelar="", rich=True)' in src, "_show_help no abre el dialogo informativo"
 
 
 def test_el_dialogo_define_la_terminologia():
   textos = _textos(_leer())
-  for termino in ("ARMAR (modo banco)", "DESARMAR TODO",
-                  "MODO (observador / copiloto / maniobra)", "ENLACE", "BANCO ARMADO"):
+  for termino in ("Modo taller", "Desarmar todo",
+                  "Modo (observador / copiloto / maniobra)", "Enlace", "Taller armado"):
     assert any(termino in t for t in textos), f"el dialogo no define {termino}"
 
 

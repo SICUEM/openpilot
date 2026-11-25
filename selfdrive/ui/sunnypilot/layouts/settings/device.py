@@ -128,6 +128,7 @@ class DeviceLayoutSP(DeviceLayout):
       self._orbit_enroll_btn,
       self._orbit_account_row,
       self._orbit_unlink_btn,
+      self._orbit_unlinking_row,
       LineSeparator(),
       self._pair_device_btn,
       LineSeparator(),
@@ -148,6 +149,10 @@ class DeviceLayoutSP(DeviceLayout):
     ]
 
     return items
+
+  def _orbit_unlinking_text(self) -> str:
+    # Tres puntos ASCII: la fuente de la lista no tiene «…» y salia «?».
+    return tr("Desvinculando...")
 
   def _offroad_transition(self):
     self._power_buttons.action_item.right_button.set_visible(ui_state.is_offroad())

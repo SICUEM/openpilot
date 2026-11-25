@@ -71,17 +71,46 @@ def test_validar_host_rechaza(host):
   assert aj.validar_host(host) != ""
 
 
+def test_cambiar_remoto_escribe_y_despues_desarma(monkeypatch):
+  orden = []
+
+  class P:
+    def put_bool(self, k, v, block=False):
+      orden.append(("put", k, v))
+
+    def get(self, k, *a, **kw):
+      return None   # sin peticion de modo pendiente
+
+  monkeypatch.setattr(aj.mando, "disarm_all", lambda: orden.append("disarm") or [])
+  assert aj.cambiar_remoto(P(), True) == []
+  assert orden == [("put", "OrbitRemoteOff", True), "disarm"]
+  orden.clear()
+  assert aj.cambiar_remoto(P(), False) == [] and orden == [("put", "OrbitRemoteOff", False)]
+
+
+def test_lineas_registro_remoto():
+  raw = '[{"t":1764000000,"o":"v2","v":"lane_change","f":"rejected","r":"REMOTE_OFF","n":3},{"x":1},{"t":1,"o":"cfg","v":"cfg","f":"applied","r":"","n":1}]'
+  lin = aj.lineas_registro_remoto(raw)
+  assert len(lin) == 2
+  assert lin[0].endswith("Cambio de carril  rechazada (mando remoto bloqueado)  x3") and lin[1].endswith("Configuración  aplicada")
+  # Ni verbos, ni codigos de motivo, ni origenes internos en pantalla
+  assert not any(x in " ".join(lin) for x in ("lane_change", "REMOTE_OFF", "v2", "cfg"))
+  assert aj.lineas_registro_remoto(None) == [] and aj.lineas_registro_remoto("basura") == [] and aj.lineas_registro_remoto("{}") == []
+
+
 def test_url_y_caducidad_del_qr():
   assert aj.url_enrolamiento("abc123", "K7QX4MPA") == "orbit://enroll?d=abc123&c=K7QX4MPA"
   assert aj.url_enrolamiento(None, None) == "orbit://enroll?d=&c="
+  token = "ABCDEFGHJKLMNPQRSTUVWXYZ23"
+  assert aj.url_enrolamiento("abc123", token) == f"orbit://enroll?d=abc123&c={token}&v=2"
   assert aj.texto_caducidad(str(1_000_000 + 487_000), 1_000_000) == "caduca en 8:07"
   assert aj.texto_caducidad("1000", 5_000) == "caduca en 0:00"
   assert aj.texto_caducidad(None, 0) == "" and aj.texto_caducidad("basura", 0) == ""
 
 
 def test_etiqueta_cuenta_con_rol():
-  assert aj.etiqueta_cuenta("Adrian Garcia", "superadmin") == "Adrian • superadmin"
-  assert aj.etiqueta_cuenta("Ana", "developer") == "Ana • desarrollador"
+  assert aj.etiqueta_cuenta("Adrian Garcia", "superadmin") == "Adrian, superadmin"
+  assert aj.etiqueta_cuenta("Ana", "developer") == "Ana, desarrollador"
   assert aj.etiqueta_cuenta("usuario@correo.com", "raro") == "usuario@corr"
   assert aj.etiqueta_cuenta("", "user") == "" and aj.etiqueta_cuenta(None, None) == ""
 
@@ -108,15 +137,15 @@ def test_pedir_desvinculo_pone_la_peticion_y_no_borra_el_estado_local(params):
 def test_estado_desvinculo():
   assert aj.estado_desvinculo(_Params(), True) == ""
   assert aj.estado_desvinculo(_Params({"OrbitUnlinkRequest": True}), True) == "desvinculando..."
-  assert aj.estado_desvinculo(_Params({"OrbitUnlinkRequest": True}), False) == "esperando al servidor"
+  assert aj.estado_desvinculo(_Params({"OrbitUnlinkRequest": True}), False) == "desvinculando..."   # sin pildora de aviso
 
 
 @pytest.mark.parametrize("reason,texto", [
-  ("no_key", "este comma se vinculó sin clave de dispositivo; desvincúlalo desde la app ORBIT"),
-  ("no_nonce", "conecta el comma a internet y vuelve a intentarlo"),
-  ("bad_signature", "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT"),
-  ("bad_nonce", "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT"),
-  ("bad_request", "el servidor no reconoce a este comma; desvincúlalo desde la app ORBIT"),
+  ("no_key", "No se pudo desvincular. Este comma se vinculó sin clave de dispositivo. Desvincúlalo desde la app, en Cuenta, Coches."),
+  ("no_nonce", "No se pudo desvincular. Conecta el comma a internet y vuelve a intentarlo."),
+  ("bad_signature", "No se pudo desvincular. El servidor no reconoce este comma. Desvincúlalo desde la app, en Cuenta, Coches."),
+  ("bad_nonce", "No se pudo desvincular. El servidor no reconoce este comma. Desvincúlalo desde la app, en Cuenta, Coches."),
+  ("bad_request", "No se pudo desvincular. El servidor no reconoce este comma. Desvincúlalo desde la app, en Cuenta, Coches."),
 ])
 def test_texto_fallo_desvinculo(reason, texto):
   assert aj.texto_fallo_desvinculo(json.dumps({"ok": False, "reason": reason, "ts": 1})) == texto
@@ -124,7 +153,7 @@ def test_texto_fallo_desvinculo(reason, texto):
 
 
 def test_texto_fallo_desvinculo_otros_casos():
-  assert "app ORBIT" in aj.texto_fallo_desvinculo({"ok": False, "reason": "raro"})   # motivo desconocido: generico
+  assert "desde la app" in aj.texto_fallo_desvinculo({"ok": False, "reason": "raro"})   # motivo desconocido: generico
   assert aj.texto_fallo_desvinculo({"ok": True, "reason": ""}) == ""
   for nada in (None, "", b"", "no json", "[]", {"reason": "no_key"}):
     assert aj.texto_fallo_desvinculo(nada) == ""
@@ -132,7 +161,7 @@ def test_texto_fallo_desvinculo_otros_casos():
 
 def test_el_fallo_de_desvinculo_sale_una_sola_vez():
   p = _Params({"OrbitUnlinkResult": '{"ok":false,"reason":"no_nonce","ts":1}'})
-  assert aj.fallo_desvinculo_pendiente(p) == "conecta el comma a internet y vuelve a intentarlo"
+  assert aj.fallo_desvinculo_pendiente(p) == "No se pudo desvincular. Conecta el comma a internet y vuelve a intentarlo."
   assert aj.fallo_desvinculo_pendiente(p) == "" and "OrbitUnlinkResult" not in p.d
   ok = _Params({"OrbitUnlinkResult": '{"ok":true,"reason":"","ts":1}'})
   assert aj.fallo_desvinculo_pendiente(ok) == ""
@@ -154,30 +183,30 @@ def _st(**kw):
 
 def test_lineas_mando_mismos_tonos_que_la_ui_grande():
   (_, modo, t_modo), (_, enlace, t_enl), (_, ultimo, t_ult) = aj.lineas_mando(_st())
-  assert (modo, t_modo, enlace, t_enl, ultimo, t_ult) == ("OBSERVADOR", "ok", "OK", "ok", "ninguno", "normal")
+  assert (modo, t_modo, enlace, t_enl, ultimo, t_ult) == ("OBSERVADOR", "ok", "OK", "ok", "ninguna", "normal")
   lineas = aj.lineas_mando(_st(mode="copilot", mode_label="COPILOTO", clock_synced=False, last_ack_phase="rejected",
                                active_verb="lane_change", phase_label="RECHAZADO", last_reason="gate", phase_is_bad=True))
   assert [x[2] for x in lineas] == ["aviso", "aviso", "peligro"]
-  assert lineas[2][1] == "lane_change  -  RECHAZADO  (gate)"
-  assert aj.lineas_mando(_st(link_ok=False))[1][1:] == ("CAIDO", "peligro")
+  assert lineas[2][1] == "lane_change: RECHAZADO  (gate)"
+  assert aj.lineas_mando(_st(link_ok=False))[1][1:] == ("Caído", "peligro")
 
 
 # --------------------------------------------------------------------------- volante
 def test_estado_del_volante():
-  assert aj.texto_estado_volante(0, None, False, 0, False) == "torque del modelo interno"
-  assert aj.texto_estado_volante(3, "torque", False, 0, False) == "esquive en TORQUE"
-  assert aj.texto_estado_volante(3, None, False, 0, False) == "esquive en CURVATURA"
-  assert aj.texto_estado_volante(1, None, True, 42.9, False) == "ACTIVO, banco armado (42s)"
-  assert aj.texto_estado_volante(2, None, False, 0, False).startswith("SIN EFECTO")
+  assert aj.texto_estado_volante(0, None, False, 0, False) == "par del modelo interno"
+  assert aj.texto_estado_volante(3, "torque", False, 0, False) == "esquive con par directo"
+  assert aj.texto_estado_volante(3, None, False, 0, False) == "esquive con curvatura"
+  assert aj.texto_estado_volante(1, None, True, 42.9, False) == "activo, taller armado (42s)"
+  assert aj.texto_estado_volante(2, None, False, 0, False).startswith("sin efecto")
   # Elegido en ESTA pantalla (OrbitSteerModeLocal): controlsd lo aplica sin banco armado.
   for modo in (1, 2):
-    assert aj.texto_estado_volante(modo, None, False, 0, True) == "ACTIVO, elegido en pantalla"
+    assert aj.texto_estado_volante(modo, None, False, 0, True) == "activo, elegido en pantalla"
   for modo in (0, 1, 2, 3):
     texto, boton = aj.confirmacion_modo(modo)
     assert texto and boton
     # El selector no arma el banco: el texto no puede prometerlo.
-    assert "ARMA EL BANCO" not in texto
-  assert "TEST MAX" in aj.confirmacion_modo(2)[1]
+    assert "arma el banco" not in texto.lower() and "DE FORMA REMOTA" not in texto
+  assert "test max" in aj.confirmacion_modo(2)[1]
 
 
 def test_esquive_torque_dice_como_cancelar_en_cada_pantalla():
@@ -290,7 +319,7 @@ def test_ahorro_movil_apagado_por_defecto_y_se_escribe():
   assert aj.cambiar_ahorro_movil(p, False) == [] and not tg.ahorro_movil_activo(p)
   assert aj.cambiar_ahorro_movil(_Params(rotas={tg.PARAM_AHORRO_MOVIL}), True) == [tg.PARAM_AHORRO_MOVIL]
   texto = aj.texto_ahorro_movil()
-  assert "AHORRO" in texto and "pedales" in texto
+  assert "perfil de ahorro" in texto and "pedales" in texto
 
 
 # --------------------------------------------------------------------------- privacidad
@@ -370,9 +399,13 @@ def test_la_ui_grande_usa_la_logica_compartida():
                                                                      "texto_estado_volante", "fijar_objetivo_esquive"],
     "sunnypilot/layouts/settings/orbit_sub_layouts/advanced_settings.py": ["guardar_config_jetson", "parsear_campo"],
     "sunnypilot/layouts/settings/orbit_sub_layouts/server_settings.py": ["validar_host"],
-    "sunnypilot/layouts/settings/orbit_panel.py": ["aplicar_valores_seguros", "lineas_mando", "etiqueta_cuenta"],
-    "widgets/orbit_enroll_dialog.py": ["url_enrolamiento", "texto_caducidad"],
-    "sunnypilot/mici/layouts/orbit.py": ["aplicar_valores_seguros", "lineas_mando", "etiqueta_cuenta", "validar_host"],
+    "sunnypilot/layouts/settings/orbit_panel.py": ["aplicar_valores_seguros", "lineas_mando", "etiqueta_cuenta",
+                                                    "cambiar_remoto", "texto_remoto_off"],
+    "widgets/orbit_registro_remoto.py": ["lineas_registro_remoto"],
+    "sunnypilot/mici/layouts/orbit_registro_remoto.py": ["lineas_registro_remoto"],
+    "widgets/orbit_enroll_dialog.py": ["url_enrolamiento", "texto_caducidad", "texto_sin_codigo"],
+    "sunnypilot/mici/layouts/orbit.py": ["aplicar_valores_seguros", "lineas_mando", "etiqueta_cuenta", "validar_host",
+                                         "cambiar_remoto"],
     "sunnypilot/mici/layouts/orbit_volante.py": ["aplicar_modo_volante", "confirmacion_modo", "fijar_objetivo_esquive"],
     "sunnypilot/mici/layouts/orbit_avanzado.py": ["guardar_config_jetson", "parsear_campo"],
     # El submenu Telemetria: las dos pantallas leen, bloquean y escriben por los mismos helpers.
@@ -386,3 +419,88 @@ def test_la_ui_grande_usa_la_logica_compartida():
     nombres |= {a.name for n in ast.walk(ast.parse((UI_DIR / fichero).read_text())) if isinstance(n, ast.ImportFrom) for a in n.names}
     faltan = [f for f in funciones if f not in nombres]
     assert not faltan, f"{fichero} no usa {faltan}"
+
+
+# --------------------------------------------------------------------------- guia visual 2 (FW-0)
+def test_textos_sin_jerga_ni_gritos():
+  """banco -> taller, sin orbitCommandState/params/ZMQ de cara a la persona, sin tildes perdidas."""
+  visibles = [aj.texto_armar_banco(), aj.texto_valores_seguros(), aj.texto_estado_banco(True, 5), aj.texto_estado_banco(False, 0),
+              *[aj.confirmacion_modo(m)[0] for m in range(4)], aj.texto_esquive_curvatura()[0], aj.texto_esquive_torque()[0],
+              *aj.texto_esquive_curvatura()[1:], *aj.lineas_mando(_st())[0][:2]]
+  for texto in visibles:
+    for prohibido in ("BANCO", "banco", "orbitCommandState", "params", "ZMQ", "BETA", "DE FORMA REMOTA"):
+      assert prohibido not in texto, (prohibido, texto)
+  assert aj.texto_armar_banco().startswith("¿Armar el modo taller?\n\nDurante 5 minutos")
+  assert aj.texto_valores_seguros().startswith("¿Volver a los valores seguros de conducción?")
+  assert aj.texto_estado_banco(True, 42.9) == "Armado, quedan 42 s"
+  assert aj.validar_host("192.168.1.300") == "escribe 4 números del 0 al 255, p. ej. 192.168.1.20"
+
+
+def test_dialogo_orbit_cambia_el_estilo_del_boton_de_confirmar():
+  """Necesita ventana (fuentes): proceso aparte, oculto."""
+  import os
+  import subprocess
+  import sys
+  from openpilot.common.basedir import BASEDIR
+  guion = """
+import pyray as rl
+rl.set_config_flags(rl.ConfigFlags.FLAG_WINDOW_HIDDEN)
+from openpilot.system.ui.lib.application import gui_app
+from openpilot.system.ui.widgets.button import ButtonStyle
+from openpilot.selfdrive.ui.widgets import orbit_ajustes as aj
+gui_app.init_window('t')
+d = aj.dialogo_orbit('Seguro?', 'Desvincular', ButtonStyle.DANGER)
+assert d._confirm_button._button_style == ButtonStyle.DANGER
+assert aj.dialogo_orbit('x', 'Armar', ButtonStyle.ACTION)._confirm_button._button_style == ButtonStyle.ACTION
+assert aj.dialogo_orbit('x', 'Entendido', cancelar='')._cancel_text == ''
+print('OK_DIALOGO')
+"""
+  r = subprocess.run([sys.executable, "-c", guion], cwd=BASEDIR, env=dict(os.environ, OFFSCREEN="1", SCALE="1.0"),
+                     capture_output=True, text=True, timeout=120)
+  assert "OK_DIALOGO" in r.stdout, r.stdout[-1500:] + r.stderr[-3000:]
+
+
+def test_tarjetas_mici_caben_en_tres_lineas():
+  """Una idea por tarjeta: ningun trozo pasa del tope que cabe en 3 lineas (la guia, 5.3)."""
+  from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import MAX_CAR_TARJETA
+  for texto in (aj.texto_armar_banco(), aj.texto_valores_seguros(), aj.texto_desvincular("Ana Perez")):
+    trozos = aj.trocear(texto, MAX_CAR_TARJETA)
+    assert trozos and all(len(x) <= MAX_CAR_TARJETA for x in trozos), trozos
+    assert " ".join(" ".join(trozos).split()) == " ".join(texto.split())  # ni pierde texto ni parte palabras
+
+
+def _textos_tarjetas_mici():
+  import re
+  from openpilot.selfdrive.ui.sunnypilot.layouts.settings.orbit_panel import ayuda_html
+  ayuda = [cuerpo for _, cuerpo in re.findall(r"<h2>(.*?)</h2><p>(.*?)</p>", ayuda_html(), re.S)]
+  return [aj.texto_armar_banco(), aj.texto_valores_seguros(), aj.texto_desvincular("Adrian Garcia"),
+          *[aj.confirmacion_modo(m)[0] for m in range(4)], aj.texto_esquive_curvatura()[0],
+          aj.texto_esquive_torque("Desliza hacia abajo para no cambiar nada.")[0], *ayuda]
+
+
+def test_tarjetas_mici_una_frase_nunca_se_parte():
+  """Guia 5.3: trocear junta frases enteras; una frase que no cabe en una tarjeta se parte
+  entre dos. Ninguna frase (o linea de lista) puede pasar de MAX_CAR_TARJETA."""
+  import re
+  from openpilot.selfdrive.ui.sunnypilot.mici.widgets.orbit_widgets import MAX_CAR_TARJETA
+  largas = []
+  for texto in _textos_tarjetas_mici():
+    for parrafo in texto.split("\n\n"):
+      unidades = parrafo.split("\n") if "\n" in parrafo else re.split(r"(?<=[.?!])\s+", parrafo.strip())
+      largas += [u for u in unidades if len(u) > MAX_CAR_TARJETA]
+  assert not largas, largas
+
+
+def test_peticion_de_modo_tres_frases_como_mucho_y_sin_jerga():
+  """Guia 5.5: como mucho tres frases, sin repetir el titulo ni «¿Continuar?», sin «offroad»."""
+  import re
+  for modo in range(4):
+    texto = aj.confirmacion_modo(modo)[0]
+    frases = [f for f in re.split(r"(?<=[.?!])\s+", texto.replace("\n\n", " ").strip()) if f]
+    assert len(frases) <= 3, frases
+    assert "offroad" not in texto and "¿Continuar?" not in texto and "Peligro" not in texto, texto
+    assert not texto.startswith(("Activar", "Volver al modelo", "Atención")), texto
+  assert "El volante girará con toda su fuerza a la derecha hasta pasar de 5 km/h." in aj.confirmacion_modo(2)[0]
+  assert "Solo en circuito y con las manos en el volante." in aj.confirmacion_modo(2)[0]
+  for texto in _textos_tarjetas_mici():
+    assert "offroad" not in texto, texto

@@ -53,20 +53,23 @@ class DeviceLayout(Widget):
                                         callback=lambda: gui_app.push_widget(PairingDialog()))
     self._pair_device_btn.set_visible(lambda: not ui_state.prime_state.is_paired())
 
-    self._orbit_enroll_btn = button_item(lambda: tr("Vincular con ORBIT"), lambda: tr("VINCULAR"),
-                                         lambda: tr("Escanea el QR desde la app ORBIT para reclamar este dispositivo."),
+    self._orbit_enroll_btn = button_item(lambda: tr("Vincular con ORBIT"), lambda: tr("Vincular"),
+                                         lambda: tr("Escanea el código QR desde la app ORBIT para vincular este comma."),
                                          callback=lambda: gui_app.push_widget(OrbitEnrollDialog()),
-                                         button_style=ButtonStyle.PRIMARY)
+                                         button_style=ButtonStyle.ACTION)
     self._orbit_enroll_btn.set_visible(lambda: not self._orbit_claimed())
 
     self._orbit_account_row = text_item(lambda: tr("Cuenta ORBIT"), self._orbit_account_text)
     self._orbit_account_row.set_visible(self._orbit_claimed)
 
-    self._orbit_unlink_btn = button_item(lambda: tr("Desvincular ORBIT"), self._orbit_unlink_label,
-                                         lambda: tr("Desvincula este dispositivo de su cuenta ORBIT en el servidor. " +
-                                                    "Dejará de salir en la app y habrá que volver a vincularlo con el QR."),
+    self._orbit_unlink_btn = button_item(lambda: tr("Desvincular ORBIT"), lambda: tr("Desvincular"),
+                                         lambda: tr("Desvincula este comma de su cuenta ORBIT en el servidor. " +
+                                                    "Dejará de salir en la app y habrá que volver a vincularlo con el código QR."),
                                          callback=self._orbit_unlink_prompt, button_style=ButtonStyle.DANGER)
-    self._orbit_unlink_btn.set_visible(self._orbit_claimed)
+    self._orbit_unlink_btn.set_visible(lambda: self._orbit_claimed() and not self._orbit_unlinking())
+    # Mientras espera al servidor: texto gris, sin relleno (una pildora roja parece un boton).
+    self._orbit_unlinking_row = text_item(lambda: tr("Desvincular ORBIT"), self._orbit_unlinking_text)
+    self._orbit_unlinking_row.set_visible(lambda: self._orbit_claimed() and self._orbit_unlinking())
 
     self._reset_calib_btn = button_item(lambda: tr("Reset Calibration"), lambda: tr("RESET"), lambda: tr(DESCRIPTIONS['reset_calibration']),
                                         callback=self._reset_calibration_prompt, button_style=ButtonStyle.DANGER)
@@ -82,6 +85,7 @@ class DeviceLayout(Widget):
       self._orbit_enroll_btn,
       self._orbit_account_row,
       self._orbit_unlink_btn,
+      self._orbit_unlinking_row,
       button_item(lambda: tr("Driver Camera"), lambda: tr("PREVIEW"), lambda: tr(DESCRIPTIONS['driver_camera']),
                   callback=lambda: gui_app.push_widget(DriverCameraDialog()), enabled=ui_state.is_offroad),
       self._reset_calib_btn,
@@ -115,18 +119,19 @@ class DeviceLayout(Widget):
     except UnknownKeyName:
       return ""
 
-  # Dueño y rol juntos (contrato C2): "Ana • desarrollador"; el rol se omite si no se conoce.
+  # Dueño y rol juntos (contrato C2): "Ana, desarrollador"; el rol se omite si no se conoce.
   def _orbit_account_text(self) -> str:
-    return " • ".join(x for x in (self._orbit_owner(), self._orbit_role()) if x) or tr("N/A")
+    return ", ".join(x for x in (self._orbit_owner(), self._orbit_role()) if x) or tr("N/A")
 
-  # Estado del desvinculo en el boton mientras hay peticion; "QUITAR" si no.
-  def _orbit_unlink_label(self) -> str:
+  # Hay una peticion de desvinculo esperando al servidor.
+  def _orbit_unlinking(self) -> bool:
     try:
-      if not self._params.get_bool(ajustes.PARAM_UNLINK_REQUEST):
-        return tr("QUITAR")
+      return bool(self._params.get_bool(ajustes.PARAM_UNLINK_REQUEST))
     except UnknownKeyName:
-      return tr("QUITAR")
-    return ajustes.estado_desvinculo(self._params, ajustes.enlace_orbit(self._params))
+      return False
+
+  def _orbit_unlinking_text(self) -> str:
+    return tr("Desvinculando…")
 
   def _orbit_unlink_prompt(self):
     def perform_unlink(result: DialogResult):
@@ -135,9 +140,11 @@ class DeviceLayout(Widget):
       # Solo pide el desvinculo al servidor: el estado local lo limpia su respuesta (borrarlo
       # aqui haria que el servidor, que aun ve la vinculacion, la restaurara solo).
       if fallos := ajustes.pedir_desvinculo(self._params):
-        gui_app.push_widget(alert_dialog(tr("Desvínculo incompleto: ") + ", ".join(fallos)))
+        gui_app.push_widget(ajustes.dialogo_orbit(tr("Desvinculación incompleta: ") + ", ".join(fallos), tr("Entendido"),
+                                                  ButtonStyle.NORMAL, cancelar=""))
 
-    dialog = ConfirmDialog(ajustes.texto_desvincular(self._orbit_owner()), tr("Desvincular"), callback=perform_unlink)
+    dialog = ajustes.dialogo_orbit(ajustes.texto_desvincular(self._orbit_owner()), tr("Desvincular"), ButtonStyle.DANGER,
+                                   tr("Cancelar"), callback=perform_unlink)
     gui_app.push_widget(dialog)
 
   # Un desvinculo fallido se cuenta UNA vez (lo consume); lo llama el render del layout.
@@ -147,7 +154,7 @@ class DeviceLayout(Widget):
     except UnknownKeyName:
       return
     if fallo:
-      gui_app.push_widget(alert_dialog(tr("No se pudo desvincular: ") + fallo))
+      gui_app.push_widget(ajustes.dialogo_orbit(fallo, tr("Entendido"), ButtonStyle.NORMAL, cancelar=""))   # el texto ya empieza por «No se pudo desvincular»
 
   def show_event(self):
     super().show_event()
