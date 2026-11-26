@@ -1,0 +1,81 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1280 360" width="1280" height="360" role="img" aria-label="ORBIT — Onboard firmware · a sunnypilot / openpilot fork">
+  <defs>
+    <linearGradient id="card" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0E1A2E"/>
+      <stop offset="1" stop-color="#0A0F1C"/>
+    </linearGradient>
+    <linearGradient id="blue" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7DB4FF"/>
+      <stop offset="1" stop-color="#2563EB"/>
+    </linearGradient>
+    <linearGradient id="green" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0" stop-color="#16A34A"/>
+      <stop offset="1" stop-color="#4ADE80"/>
+    </linearGradient>
+    <radialGradient id="glow" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#22D3EE" stop-opacity="0.55"/>
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+    <radialGradient id="spark" cx="50%" cy="50%" r="50%">
+      <stop offset="0" stop-color="#EAFBFF"/>
+      <stop offset="0.4" stop-color="#22D3EE"/>
+      <stop offset="1" stop-color="#22D3EE" stop-opacity="0"/>
+    </radialGradient>
+  </defs>
+
+  <!-- card -->
+  <rect x="2" y="2" width="1276" height="356" rx="34" fill="url(#card)" stroke="#1B2A44" stroke-width="2"/>
+
+  <!-- ===== orbit mark, centre (300,180) r=120 ===== -->
+  <g transform="translate(0,-20)">
+    <!-- pulsing glow -->
+    <circle cx="300" cy="200" r="86" fill="url(#glow)">
+      <animate attributeName="r" values="74;92;74" dur="3.2s" repeatCount="indefinite"/>
+      <animate attributeName="opacity" values="0.65;1;0.65" dur="3.2s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- faint full guide ring -->
+    <circle cx="300" cy="200" r="120" fill="none" stroke="#24344F" stroke-width="2"/>
+
+    <!-- blue arc (right) + green arc (left), round caps -->
+    <path d="M 320.8 81.8 A 120 120 0 0 1 320.8 318.2" fill="none" stroke="url(#blue)" stroke-width="14" stroke-linecap="round"/>
+    <path d="M 279.2 81.8 A 120 120 0 0 0 279.2 318.2" fill="none" stroke="url(#green)" stroke-width="14" stroke-linecap="round"/>
+
+    <!-- orbiting spark travelling the ring -->
+    <circle r="9" fill="url(#spark)">
+      <animateMotion dur="6s" repeatCount="indefinite"
+        path="M 300 80 A 120 120 0 1 1 299.99 80 Z"/>
+      <animate attributeName="r" values="7;11;7" dur="1.5s" repeatCount="indefinite"/>
+    </circle>
+
+    <!-- ECG pulse through the core -->
+    <polyline points="214,200 252,200 266,176 282,224 298,188 312,200 386,200"
+      fill="none" stroke="#22D3EE" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round" opacity="0.95">
+      <animate attributeName="opacity" values="0.45;1;0.45" dur="2s" repeatCount="indefinite"/>
+    </polyline>
+
+    <!-- core -->
+    <circle cx="300" cy="200" r="27" fill="#0A0F1C" stroke="#EAF2FF" stroke-width="6"/>
+    <circle cx="300" cy="200" r="12" fill="#22D3EE"/>
+  </g>
+
+  <!-- ===== wordmark ===== -->
+  <text x="520" y="168" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="118" font-weight="800"
+    letter-spacing="16" fill="#F6F9FF">ORBIT</text>
+
+  <!-- animated underline -->
+  <rect x="524" y="196" height="6" rx="3" fill="#22D3EE">
+    <animate attributeName="width" values="90;360;90" dur="4.5s" repeatCount="indefinite"/>
+    <animate attributeName="opacity" values="0.7;1;0.7" dur="4.5s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- tagline -->
+  <text x="526" y="250" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="27" font-weight="500"
+    letter-spacing="1" fill="#A7BBD8">Onboard firmware · a sunnypilot / openpilot fork</text>
+
+  <!-- author -->
+  <circle cx="534" cy="300" r="7" fill="#34D37A"/>
+  <text x="550" y="307" font-family="'Segoe UI',Helvetica,Arial,sans-serif" font-size="22" font-weight="600" fill="#8FA6C6">
+    by <tspan fill="#34D37A" font-weight="700">Dragoadri</tspan> · a sunnypilot / openpilot fork
+  </text>
+</svg>

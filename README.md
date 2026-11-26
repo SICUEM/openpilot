@@ -1,12 +1,12 @@
+<div align="center"><img src="docs/images/orbit-hero.svg" width="820" alt="ORBIT"></div>
+
 <div align="center">
 
-<img src="selfdrive/assets/img_orbit_logo.png" alt="ORBIT" width="150"/>
+<img src="selfdrive/assets/img_orbit_logo.png" alt="ORBIT" width="110"/>
 
 # ORBITPILOT
 
 ### Onboard firmware for ORBIT — Open Remote Bidirectional IoV Telemetry
-
-**A fork of [sunnypilot](https://github.com/sunnyhaibin/sunnypilot) / [openpilot](https://github.com/commaai/openpilot) that turns a comma 3X into a connected node of the ORBIT platform**: live telemetry out, remote commands in, QR pairing to your account — with driving always behind openpilot's own safety gates.
 
 ![sunnypilot fork](https://img.shields.io/badge/fork-sunnypilot%20%2F%20openpilot-FDB927)
 ![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)
@@ -15,45 +15,73 @@
 ![MQTT](https://img.shields.io/badge/MQTT-Mosquitto-660066?logo=eclipsemosquitto&logoColor=white)
 ![Sim](https://img.shields.io/badge/sim-MetaDrive-22D3EE)
 
-<br/>
+**A fork of [sunnypilot](https://github.com/sunnyhaibin/sunnypilot) / [openpilot](https://github.com/commaai/openpilot) that turns a comma 3X or comma 4 into a connected node of the ORBIT platform.**<br/>
+Live telemetry out, remote commands in, QR pairing to your account, and the ORBIT UI in the car — with driving always behind openpilot's own safety gates.
 
-<a href="https://github.com/dragoadri"><img src="docs/images/logo-drago.png" alt="dragoadri" height="104" align="middle"/></a>
-&nbsp;&nbsp;&nbsp;&nbsp;<b>ft</b>&nbsp;&nbsp;&nbsp;&nbsp;
-<a href="https://universidadeuropea.com"><img src="docs/images/logo-uem.png" alt="Universidad Europea de Madrid" height="104" align="middle"/></a>
-
-<br/>
-
-**[Researcher profile](https://portalcientifico.universidadeuropea.com/investigadores/1299129/detalle)**
+**[Backend + app (ORBIT-IoV)](https://github.com/orbit-pilot/ORBIT-IoV)**
+· **[Researcher profile](https://portalcientifico.universidadeuropea.com/investigadores/1299129/detalle)**
 · **[Research group — SICUEM](https://portalcientifico.universidadeuropea.com/grupos/216432/detalle)**
-· **[Backend + app (ORBIT-IoV) ↗](https://github.com/orbit-pilot/ORBIT-IoV)**
 
 </div>
 
 ---
 
-## 🛰️ The in-car UI
+## Contents
 
-A full dark "ground-station" redesign of the driver UI — same sunnypilot functionality, ORBIT identity.
+- [What ORBIT adds](#what-orbit-adds)
+- [The in-car UI](#the-in-car-ui)
+- [Architecture](#architecture)
+- [QR pairing in 10 seconds](#qr-pairing-in-10-seconds)
+- [Run it](#run-it)
+- [Simulator](#simulator)
+- [Reference (MQTT contract, code map, dev notes, citation)](#reference)
+- [Safety](#safety)
+- [Acknowledgements & license](#acknowledgements--license)
 
-| | | |
-|:---:|:---:|:---:|
-| ![Boot splash](docs/images/ui-splash.png) | ![Home — linked](docs/images/ui-home.png) | ![QR enrollment](docs/images/ui-enroll-qr.png) |
-| **Boot splash** | **Home** — live broker/API status, telemetry pulse, account pill | **QR pairing** — countdown, regenerate, manual code |
-| ![ORBIT panel](docs/images/ui-orbit-panel.png) | ![Device panel](docs/images/ui-device.png) | ![Home — unlinked](docs/images/ui-home-unlinked.png) |
-| **ORBIT panel** — live status hero, connection, telemetry, Jetson | **Device** — account, unlink, calibration | **Home** — unlinked state |
-
-## ✨ What ORBIT adds
+## What ORBIT adds
 
 | | |
 |---|---|
-| 📡 **Telemetry publisher** | car state, GPS, radar, model, alerts, camera frames → MQTT, with a 3 s heartbeat |
-| 🎮 **Remote commands** | lane change, speed nudges, steering pulses, emergency brake — bridged via openpilot `Params` |
-| 🔔 **On-road command overlay** | the driver *always* sees when the app sends a command; remote braking gets a full red banner |
-| 🔗 **QR enrollment** | scan from the app to claim the device; owner shown in-UI; unlink from app or device |
-| 🧠 **Jetson edge link** | ZeroMQ frames + AI steer-torque, live status panel, selectable torque modes |
-| 🚗 **Sim + mod menu** | MetaDrive bridge with hotkey mod-menu: swap maps, spawn traffic/obstacles — test before the real car |
+| 📡 **Telemetry publisher**<br/>car state, GPS, radar, model, alerts, camera frames → MQTT, with a 3 s heartbeat | 🎮 **Remote commands**<br/>lane change, speed nudges, steering pulses, emergency brake — bridged via openpilot `Params` |
+| 🔔 **On-road command overlay**<br/>the driver *always* sees when the app sends a command; remote braking gets a full red banner | 🔗 **QR enrollment**<br/>scan from the app to claim the device; owner shown in-UI; unlink from app or device |
+| 🧠 **Jetson edge link**<br/>ZeroMQ frames + AI steer-torque, live status panel, selectable torque modes | 🚗 **Sim + mod menu**<br/>MetaDrive bridge with hotkey mod-menu: swap maps, spawn traffic/obstacles — test before the real car |
 
-## 🏗️ Architecture
+## The in-car UI
+
+A full dark "ground-station" redesign of the driver UI — same sunnypilot functionality, ORBIT identity.
+
+**comma 3X**
+
+<table align="center">
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/ui-splash.png" alt="Boot splash"/><br/><sub><b>Boot splash</b></sub></td>
+    <td align="center" width="33%"><img src="docs/images/ui-home.png" alt="Home, linked"/><br/><sub><b>Home</b> — live broker/API status, telemetry pulse, account pill</sub></td>
+    <td align="center" width="33%"><img src="docs/images/ui-enroll-qr.png" alt="QR enrollment"/><br/><sub><b>QR pairing</b> — countdown, regenerate, manual code</sub></td>
+  </tr>
+  <tr>
+    <td align="center" width="33%"><img src="docs/images/ui-orbit-panel.png" alt="ORBIT panel"/><br/><sub><b>ORBIT panel</b> — live status hero, connection, telemetry, Jetson</sub></td>
+    <td align="center" width="33%"><img src="docs/images/ui-device.png" alt="Device panel"/><br/><sub><b>Device</b> — account, unlink, calibration</sub></td>
+    <td align="center" width="33%"><img src="docs/images/ui-home-unlinked.png" alt="Home, unlinked"/><br/><sub><b>Home</b> — unlinked state</sub></td>
+  </tr>
+</table>
+
+<table align="center">
+  <tr>
+    <td align="center" width="50%"><img src="docs/images/ui-remote-off.png" alt="Block remote control switch"/><br/><sub><b>Block remote control</b> — local switch</sub></td>
+    <td align="center" width="50%"><img src="docs/images/ui-telemetria.png" alt="Telemetry settings"/><br/><sub><b>Telemetry settings</b></sub></td>
+  </tr>
+</table>
+
+**comma 4** (small screen)
+
+<table align="center">
+  <tr>
+    <td align="center"><img src="docs/images/ui-comma4-panel.png" alt="ORBIT panel on the comma 4"/><br/><sub><b>ORBIT panel</b></sub></td>
+    <td align="center"><img src="docs/images/ui-comma4-qr.png" alt="QR pairing on the comma 4"/><br/><sub><b>QR pairing</b></sub></td>
+  </tr>
+</table>
+
+## Architecture
 
 ```mermaid
 flowchart LR
@@ -80,7 +108,7 @@ flowchart LR
 
 Backend, app, database and broker live in **[ORBIT-IoV](https://github.com/orbit-pilot/ORBIT-IoV)**. The safety-critical loop never leaves the car: remote commands only act **through openpilot's actuation and safety gates**.
 
-## 🔗 QR pairing in 10 seconds
+## QR pairing in 10 seconds
 
 ```mermaid
 sequenceDiagram
@@ -96,20 +124,31 @@ sequenceDiagram
 
 Lost acks self-heal, codes can be regenerated from the dialog, and unlinking from the app re-opens enrollment on the device automatically.
 
-## 🚀 Run it
+## Run it
 
 1. **Install** like any sunnypilot build ([getting started](https://community.sunnypilot.ai/t/getting-started-using-sunnypilot-in-your-supported-car/251)).
 2. **Point** the device at your ORBIT broker: Settings → ORBIT → **Servidor ORBIT** → EDITAR. The value is persisted in `/data/orbit_config_mqtt.json` (outside the git tree, so it survives OTA updates); `orbit/config_mqtt.json` is only the factory template (`broker`, `broker_port`, `backend_port`).
 3. **Pair**: Settings → Device → **Vincular con ORBIT** → scan with the app. Done — telemetry and remote control flow once claimed.
 
-### 🕹️ Simulator
+## Simulator
+
+Test everything with MetaDrive before touching a real car.
 
 ```bash
 ./tools/sim/launch_openpilot.sh          # openpilot side
 ./tools/sim/run_bridge.py --render       # MetaDrive side, with on-screen HUD
 ```
 
+<details>
+<summary><b>🕹️ Simulator hotkeys</b></summary>
+
+<br/>
+
 Hotkeys in the bridge terminal: `m` cycle map (loop / roundabout / intersections / highway / ramps) · `t` toggle traffic · `l`/`k` spawn lead / cut-in car · `o`/`p` obstacles · `c` clear. `./tools/sim/preview_map.py --map roundabout` previews geometry without openpilot.
+
+</details>
+
+## Reference
 
 <details>
 <summary><b>📶 MQTT contract</b> — topics & payloads</summary>
@@ -198,11 +237,25 @@ Everything else is upstream openpilot / sunnypilot.
 
 </details>
 
-## ⚠️ Safety
+## Safety
 
-**Alpha-quality research software — not a product.** Remote maneuvers run through openpilot's actuation and safety gates and are always announced to the driver on screen, but this firmware has not passed comma's safety validation. **Validate every remote-control feature on a closed course first** and comply with local laws.
+> [!WARNING]
+> **Alpha-quality research software — not a product.** Remote maneuvers run through openpilot's actuation and safety gates and are always announced to the driver on screen, but this firmware has not passed comma's safety validation. **Validate every remote-control feature on a closed course first** and comply with local laws.
 
-## 🙏 Acknowledgements & license
+---
+
+<div align="center">
+
+<a href="https://github.com/dragoadri"><img src="docs/images/logo-drago.png" alt="Dragoadri" width="90" align="middle"/></a>
+&nbsp;&nbsp;&nbsp;&nbsp;<b>×</b>&nbsp;&nbsp;&nbsp;&nbsp;
+<a href="https://universidadeuropea.com"><img src="docs/images/logo-uem.png" alt="Universidad Europea de Madrid" height="90" align="middle"/></a>
+
+**Built by [Dragoadri](https://github.com/dragoadri)** · SICUEM research group, Universidad Europea de Madrid<br/>
+Backend + app live in **[ORBIT-IoV](https://github.com/orbit-pilot/ORBIT-IoV)**
+
+</div>
+
+## Acknowledgements & license
 
 Developed within the **SICUEM** research group at **Universidad Europea de Madrid**, on top of [openpilot](https://github.com/commaai/openpilot) and [sunnypilot](https://github.com/sunnyhaibin/sunnypilot). Released under the [MIT License](LICENSE); the original openpilot notice is reproduced below as required:
 

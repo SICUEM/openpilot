@@ -26,3 +26,6 @@ selfdrive/assets/icons_mici/settings/software.png -filter -diff -merge -text
 
 # ORBIT: README logos as normal git blobs (NOT LFS) so they render + push to the fork.
 docs/images/*.png -filter -diff -merge -text
+
+# ORBIT: animated README banner as a normal git blob (NOT LFS), renders + pushes to the fork.
+docs/images/*.svg -filter -diff -merge -text
