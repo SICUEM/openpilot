@@ -710,6 +710,11 @@ class MQTTComandos:
     self.conectado = False
     self.init_mqtt()
 
+  def _donde(self):
+    """Destino real para el log: por Funnel, broker_address sigue siendo el legacy."""
+    d = getattr(self, "_destino", None)
+    return f"{d.enlace} {d.host}:{d.puerto}" if d else f"{self.broker_address}:{getattr(self, 'broker_port', '')}"
+
   def on_connect_fail(self, client, userdata):
     # Reconexion fallida de paho (tras el primer connect): cuenta como fallo del enlace.
     notificar_seguro(getattr(self, "_destino", None), False)
@@ -799,7 +804,7 @@ class MQTTComandos:
 
   def on_disconnect(self, client, userdata, rc):
     self.conectado = False
-    cloudlog.warning(f"[Bemposta] MQTTComandos DESCONECTADO del broker {self.broker_address} (rc={rc})")
+    cloudlog.warning(f"[Bemposta] MQTTComandos DESCONECTADO del broker {self._donde()} (rc={rc})")
     # Un cierre antes del CONNACK solo llega por aqui: alimenta el reloj de conexion_mqtt.
     desconectado_seguro(getattr(self, "_destino", None), rc)
     # print("🔌 MQTT Comandos desconectado. Reintentando...")  # Comentado para reducir uso de memoria

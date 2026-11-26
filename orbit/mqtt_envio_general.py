@@ -639,6 +639,11 @@ class MQTTEnvioGeneral:
         if stop.wait(espera):
           break
 
+  def _donde(self):
+    """Destino real para el log: por Funnel, broker_address sigue siendo el legacy."""
+    d = getattr(self, "_destino", None)
+    return f"{d.enlace} {d.host}:{d.puerto}" if d else f"{self.broker_address}:{getattr(self, 'broker_port', '')}"
+
   def on_connect_fail(self, client, userdata):
     # Reconexion fallida de paho (tras el primer connect): cuenta como fallo del enlace.
     notificar_seguro(getattr(self, "_destino", None), False)
@@ -655,7 +660,7 @@ class MQTTEnvioGeneral:
       if rc == 0:
         self.conectado = True
         self.params.put_bool("OrbitConnected", True)
-        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral CONECTADO al broker {self.broker_address}:{self.broker_port} (rc={rc})")
+        cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral CONECTADO al broker {self._donde()} (rc={rc})")
         # Reevaluar la identidad en CADA conexion: el dongle lo asigna el
         # registro despues del primer arranque (una sola lectura de Params, no
         # bloquea el hilo de red).
@@ -850,7 +855,7 @@ class MQTTEnvioGeneral:
     try:
       self.conectado = False
       self.params.put_bool("OrbitConnected", False)
-      cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral DESCONECTADO del broker {self.broker_address} (rc={rc})")
+      cloudlog.warning(f"[Bemposta] MQTTEnvioGeneral DESCONECTADO del broker {self._donde()} (rc={rc})")
       # Un cierre antes del CONNACK solo llega por aqui: alimenta el reloj de conexion_mqtt.
       desconectado_seguro(getattr(self, "_destino", None), rc)
     except Exception:
